@@ -4,73 +4,98 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · Prototipo v0.9</title>
+  <title>Reales Ideales</title>
+  <link rel="icon" href="assets/logo.webp" type="image/webp">
   <link rel="stylesheet" href="styles.css">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
+  <div class="garden" aria-hidden="true">
+    <span class="garden-left"></span><span class="garden-right"></span>
+  </div>
   <header class="masthead">
-    <a id="menu-link" class="brand" href="#inicio" aria-label="Reales Ideales, menú principal"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></a>
+    <a id="menu-link" class="brand" href="#inicio" aria-label="Reales Ideales, menú principal"><img src="assets/logo.webp" alt="Reales Ideales" width="660" height="334"></a>
     <div class="header-actions">
-      <details class="help">
+      <details class="help" name="tablero-menu">
         <summary>Cómo jugar</summary>
-        <div class="help-content">
+        <div class="popover">
           <p>Arrastra una ficha propia a un hexágono verde para mover o a un rival marcado para atacar. También puedes tocar una ficha y luego su destino.</p>
-          <p>Haz hasta dos acciones en tu turno, con un solo ataque y dos fichas distintas si mueves dos veces. El cañón puede atacar a distancia.</p>
+          <p>Tienes dos acciones por turno. Puedes mover dos fichas distintas y atacar como máximo una vez. Preparar una carta o invocar un cañón también gasta una acción.</p>
+          <p>Una vez por partida, usa «Preparar carta» para cambiar en privado una carta de tu reserva por otra que elijas de tu mazo. Si tienes «Invocar cañón», tócala para transformar una ficha propia durante tu turno. Podrá disparar desde el próximo.</p>
           <p>En batalla, defensor y atacante pueden revelar cartas por turnos. Si empatan, salen las dos fichas. Gana por eliminación o por conservar más fichas al final de la ronda 12.</p>
           <p>Llega a una estrella enemiga para gastar un marcador y rescatar una ficha normal.</p>
         </div>
       </details>
-      <button id="restart" type="button" class="secondary" hidden>Nueva partida</button>
+      <button id="history" type="button" class="secondary" hidden>Registro</button>
+      <button id="restart" type="button" class="secondary" hidden>Reiniciar</button>
     </div>
   </header>
-  <section id="inicio" class="cover" aria-label="Portada de Reales Ideales">
-    <img class="cover-art" src="assets/portada.webp" alt="Animalitos de plastilina en una plaza andina con estandartes realistas e idealistas" width="1260" height="704">
-    <div class="cover-actions">
-      <button id="play-local" type="button" class="primary menu-play">Jugar con una persona</button>
-      <button id="play-ai" type="button" class="secondary menu-play">Versus IA</button>
+  <section id="inicio" class="cover" aria-label="Menú principal de Reales Ideales">
+    <div class="cover-frame">
+      <img class="cover-art" src="assets/portada.webp" alt="Animalitos de plastilina en una plaza andina con estandartes realistas e idealistas" width="1260" height="704">
+      <div class="cover-actions">
+        <button id="play-local" type="button" class="primary menu-play">Jugar con una persona</button>
+        <button id="play-ai" type="button" class="secondary menu-play">Versus IA</button>
+      </div>
     </div>
   </section>
   <main id="partida" class="play-layout" hidden>
-    <section class="seat blue" aria-label="Tablero idealista">
-      <div class="seat-heading">
-        <div><h2>Idealistas</h2><small id="blue-rescues"></small></div>
-        <strong id="blue" aria-label="Fichas idealistas">8</strong>
+    <div class="match-status">
+      <span id="round" class="status-chip">Ronda 1 de 12</span>
+      <p class="turn-banner" role="status" aria-atomic="true">
+        <span class="turn-crown" aria-hidden="true">♛</span>
+        <span id="active-side">Turno de Idealistas</span>
+      </p>
+      <span class="status-chip clock">Tiempo <time id="match-timer" datetime="PT0S">0:00</time></span>
+    </div>
+    <div class="arena">
+      <div class="left-rail">
+        <section class="seat blue" aria-label="Facción idealista">
+          <div class="seat-heading">
+            <span class="seat-flag" aria-hidden="true">⚜</span>
+            <div><h2>Idealistas</h2><small id="blue-rescues"></small></div>
+            <strong id="blue" aria-label="Fichas idealistas">8</strong>
+          </div>
+          <div id="hand-I" class="hand" aria-label="Cartas idealistas"></div>
+        </section>
+        <section class="controls" aria-labelledby="phase-title">
+          <p id="turn-info" class="turn-info"></p>
+          <p id="attack-info" class="attack-info" hidden></p>
+          <h2 id="phase-title" tabindex="-1"></h2>
+          <p id="instructions" class="instructions" role="status"></p>
+          <p id="battle-result" class="battle-result" role="status" hidden></p>
+          <div id="actions" class="actions"></div>
+        </section>
       </div>
-      <div id="hand-I" class="hand" aria-label="Cartas idealistas"></div>
-    </section>
-    <section class="seat red" aria-label="Tablero realista">
-      <div class="seat-heading">
-        <div><h2 id="red-name">Realistas</h2><small id="red-rescues"></small></div>
-        <strong id="red" aria-label="Fichas realistas">8</strong>
-      </div>
-      <div id="hand-R" class="hand" aria-label="Cartas realistas"></div>
-    </section>
-    <section class="field" aria-label="Campo de juego">
-      <div class="field-heading"><span id="round">Ronda 1 de 12</span><span id="active-side">Turno idealista</span></div>
-      <div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div>
-      <p id="battle-result" class="battle-result" role="status" hidden></p>
-      <div class="legend"><span>★ Rescate</span><span><i class="cannon-mini" aria-hidden="true"></i> Cañón</span></div>
-    </section>
-    <section class="panel controls" aria-labelledby="phase-title">
-      <p id="turn-info" class="turn-info"></p>
-      <h2 id="phase-title" tabindex="-1"></h2>
-      <p id="instructions" class="instructions" role="status"></p>
-      <div id="duel" class="duel" hidden></div>
-      <div id="actions" class="actions"></div>
-    </section>
-    <details class="panel activity">
-      <summary>Registro de partida</summary>
-      <ol id="log" aria-label="Últimas jugadas"></ol>
-      <button id="export" class="secondary">Exportar JSON</button>
-    </details>
+      <section class="field" aria-label="Campo de juego">
+        <div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div>
+      </section>
+      <section class="seat red" aria-label="Facción realista">
+        <div class="seat-heading">
+          <span class="seat-flag" aria-hidden="true">♛</span>
+          <div><h2 id="red-name">Realistas</h2><small id="red-rescues"></small></div>
+          <strong id="red" aria-label="Fichas realistas">8</strong>
+        </div>
+        <div id="hand-R" class="hand" aria-label="Cartas realistas"></div>
+        <div id="duel" class="duel" hidden></div>
+      </section>
+    </div>
   </main>
+  <dialog id="history-dialog" aria-labelledby="history-title">
+    <h2 id="history-title">Registro de partida</h2>
+    <ol id="log" aria-label="Últimas jugadas"></ol>
+    <form method="dialog" class="dialog-actions">
+      <button id="export" type="button" class="secondary">Exportar JSON</button>
+      <button class="primary">Cerrar</button>
+    </form>
+  </dialog>
   <dialog id="decision" aria-labelledby="decision-title" aria-describedby="decision-text">
     <h2 id="decision-title"></h2>
     <p id="decision-text"></p>
     <div id="decision-card" class="decision-card" hidden></div>
+    <div id="decision-options" class="decision-options" hidden></div>
     <div class="dialog-actions">
       <button id="cancel" class="secondary" type="button" autofocus>Cancelar</button>
       <button id="confirm" class="primary" type="button">Confirmar</button>

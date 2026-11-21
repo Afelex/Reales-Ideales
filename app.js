@@ -21,17 +21,17 @@ const roster = {
 };
 const symbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '◆' };
 const cardLooks = {
-  boost: ['Táctica', 'llama'],
-  weaken: ['Control', 'anaconda'],
-  major: ['Táctica', 'tigrillo'],
-  decisive: ['Ataque', 'condor'],
-  cannon: ['Invocación', null],
+  boost: 'Táctica',
+  weaken: 'Control',
+  major: 'Táctica',
+  decisive: 'Ataque',
+  cannon: 'Invocación',
 };
 let game = null;
 let mode = null;
 let aiTimer = null;
 let selection = null;
-let privateHand = false;
+let choosingCannon = false;
 let pending = null;
 let drag = null;
 let suppressClick = false;
@@ -41,6 +41,7 @@ let battleResult = null;
 let duel = null;
 let started = null;
 let ended = null;
+let matchClock = null;
 
 function span(parent, className, text) {
   const node = document.createElement('span');
@@ -62,17 +63,16 @@ function say(title, text) {
   byId('phase-title').textContent = title;
   byId('instructions').textContent = text;
 }
-function confirmAction(title, text, label, callback, card = null) {
+function confirmAction(title, text, label, callback) {
   if (dialog.open) return;
   byId('decision-title').textContent = title;
   byId('decision-text').textContent = text;
   byId('confirm').textContent = label;
-  const preview = byId('decision-card');
-  preview.hidden = !card;
-  preview.replaceChildren();
-  if (card) {
-    renderCardFace(preview, card, true);
-  }
+  byId('confirm').hidden = false;
+  byId('confirm').disabled = false;
+  byId('cancel').textContent = 'Cancelar';
+  byId('decision-card').hidden = true;
+  byId('decision-options').hidden = true;
   pending = callback;
   dialog.showModal();
 }
@@ -80,6 +80,13 @@ byId('cancel').addEventListener('click', () => dialog.close());
 dialog.addEventListener('close', () => {
   if (!dialog.open) {
     pending = null;
+    const preview = byId('decision-card');
+    preview.hidden = true;
+    preview.replaceChildren();
+    const options = byId('decision-options');
+    options.hidden = true;
+    options.replaceChildren();
+    byId('confirm').disabled = false;
     scheduleAI();
   }
 });
@@ -94,20 +101,17 @@ function artwork(name) {
   return 'assets/' + name + '.webp';
 }
 function renderCardFace(parent, card, preview = false) {
-  const [type, portrait] = cardLooks[card];
   parent.dataset.card = card;
   const title = span(parent, 'card-title', rules.CARDS[card].name);
   const art = span(parent, 'card-art', '');
   art.setAttribute('aria-hidden', 'true');
-  if (portrait) {
-    const image = document.createElement('img');
-    image.src = artwork(portrait);
-    image.alt = '';
-    image.draggable = false;
-    art.append(image);
-  } else span(art, 'cannon-shape', '');
+  const image = document.createElement('img');
+  image.src = 'assets/clay/' + card + '.webp';
+  image.alt = '';
+  image.draggable = false;
+  art.append(image);
   span(art, 'card-emblem', symbols[card]);
-  span(parent, 'card-type', type);
+  span(parent, 'card-type', cardLooks[card]);
   if (preview) span(parent, 'card-effect', rules.CARDS[card].description);
   return title.textContent;
 }
@@ -132,28 +136,17 @@ function makeToken(piece) {
   }
   return node;
 }
-// Coordinates measured against the 1116 × 1410 board illustration.
-const boardColumns = [
-  { center: 168, edges: [184, 389, 601, 812, 1014, 1214] },
-  { center: 349, edges: [77, 280, 495, 706, 914, 1116, 1324] },
-  { center: 538, edges: [175, 389, 601, 812, 1014, 1214] },
-  { center: 724, edges: [77, 280, 495, 706, 914, 1116, 1324] },
-  { center: 914, edges: [184, 389, 601, 812, 1014, 1214] },
-];
 const rescueCells = new Set([...rules.STARS.I, ...rules.STARS.R]);
 for (const cell of Object.values(rules.CELLS)) {
   const hex = button(board, '', () => { if (!suppressClick) clickCell(cell.id); }, 'hex');
   hex.dataset.cell = cell.id;
-  hex.dataset.star = String(rescueCells.has(cell.id));
-
-  const { center, edges } = boardColumns[cell.col];
-  const rowIndex = Math.floor((cell.row - 1) / 2);
-  const top = edges[rowIndex];
-  const bottom = edges[rowIndex + 1];
-  hex.style.left = (center / 1116 * 100) + '%';
-  hex.style.top = ((top + bottom) / 2 / 1410 * 100) + '%';
-  hex.style.height = ((bottom - top) / 1410 * 100) + '%';
-  hexButtons.set(cell.id, hex);
+  hex.dataset.zone = cell.zone;
+  // Flat-topped hexagons share edges on a 620 × 680 coordinate system.
+  hex.style.left = ((110 + cell.col * 100) / 620 * 100) + '%';
+  hex.style.top = ((90 + (cell.row - 1) * 50) / 680 * 100) + '%';
+  span(hex, 'hex-code', cell.id).setAttribute('aria-hidden', 'true');
+  if (rescueCells.has(cell.id)) span(hex, 'rescue-star', '').setAttribute('aria-hidden', 'true');
+  hexButtons.set(cell.id, { hex, token: null });
 }
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
@@ -174,7 +167,8 @@ function proposeDestination(id, cell) {
   }
   const target = rules.occupant(game, cell);
   if (target && rules.attacks(game, id).includes(target.id)) {
-    confirmAction('¿Atacar a esta ficha?', pieceName(actor) + ' atacará a ' + pieceName(target) + ' en ' + cell + '.', 'Atacar', () => {
+    const risk = actor.cannon ? ' El rival puede responder con cartas. Si el cañón pierde o empata, se retira.' : '';
+    confirmAction('¿Atacar a esta ficha?', pieceName(actor) + ' atacará a ' + pieceName(target) + ' en ' + cell + '.' + risk, 'Atacar', () => {
       startAttack(actor, target);
     });
     return true;
@@ -188,18 +182,27 @@ function startAttack(attacker, defender) {
   battleResult = null;
   duel = [{ ...attacker }, { ...defender }];
   selection = null;
-  privateHand = false;
   render();
 }
 function clickCell(cell) {
   if (!game || isAITurn()) return;
   const piece = rules.occupant(game, cell);
+  if (choosingCannon) {
+    if (piece?.side !== game.turn) return;
+    confirmAction('¿Invocar cañón en ' + cell + '?', 'Transformarás a ' + pieceName(piece) +
+      ' y gastarás 1 acción. Podrá disparar desde tu próximo turno.', 'Invocar', () => {
+      if (!rules.summonInTurn(game, game.turn, piece.id)) return;
+      choosingCannon = false;
+      clearRevealed();
+      render();
+    });
+    return;
+  }
   if (game.phase === 'summon' && piece) {
     rules.summon(game, piece.id);
   } else if (game.phase === 'rescue' && selection && !piece) {
     if (rules.rescue(game, selection, cell)) selection = null;
   } else if (game.phase === 'turn' || game.phase === 'bonus') {
-    privateHand = false;
     if (selection && proposeDestination(selection, cell)) return;
     if (piece && selectable(piece.id)) selection = selection === piece.id ? null : piece.id;
     else selection = null;
@@ -209,28 +212,35 @@ function clickCell(cell) {
 function renderBoard() {
   const moves = selection ? rules.moves(game, selection) : [];
   const targets = selection ? rules.attacks(game, selection) : [];
-  for (const [cell, hex] of hexButtons) {
+  for (const [cell, view] of hexButtons) {
+    const { hex } = view;
     const piece = rules.occupant(game, cell);
     const star = rescueCells.has(cell);
+    const moved = Boolean(piece && game.phase === 'turn' && game.moved.includes(piece.id));
     let target = moves.includes(cell) ? 'move' : targets.includes(piece?.id) ? 'target' : '';
     if (game.phase === 'rescue' && selection && !piece && rules.ZONES[game.rescue.side].includes(cell)) target = 'move';
     if (game.phase === 'summon' && piece?.side === game.summons[0]) target = 'move';
+    if (choosingCannon && piece?.side === game.turn) target = 'summon';
     hex.dataset.highlight = target;
     hex.setAttribute('aria-pressed', String(Boolean(piece && piece.id === selection)));
     hex.setAttribute('aria-label', [cell, star ? 'estrella de rescate' : '', piece
       ? rules.SIDE[piece.side] + ' · ' + pieceName(piece) : 'libre',
-      target === 'target' ? 'objetivo de ataque' : target === 'move' ? 'movimiento disponible' : ''].filter(Boolean).join(', '));
-    hex.replaceChildren();
+      moved ? 'ya se movió en este turno' : '',
+      { target: 'objetivo de ataque', move: 'movimiento disponible', summon: 'disponible para invocar cañón' }[target]].filter(Boolean).join(', '));
+    view.token?.remove();
+    view.token = null;
     if (piece) {
       const token = makeToken(piece);
+      if (moved) span(token, 'moved-check', '✓');
       if (drag?.ghost && drag.id === piece.id) token.classList.add('origin');
       hex.append(token);
+      view.token = token;
     }
   }
 }
 board.addEventListener('pointerdown', event => {
   suppressClick = false;
-  if (!game || isAITurn() || dialog.open || !event.isPrimary || event.button !== 0) return;
+  if (!game || isAITurn() || choosingCannon || dialog.open || !event.isPrimary || event.button !== 0) return;
   const cell = event.target.closest('[data-cell]')?.dataset.cell;
   const piece = cell && rules.occupant(game, cell);
   if (!piece || !selectable(piece.id)) return;
@@ -245,7 +255,6 @@ board.addEventListener('pointermove', event => {
     drag.ghost.classList.add('drag-token');
     document.body.append(drag.ghost);
     selection = drag.id;
-    privateHand = false;
     render();
   }
   drag.ghost.style.left = event.clientX + 'px';
@@ -280,7 +289,6 @@ function play(index = null, slot = null) {
   }
   if (!rules.reveal(game, index)) return;
   if (card) shown[side].push({ slot, card, latest: true });
-  privateHand = false;
   if (game.phase !== 'reveal') {
     battleResult = game.events.findLast(event => event.type === 'battle');
     restoreCards = setTimeout(() => {
@@ -291,43 +299,99 @@ function play(index = null, slot = null) {
   render();
   if (card) shown[side].at(-1).latest = false;
 }
+function peekCard(side, index, slot) {
+  if (dialog.open || side !== ai.decisionSide(game, rules) || isAITurn()) return;
+  const card = game.players[side].hand[index];
+  if (!card || !['turn', 'reveal'].includes(game.phase)) return;
+  const canPlay = game.phase === 'reveal' && rules.playable(game, side, card);
+  const canSummon = card === 'cannon' && rules.canSummonInTurn(game, side);
+  byId('decision-title').textContent = 'Carta privada · ' + rules.SIDE[side];
+  byId('decision-text').textContent = canPlay ? 'Actívala para mostrarla en la mesa.' :
+    canSummon ? 'Elige en el tablero la ficha que quieres transformar.' : '';
+  byId('cancel').textContent = 'Ocultar';
+  byId('confirm').textContent = canSummon ? 'Elegir ficha' : 'Activar';
+  byId('confirm').hidden = !canPlay && !canSummon;
+  byId('confirm').disabled = false;
+  const preview = byId('decision-card');
+  preview.replaceChildren();
+  preview.hidden = false;
+  renderCardFace(preview, card, true);
+  pending = canPlay ? () => play(index, slot) : canSummon ? () => {
+    choosingCannon = true;
+    selection = null;
+    render();
+    board.querySelector('[data-highlight="summon"]')?.focus();
+  } : null;
+  dialog.showModal();
+}
 function renderHands() {
-  const revealing = game.phase === 'reveal';
-  const actor = revealing ? rules.actor(game) : game.turn;
+  const actor = ai.decisionSide(game, rules);
+  const cardsAvailable = !choosingCannon && ['turn', 'reveal'].includes(game.phase);
   for (const side of ['I', 'R']) {
     const hand = byId('hand-' + side);
-    hand.closest('.seat').dataset.prompt = String(actor === side && ['turn', 'reveal'].includes(game.phase));
+    const ownsDecision = actor === side;
     hand.replaceChildren();
     let index = 0;
     for (let slot = 0; slot < 2; slot++) {
       const face = shown[side].find(item => item.slot === slot);
       const handIndex = face ? null : index++;
       const card = face?.card ?? game.players[side].hand[handIndex];
-      const visible = Boolean(face || (card && privateHand && actor === side && !isAITurn()));
       const node = document.createElement('button');
       node.type = 'button';
-      node.className = 'card ' + (visible ? 'front' : card ? 'back' : 'empty');
-      node.disabled = !visible || !revealing || !privateHand || actor !== side || Boolean(face)
-        || !rules.playable(game, side, card);
-      if (face) node.classList.add('played', ...(face.latest ? ['new'] : []));
-      if (visible && !face && !node.disabled) node.classList.add('ready');
-      if (visible) {
-        const name = renderCardFace(node, card);
-        node.setAttribute('aria-label', face ? 'Revelada: ' + name : name);
-        if (!node.disabled) node.addEventListener('click', () =>
-          confirmAction(rules.CARDS[card].name, '¿Deseas activar esta carta?', 'Activar', () => play(handIndex, slot), card));
+      node.className = 'card ' + (face ? 'front played' : card ? 'back' : 'empty');
+      node.disabled = !card || Boolean(face) || !cardsAvailable || !ownsDecision || isAITurn();
+      if (face) {
+        if (face.latest) node.classList.add('new');
+        node.setAttribute('aria-label', 'Revelada: ' + renderCardFace(node, card));
+      } else if (card) {
+        node.setAttribute('aria-label', 'Carta ' + (slot + 1) + ' de ' + rules.SIDE[side] + ', boca abajo');
+        if (!node.disabled) node.addEventListener('click', () => peekCard(side, handIndex, slot));
       } else {
-        if (card) span(node, 'card-sigil', '✦');
-        else node.textContent = '—';
-        node.setAttribute('aria-label', card ? 'Carta boca abajo ' + (slot + 1) : 'Sin carta');
+        node.textContent = '—';
+        node.setAttribute('aria-label', 'Sin carta');
       }
       hand.append(node);
     }
   }
 }
+function openPreparation() {
+  const side = game.turn;
+  const hand = game.players[side].hand;
+  const controls = byId('decision-options');
+  const source = document.createElement('select');
+  const destination = document.createElement('select');
+  for (const [label, select] of [['Devolver a tu mazo', source], ['Tomar de tu mazo', destination]]) {
+    const field = document.createElement('label');
+    field.textContent = label;
+    select.className = 'secondary';
+    field.append(select);
+    controls.append(field);
+  }
+  for (const [index, card] of hand.entries()) {
+    if (rules.preparationChoices(game, side, index).length) source.add(new Option(rules.CARDS[card].name, index));
+  }
+  function updateChoices() {
+    destination.replaceChildren(new Option('Elige una carta', ''));
+    for (const card of rules.preparationChoices(game, side, Number(source.value))) {
+      destination.add(new Option(rules.CARDS[card].name, card));
+    }
+    byId('confirm').disabled = true;
+  }
+  confirmAction('Preparar carta · ' + rules.SIDE[side],
+    'El cambio es privado. Cuesta 1 acción y puedes hacerlo una vez por partida.', 'Confirmar cambio', () => {
+      if (!rules.prepare(game, side, Number(source.value), destination.value)) return;
+      selection = null;
+      clearRevealed();
+      render();
+    });
+  controls.hidden = false;
+  source.addEventListener('change', updateChoices);
+  destination.addEventListener('change', () => { byId('confirm').disabled = !destination.value; });
+  updateChoices();
+  source.focus();
+}
 function nextTurn() {
   selection = null;
-  privateHand = false;
   clearRevealed();
   battleResult = null;
   duel = null;
@@ -343,26 +407,23 @@ function renderControls() {
   }
   switch (game.phase) {
     case 'turn':
-      say('Turno de ' + rules.SIDE[game.turn], game.actions === 2 ? 'Completaste tus dos acciones.'
-        : selection ? 'Suelta la ficha en una casilla marcada o toca su destino.' : 'Arrastra o toca una ficha propia.');
-      button(actions, 'Terminar turno', nextTurn, 'primary');
-      button(actions, privateHand ? 'Ocultar mis cartas' : 'Ver mis cartas', () => {
-        clearRevealed();
-        privateHand = !privateHand;
-        render();
-      }, 'secondary');
+      if (choosingCannon) {
+        say('Invocar cañón', 'Toca una ficha resaltada para transformarla.');
+        button(actions, 'Cancelar invocación', () => { choosingCannon = false; render(); }, 'secondary');
+        break;
+      }
+      say('Jugadas del turno', game.actions === 2 ? ''
+        : selection ? 'Toca o arrastra hacia un destino marcado.' : 'Toca o arrastra una ficha propia.');
+      const side = game.turn;
+      if (game.players[side].hand.some((_, index) => rules.preparationChoices(game, side, index).length)) {
+        button(actions, 'Preparar carta', openPreparation, 'secondary');
+      }
+      button(actions, 'Terminar turno', nextTurn, 'primary end-turn');
       break;
     case 'reveal': {
       const side = rules.actor(game);
       const role = side === game.battle.defender ? 'Defensa' : 'Ataque';
-      say(role + ' · ' + rules.SIDE[side], privateHand
-        ? 'Elige una carta de tu lado para verla y decidir si la activas. También puedes pasar.'
-        : mode === 'ai' ? 'Puedes mirar tus cartas o pasar.'
-          : '¿Deseas activar una carta? Entrega el dispositivo a ' + rules.SIDE[side].toLowerCase() + '.');
-      if (!privateHand) button(actions, 'Ver mis cartas', () => {
-        privateHand = true;
-        render();
-      }, 'primary');
+      say(role + ' · ' + rules.SIDE[side], 'Toca una carta propia para verla o pasa.');
       button(actions, 'Pasar sin activar', () => play(), 'secondary');
       break;
     }
@@ -374,8 +435,20 @@ function renderControls() {
       say('Rescate de ' + rules.SIDE[game.rescue.side], selection
         ? 'Coloca a ' + selection + ' en una de tus casillas de despliegue libres.'
         : 'Elige la ficha que volverá al tablero como ficha normal.');
-      game.pieces.filter(piece => !piece.cell && piece.side === game.rescue.side).forEach(piece =>
-        button(actions, 'Rescatar a ' + character(piece)[0] + ' ' + piece.id, () => { selection = piece.id; render(); }, 'primary'));
+      const picker = document.createElement('select');
+      picker.className = 'secondary';
+      picker.setAttribute('aria-label', 'Ficha para rescatar');
+      picker.add(new Option('Elige una ficha', ''));
+      for (const piece of game.pieces.filter(piece => !piece.cell && piece.side === game.rescue.side)) {
+        picker.add(new Option(character(piece)[0] + ' ' + piece.id, piece.id));
+      }
+      picker.value = selection ?? '';
+      picker.addEventListener('change', () => {
+        selection = picker.value || null;
+        byId('instructions').textContent = selection ? 'Toca una casilla libre de tu zona.' : 'Elige la ficha que volverá al tablero.';
+        renderBoard();
+      });
+      actions.append(picker);
       button(actions, 'Guardar marcador', () => { rules.rescue(game, null); selection = null; render(); }, 'secondary');
       break;
     case 'summon':
@@ -406,16 +479,49 @@ function renderDuel() {
   }
   view.setAttribute('aria-label', pieceName(attacker) + ' contra ' + pieceName(defender));
 }
+function updateClock() {
+  const elapsed = started === null ? 0 : Math.max(0, Math.floor(((ended ?? Date.now()) - started) / 1000));
+  const timer = byId('match-timer');
+  timer.textContent = Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0');
+  timer.dateTime = 'PT' + elapsed + 'S';
+}
+function renderTurnInfo() {
+  const turnInfo = byId('turn-info');
+  const attackInfo = byId('attack-info');
+  attackInfo.hidden = game.phase !== 'turn';
+  if (game.phase !== 'turn') {
+    turnInfo.textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4' : '';
+    return;
+  }
+  turnInfo.textContent = 'Acciones restantes: ' + (2 - game.actions) + ' de 2';
+  attackInfo.textContent = game.attacked ? 'Ataque usado' : game.actions === 2 ? 'Sin acciones para atacar' : 'Ataque disponible';
+  const labels = { move: event => 'Moviste a ' + event.to, attack: () => 'Atacaste', prepare: () => 'Preparaste una carta',
+    'summon-turn': event => 'Invocaste en ' + event.cell };
+  const completed = [];
+  for (let i = game.events.length - 1; i >= 0 && game.events[i].type !== 'turn'; i--) {
+    const event = game.events[i];
+    if (labels[event.type]) completed.unshift(labels[event.type](event));
+  }
+  if (completed.length) turnInfo.append(' · ' + completed.join(' · '));
+}
 function render() {
-  if (game.phase === 'end' && ended === null) ended = Date.now();
+  if (game.phase === 'end' && ended === null) {
+    ended = Date.now();
+    clearInterval(matchClock);
+  }
+  updateClock();
+  const active = ai.decisionSide(game, rules);
+  const sideLabel = active === 'R' && mode === 'ai' ? 'la IA' : rules.SIDE[active];
+  const phaseLabel = { reveal: 'Decisión', bonus: 'Avance', rescue: 'Rescate', summon: 'Invocación' }[game.phase];
+  const notice = active ? (phaseLabel ?? 'Turno') + ' de ' + sideLabel : 'Partida terminada';
   byId('round').textContent = 'Ronda ' + game.round + ' de 12';
-  byId('active-side').textContent = game.phase === 'end' ? 'Partida terminada' : game.turn === 'I' ? 'Turno idealista' : mode === 'ai' ? 'Turno de la IA' : 'Turno realista';
+  byId('active-side').parentElement.dataset.side = active ?? game.winner ?? '';
+  if (byId('active-side').textContent !== notice) byId('active-side').textContent = notice;
   byId('blue').textContent = rules.remaining(game, 'I');
   byId('red').textContent = rules.remaining(game, 'R');
   byId('blue-rescues').textContent = 'Rescates: ' + game.players.I.rescues;
   byId('red-rescues').textContent = 'Rescates: ' + game.players.R.rescues;
-  byId('turn-info').textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4'
-    : game.phase === 'turn' ? 'Acciones: ' + game.actions + ' de 2' : '';
+  renderTurnInfo();
   const result = byId('battle-result');
   result.hidden = !battleResult;
   if (battleResult) {
@@ -436,10 +542,10 @@ function render() {
 function scheduleAI() {
   clearTimeout(aiTimer);
   aiTimer = null;
-  if (!game || dialog.open || !isAITurn()) return;
+  if (!game || dialog.open || byId('history-dialog').open || !isAITurn()) return;
   aiTimer = setTimeout(() => {
     aiTimer = null;
-    if (!game || dialog.open || !isAITurn()) return;
+    if (!game || dialog.open || byId('history-dialog').open || !isAITurn()) return;
     const action = ai.choose(rules, game, 'R');
     if (!action) return;
     switch (action.type) {
@@ -451,6 +557,8 @@ function scheduleAI() {
       case 'move': rules.move(game, action.piece, action.cell); break;
       case 'rescue': rules.rescue(game, action.piece, action.cell); break;
       case 'summon': rules.summon(game, action.piece); break;
+      case 'prepare': rules.prepare(game, 'R', action.handIndex, action.card); clearRevealed(); break;
+      case 'summon-turn': rules.summonInTurn(game, 'R', action.piece); clearRevealed(); break;
       case 'skipBonus': rules.skipBonus(game); break;
     }
     render();
@@ -458,10 +566,11 @@ function scheduleAI() {
 }
 function resetPresentation() {
   clearTimeout(aiTimer);
+  clearInterval(matchClock);
   drag?.ghost?.remove();
   drag = null;
   selection = null;
-  privateHand = false;
+  choosingCannon = false;
   clearRevealed();
   battleResult = null;
   duel = null;
@@ -475,6 +584,9 @@ function startGame(nextMode) {
   byId('inicio').hidden = true;
   byId('partida').hidden = false;
   byId('restart').hidden = false;
+  byId('history').hidden = false;
+  started = Date.now();
+  matchClock = setInterval(updateClock, 250);
   byId('red-name').textContent = mode === 'ai' ? 'Realistas · IA' : 'Realistas';
   render();
   byId('phase-title').focus();
@@ -487,6 +599,7 @@ function returnToMenu() {
   byId('inicio').hidden = false;
   byId('partida').hidden = true;
   byId('restart').hidden = true;
+  byId('history').hidden = true;
   byId('play-local').focus();
   window.scrollTo(0, 0);
 }
@@ -503,8 +616,10 @@ byId('menu-link').addEventListener('click', event => {
 });
 byId('restart').addEventListener('click', () =>
   confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => startGame(mode)));
+byId('history').addEventListener('click', () => byId('history-dialog').showModal());
+byId('history-dialog').addEventListener('close', scheduleAI);
 byId('export').addEventListener('click', () => {
-  const data = { version: '0.9', mode, complete: game.phase === 'end', round: game.round,
+  const data = { version: '0.11', mode, complete: game.phase === 'end', round: game.round,
     durationSeconds: started === null ? 0 : Math.floor(((ended ?? Date.now()) - started) / 1000),
     winner: game.winner, reason: game.reason, events: game.events };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));

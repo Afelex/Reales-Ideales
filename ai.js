@@ -86,9 +86,29 @@
       return { type: 'rescue', piece: captured?.id ?? null, cell };
     }
     if (game.phase === 'turn') {
+      const hand = game.players[side].hand;
+      const canSupportAttack = hand.some(card => ['boost', 'major', 'decisive'].includes(card));
       const attacks = allies.flatMap(piece => rules.attacks(game, piece.id)
         .map(target => ({ type: 'attack', piece: piece.id, target })));
-      if (attacks.length) return attacks.find(attack => rules.piece(game, attack.target).cannon) ?? attacks[0];
+      const ordinaryAttacks = attacks.filter(attack => !rules.piece(game, attack.piece).cannon);
+      if (ordinaryAttacks.length) {
+        return ordinaryAttacks.find(attack => rules.piece(game, attack.target).cannon) ?? ordinaryAttacks[0];
+      }
+      if (attacks.length && (canSupportAttack || allies.length <= 2)) {
+        return attacks.find(attack => rules.piece(game, attack.target).cannon) ?? attacks[0];
+      }
+      if (rules.canSummonInTurn(game, side) && game.round < 12) {
+        const threat = p => Math.min(...enemies.map(enemy => distance(rules, p.cell, enemy.cell)));
+        const safest = allies.reduce((best, p) => threat(p) > threat(best) ? p : best);
+        if (threat(safest) >= 2) return { type: 'summon-turn', piece: safest.id };
+      }
+      if (!canSupportAttack && game.round >= 3) {
+        for (const [handIndex] of hand.entries()) {
+          const options = rules.preparationChoices(game, side, handIndex);
+          const card = ['major', 'boost', 'decisive'].find(option => options.includes(option));
+          if (card) return { type: 'prepare', handIndex, card };
+        }
+      }
     }
     return movement(rules, game, allies, enemies, side)
       ?? { type: game.phase === 'bonus' ? 'skipBonus' : 'nextTurn' };

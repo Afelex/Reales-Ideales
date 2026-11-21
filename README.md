@@ -1,6 +1,6 @@
 # Reales Ideales
 
-Prototipo v0.9 de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
+Prototipo v0.11 de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
 
 ## Abrir la demostración
 
@@ -33,10 +33,12 @@ Comparten lado dos hexágonos de la misma columna con dos filas de diferencia o 
 
 ## Turno
 
-Haz hasta dos acciones en el orden que prefieras. Puedes moverte dos veces con fichas distintas, mover y atacar, o atacar y mover. También puedes usar una acción o pasar. Resuelve una acción y todos sus efectos antes de empezar la siguiente.
+Haz hasta dos acciones en el orden que prefieras. Puedes mover dos fichas distintas o combinar acciones diferentes. También puedes usar una acción o pasar. Resuelve una acción y todos sus efectos antes de empezar la siguiente. El panel muestra las acciones restantes, el estado del ataque y el destino de cada movimiento. Las fichas movidas llevan un ✓ durante el turno.
 
 - **Mover.** Elige una ficha propia y desplázala una casilla libre adyacente. Puedes entrar en cualquier zona.
 - **Atacar.** Elige una ficha propia y una enemiga adyacente. El cañón puede atacar a cualquier ficha enemiga. El turno admite un solo ataque.
+- **Preparar carta.** Una vez por partida y por bando, devuelve una carta de tu reserva al mazo, toma en privado otra carta que elijas de ese mazo y baraja. Cuesta una acción.
+- **Invocar cañón.** Si tienes esa carta en tu reserva y ningún cañón en juego, gasta una acción para transformar una ficha propia. Separa la carta utilizada y repón la reserva. El cañón puede disparar desde tu próximo turno.
 
 ## Combate
 

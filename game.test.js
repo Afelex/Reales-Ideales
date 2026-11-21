@@ -14,6 +14,46 @@ function play(s, ...choices) {
   for (const index of choices) assert.equal(G.reveal(s, index), true);
 }
 
+test('preparar intercambia una carta en privado y solo se permite una vez por bando', () => {
+  const s = setup(['boost', 'weaken', 'major', 'cannon'], ['boost', 'major', 'decisive']);
+  assert.deepEqual(G.preparationChoices(s, 'I', 0), ['major', 'cannon']);
+  assert.equal(G.prepare(s, 'R', 0, 'decisive'), false);
+  assert.equal(G.prepare(s, 'I', 0, 'decisive'), false);
+  assert.equal(s.actions, 0);
+  assert.equal(G.prepare(s, 'I', 0, 'major'), true);
+  assert.deepEqual(s.players.I.hand, ['major', 'weaken']);
+  assert.deepEqual(s.players.I.deck.slice().sort(), ['boost', 'cannon']);
+  assert.equal(s.actions, 1);
+  assert.equal(s.events.at(-1).type, 'prepare');
+  assert.equal(s.events.at(-1).card, undefined);
+  assert.equal(G.prepare(s, 'I', 1, 'cannon'), false);
+  assert.equal(G.move(s, 'I5', 'C6'), true);
+  assert.equal(G.attack(s, 'I5', 'R4'), false);
+  G.nextTurn(s);
+  assert.equal(G.prepare(s, 'R', 0, 'decisive'), true);
+  G.nextTurn(s);
+  assert.deepEqual(G.preparationChoices(s, 'I', 1), []);
+});
+
+test('la invocación de turno consume carta y acción y permite disparar desde el turno siguiente', () => {
+  const s = setup(['cannon', 'boost', 'cannon', 'major']);
+  assert.equal(G.summonInTurn(s, 'I', 'R4'), false);
+  assert.equal(G.summonInTurn(s, 'I', 'I1'), true);
+  assert.equal(G.piece(s, 'I1').cell, 'A2');
+  assert.equal(G.piece(s, 'I1').cannon, true);
+  assert.deepEqual(s.players.I.hand, ['boost', 'cannon']);
+  assert.deepEqual(s.players.I.removed, ['cannon']);
+  assert.equal(s.actions, 1);
+  assert.deepEqual(G.attacks(s, 'I1'), []);
+  assert.equal(G.summonInTurn(s, 'I', 'I2'), false);
+  G.nextTurn(s);
+  G.nextTurn(s);
+  assert.equal(G.attacks(s, 'I1').length, 8);
+  assert.equal(G.attack(s, 'I1', 'R4'), true);
+  assert.equal(G.summonInTurn(s, 'I', 'I2'), false);
+  assert.deepEqual(G.preparationChoices(s, 'I', 0), []);
+});
+
 test('tablero, fuerzas iniciales y límites de turno', () => {
   const s = G.makeGame();
   assert.equal(Object.keys(G.CELLS).length, 27);

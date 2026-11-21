@@ -7,7 +7,7 @@
     weaken: { name: 'Debilitar', count: 8, rival: -1, description: 'Resta 1 a la fuerza rival.' },
     major: { name: 'Refuerzo mayor', count: 4, own: 2, description: 'Suma 2 a tu fuerza.' },
     decisive: { name: 'Golpe decisivo', count: 2, description: 'Gana. Si ambos lo juegan, se anulan.' },
-    cannon: { name: 'Invocar cañón', count: 2, description: 'Tras la batalla, transforma una ficha propia.' },
+    cannon: { name: 'Invocar cañón', count: 2, description: 'Transforma una ficha propia por 1 acción en tu turno. También puedes revelarla durante una batalla. El cañón dispara desde tu próximo turno.' },
   };
   const CELLS = {};
   const ZONES = {
@@ -44,7 +44,7 @@
     }
   }
   function makePlayer(deck) {
-    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, ownTurns: 0 };
+    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, ownTurns: 0, prepared: false };
     draw(player);
     return player;
   }
@@ -67,15 +67,53 @@
   const piece = (s, id) => s.pieces.find(p => p.id === id);
   const occupant = (s, cell) => s.pieces.find(p => p.cell === cell);
   const remaining = (s, side) => s.pieces.filter(p => p.side === side && p.cell).length;
+  const hasAction = (s, side) => s.phase === 'turn' && s.turn === side && s.actions < 2;
+  const hasCannon = (s, side) => s.pieces.some(p => p.side === side && p.cell && p.cannon);
+
+  function preparationChoices(s, side, handIndex) {
+    if (!hasAction(s, side)) return [];
+    const player = s.players[side];
+    const exchanged = player.hand[handIndex];
+    if (player.prepared || !exchanged) return [];
+    return Object.keys(CARDS).filter(card => card !== exchanged && player.deck.includes(card));
+  }
+  function prepare(s, side, handIndex, card) {
+    if (!preparationChoices(s, side, handIndex).includes(card)) return false;
+    const player = s.players[side];
+    const index = player.deck.indexOf(card);
+    player.deck[index] = player.hand[handIndex];
+    player.hand[handIndex] = card;
+    shuffle(player.deck);
+    player.prepared = true;
+    s.actions++;
+    record(s, 'prepare', { side, text: SIDE[side] + ' preparan una carta.' });
+    return true;
+  }
+  function canSummonInTurn(s, side) {
+    return hasAction(s, side) && s.players[side].hand.includes('cannon') && !hasCannon(s, side);
+  }
+  function summonInTurn(s, side, id) {
+    const p = piece(s, id);
+    if (!canSummonInTurn(s, side) || !p?.cell || p.side !== side) return false;
+    const player = s.players[side];
+    player.hand.splice(player.hand.indexOf('cannon'), 1);
+    player.removed.push('cannon');
+    s.actions++;
+    placeCannon(s, p);
+    record(s, 'summon-turn', { side, piece: p.id, cell: p.cell, text: p.id + ' se convierte en cañón.' });
+    draw(player);
+    return true;
+  }
+
   function moves(s, id) {
     const p = piece(s, id);
     const allowed = p?.cell && (s.phase === 'bonus' ? s.battle.winner === p.side
-      : s.phase === 'turn' && p.side === s.turn && s.actions < 2 && !s.moved.includes(id));
+      : hasAction(s, p.side) && !s.moved.includes(id));
     return allowed ? Object.keys(CELLS).filter(cell => adjacent(p.cell, cell) && !occupant(s, cell)) : [];
   }
   function attacks(s, id) {
     const p = piece(s, id);
-    if (s.phase !== 'turn' || !p?.cell || p.side !== s.turn || s.actions >= 2 || s.attacked) return [];
+    if (!p?.cell || !hasAction(s, p.side) || s.attacked) return [];
     if (p.cannon && s.players[p.side].ownTurns < p.ready) return [];
     return s.pieces.filter(q => q.cell && q.side !== p.side && (p.cannon || adjacent(p.cell, q.cell))).map(q => q.id);
   }
@@ -126,8 +164,8 @@
     s.attacked = true;
     s.battle = { a: id, d: target, attacker: a.side, defender: d.side, nearby: adjacent(a.cell, d.cell),
       slot: 0, played: { I: [], R: [] }, startedWithCannon: {
-        I: s.pieces.some(p => p.side === 'I' && p.cell && p.cannon),
-        R: s.pieces.some(p => p.side === 'R' && p.cell && p.cannon),
+        I: hasCannon(s, 'I'),
+        R: hasCannon(s, 'R'),
       } };
     s.phase = 'reveal';
     record(s, 'attack', { side: a.side, piece: id, target, nearby: s.battle.nearby, text: id + ' ataca a ' + target + '.' });
@@ -200,12 +238,15 @@
     const p = piece(s, id);
     const side = s.summons[0];
     if (!p?.cell || p.side !== side || p.cannon) return false;
-    p.cannon = true;
-    p.ready = s.players[side].ownTurns + 1;
+    placeCannon(s, p);
     s.summons.shift();
     record(s, 'summon', { side, piece: id, cell: p.cell, text: p.id + ' se convierte en cañón.' });
     if (!s.summons.length) replenish(s);
     return true;
+  }
+  function placeCannon(s, p) {
+    p.cannon = true;
+    p.ready = s.players[p.side].ownTurns + 1;
   }
   function replenish(s) {
     for (const side of ['I', 'R']) {
@@ -243,7 +284,8 @@
   }
 
   const game = { SIDE, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, piece, occupant, remaining,
-    moves, attacks, move, attack, actor, playable, reveal, rescue, summon, skipBonus, nextTurn };
+    moves, attacks, move, attack, actor, playable, reveal, rescue, summon, skipBonus, nextTurn,
+    preparationChoices, prepare, canSummonInTurn, summonInTurn };
   if (typeof module === 'object') module.exports = game;
   else window.RealesIdeales = game;
 })();
