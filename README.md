@@ -1,12 +1,18 @@
 # Reales Ideales
 
-Prototipo v0.6 de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
+Prototipo v0.9 de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador. Dos personas pueden jugar en el mismo dispositivo y pasárselo al revelar cartas. El juego funciona con archivos locales. Arrastra una ficha o toca primero la ficha y luego su destino. Confirma el movimiento o ataque en el diálogo. Durante el combate, las cartas están bajo el marcador de cada facción. Cada jugador puede previsualizar una carta y decidir si la activa o pasa. El botón **Exportar JSON** conserva las jugadas públicas, bajas, invocaciones, rescates, duración y resultado. El tiempo se anota como dato de prueba.
+Abre `index.html` en un navegador. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** para jugar con los idealistas contra los realistas. La IA actúa con sus propias cartas y las jugadas visibles. El logotipo abre el menú principal. El juego funciona con archivos locales. Arrastra una ficha o toca primero la ficha y luego su destino. Confirma el movimiento o ataque en el diálogo. Durante el combate, las cartas están bajo el marcador de cada facción. Cada jugador puede previsualizar una carta y decidir si la activa o pasa. El botón **Exportar JSON** conserva las jugadas públicas, bajas, invocaciones, rescates, duración y resultado. El tiempo se anota como dato de prueba.
 
-`game.js` contiene las reglas. `app.js` conecta las reglas con la interfaz. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
+`game.js` contiene las reglas. `ai.js` decide las jugadas de la IA. `app.js` conecta las reglas con la interfaz. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
+
+## Identidad visual
+
+La portada, el logotipo y los doce animales proceden del arte de Reales Ideales. El tablero floral completo contiene 27 hexágonos, con los idealistas arriba y los realistas abajo. Las casillas interactivas siguen la ubicación de los códigos y las cuatro estrellas de la ilustración.
+
+Cada bando comienza con ocho fichas. Puma y vicuña se repiten entre los realistas, y llama y gallo entre los idealistas. Todos los animales siguen las reglas de la ficha normal. La pantalla de combate presenta las dos fichas participantes antes de revelar cartas.
 
 ## Preparación
 
