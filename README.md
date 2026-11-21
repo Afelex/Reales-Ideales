@@ -1,12 +1,18 @@
 # Reales Ideales
 
-Prototipo v0.5 de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
+Prototipo v0.9 de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador. Dos personas pueden jugar en el mismo dispositivo y pasárselo al revelar cartas. El juego funciona con archivos locales. El botón **Exportar JSON** conserva las jugadas públicas, bajas, invocaciones, rescates, duración y resultado. El tiempo se anota como dato de prueba.
+Abre `index.html` en un navegador. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** para jugar con los idealistas contra los realistas. La IA actúa con sus propias cartas y las jugadas visibles. El logotipo abre el menú principal. El juego funciona con archivos locales. Arrastra una ficha o toca primero la ficha y luego su destino. Confirma el movimiento o ataque en el diálogo. Durante el combate, las cartas están bajo el marcador de cada facción. Cada jugador puede previsualizar una carta y decidir si la activa o pasa. El botón **Exportar JSON** conserva las jugadas públicas, bajas, invocaciones, rescates, duración y resultado. El tiempo se anota como dato de prueba.
 
-`game.js` contiene las reglas. `app.js` conecta las reglas con la interfaz. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
+`game.js` contiene las reglas. `ai.js` decide las jugadas de la IA. `app.js` conecta las reglas con la interfaz. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
+
+## Identidad visual
+
+La portada, el logotipo y los doce animales proceden del arte de Reales Ideales. El tablero floral completo contiene 27 hexágonos, con los idealistas arriba y los realistas abajo. Las casillas interactivas siguen la ubicación de los códigos y las cuatro estrellas de la ilustración.
+
+Cada bando comienza con ocho fichas. Puma y vicuña se repiten entre los realistas, y llama y gallo entre los idealistas. Todos los animales siguen las reglas de la ficha normal. La pantalla de combate presenta las dos fichas participantes antes de revelar cartas.
 
 ## Preparación
 
@@ -43,7 +49,7 @@ Haz hasta dos acciones en el orden que prefieras. Puedes moverte dos veces con f
 
 ## Cañón y rescate
 
-Puedes revelar **Invocar cañón** en combate si empezaste esa batalla sin cañón. Como máximo se juega una invocación propia por combate. Después de la baja, el avance y el posible rescate, sustituye una ficha propia que siga en juego por tu cañón en la misma casilla. Si ambos bandos invocan, elige primero el defensor. La carta no modifica fuerza y queda fuera de la partida. El cañón puede atacar desde el siguiente turno de su dueño y se mueve como una ficha normal. Si pierde al disparar desde lejos, se retira igualmente. La segunda invocación está disponible en un combate posterior a la pérdida del primer cañón.
+Puedes revelar **Invocar cañón** en combate si empezaste esa batalla sin cañón. Como máximo se juega una invocación propia por combate. Después de la baja, el avance y el posible rescate, sustituye una ficha propia que siga en juego por tu cañón en la misma casilla. Si ambos bandos invocan, elige primero el defensor. La carta no modifica fuerza y queda fuera de la partida. El cañón puede atacar desde el siguiente turno de su dueño y se mueve como una ficha normal. Si pierde al disparar desde lejos, se retira igualmente. Ambas facciones pueden tener su propio cañón simultáneamente. La segunda invocación está disponible en un combate posterior a la pérdida del primer cañón.
 
 Al entrar en una estrella del extremo rival, puedes gastar un marcador y colocar una ficha propia eliminada en cualquier casilla libre de tu zona inicial. Cuenta la llegada por movimiento normal o por avance tras combate. Permanecer en la estrella no vuelve a activarla. Si prefieres guardar el marcador o el rescate es imposible, puedes intentarlo en otra llegada. La ficha recuperada vuelve **como ficha normal**, incluso si había sido el cañón. Los idealistas rescatan en B11 y D11. Los realistas rescatan en B1 y D1.
 

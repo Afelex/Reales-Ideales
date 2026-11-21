@@ -132,3 +132,20 @@ test('al terminar la ronda 12 gana quien conserva más fichas', () => {
   assert.equal(s.winner, 'I');
   assert.equal(s.reason, 'límite de rondas');
 });
+
+test('ambas facciones pueden invocar en una batalla y coexistir con un cañón cada una', () => {
+  const s = setup(['cannon', 'cannon'], ['cannon', 'cannon']);
+  stageBattle(s);
+  play(s, 0, 0, null, null);
+  assert.deepEqual(s.summons, ['R', 'I']);
+  assert.equal(G.summon(s, 'R3'), true);
+  assert.equal(G.summon(s, 'I5'), true);
+  assert.deepEqual(s.pieces.filter(p => p.cannon).map(p => p.id), ['I5', 'R3']);
+  assert.deepEqual(s.players.I.hand, ['cannon']);
+  assert.deepEqual(s.players.R.hand, ['cannon']);
+  G.nextTurn(s);
+  assert.equal(G.attack(s, 'R3', 'I1'), true);
+  assert.equal(G.reveal(s, 0), false);
+  assert.equal(G.reveal(s, null), true);
+  assert.equal(G.reveal(s, 0), false);
+});
