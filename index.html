@@ -3,50 +3,69 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Prototipo de Reales Ideales para dos jugadores en un mismo dispositivo.">
-  <title>Reales Ideales · Prototipo v0.5</title>
+  <meta name="description" content="Reales Ideales, juego de mesa para dos personas en un dispositivo.">
+  <title>Reales Ideales · Prototipo v0.6</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="game.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
   <header class="masthead">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">✦</span>
-      <h1>Reales Ideales</h1>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span><h1>Reales Ideales</h1></div>
+    <div class="header-actions">
+      <details class="help">
+        <summary>Cómo jugar</summary>
+        <div class="help-content">
+          <p>Arrastra una ficha propia a un hexágono dorado para mover o a un rival marcado para atacar. También puedes tocar una ficha y luego su destino.</p>
+          <p>Haz hasta dos acciones en tu turno, con un solo ataque y dos fichas distintas si mueves dos veces. El cañón puede atacar a distancia.</p>
+          <p>En batalla, defensor y atacante pueden revelar cartas por turnos. Si empatan, salen las dos fichas. Gana por eliminación o por conservar más fichas al final de la ronda 12.</p>
+          <p>Llega a una estrella enemiga para gastar un marcador y rescatar una ficha normal.</p>
+        </div>
+      </details>
+      <button id="restart" class="secondary">Nueva partida</button>
     </div>
-    <button id="restart" class="secondary">Nueva partida</button>
   </header>
-  <main>
-    <section class="scoreboard" aria-label="Marcador">
-      <div class="team blue"><span>Idealistas</span><strong id="blue">8</strong><small id="blue-rescues"></small></div>
-      <div class="round"><span>Ronda</span><strong id="round">1 / 12</strong></div>
-      <div class="team red"><span>Realistas</span><strong id="red">8</strong><small id="red-rescues"></small></div>
+  <main class="play-layout">
+    <section class="seat blue" aria-label="Tablero idealista">
+      <div class="seat-heading">
+        <div><h2>Idealistas</h2><small id="blue-rescues"></small></div>
+        <strong id="blue" aria-label="Fichas idealistas">8</strong>
+      </div>
+      <div id="hand-I" class="hand" aria-label="Cartas idealistas"></div>
     </section>
-    <div class="layout">
-      <section class="field" aria-label="Campo de juego">
-        <div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div>
-        <div class="legend"><span>★ Estrellas de rescate</span><span>◆ Cañón</span></div>
-      </section>
-      <aside class="controls">
-        <section class="panel">
-          <p id="turn-info" class="turn-info"></p>
-          <h2 id="phase-title"></h2>
-          <p id="instructions" class="instructions" role="status"></p>
-          <div id="actions" class="actions"></div>
-        </section>
-        <section class="panel activity">
-          <div class="activity-heading"><h2>Registro</h2><button id="export" class="secondary">Exportar JSON</button></div>
-          <ol id="log" aria-label="Últimas jugadas"></ol>
-        </section>
-        <details class="panel">
-          <summary>Cómo se juega</summary>
-          <p>Juega hasta dos acciones. Mueve una casilla libre, ataca a una ficha vecina o combina ambas. Puedes atacar una vez por turno y mover dos fichas distintas.</p>
-          <p>En batalla, los dos jugadores alternan hasta dos cartas cada uno. Quien gana avanza. Si empatan, salen las dos fichas. El cañón puede atacar a distancia.</p>
-          <p>Entra en una estrella enemiga y usa un marcador para rescatar una ficha normal. Gana por eliminación o por tener más fichas al final de la ronda 12.</p>
-        </details>
-      </aside>
-    </div>
+    <section class="seat red" aria-label="Tablero realista">
+      <div class="seat-heading">
+        <div><h2>Realistas</h2><small id="red-rescues"></small></div>
+        <strong id="red" aria-label="Fichas realistas">8</strong>
+      </div>
+      <div id="hand-R" class="hand" aria-label="Cartas realistas"></div>
+    </section>
+    <section class="field" aria-label="Campo de juego">
+      <div class="field-heading"><span id="round">Ronda 1 de 12</span><span id="active-side">Turno idealista</span></div>
+      <div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div>
+      <p id="battle-result" class="battle-result" role="status" hidden></p>
+      <div class="legend"><span>★ Rescate</span><span><i class="cannon-mini" aria-hidden="true"></i> Cañón</span></div>
+    </section>
+    <section class="panel controls" aria-labelledby="phase-title">
+      <p id="turn-info" class="turn-info"></p>
+      <h2 id="phase-title"></h2>
+      <p id="instructions" class="instructions" role="status"></p>
+      <div id="actions" class="actions"></div>
+    </section>
+    <details class="panel activity">
+      <summary>Registro de partida</summary>
+      <ol id="log" aria-label="Últimas jugadas"></ol>
+      <button id="export" class="secondary">Exportar JSON</button>
+    </details>
   </main>
+  <dialog id="decision" aria-labelledby="decision-title" aria-describedby="decision-text">
+    <h2 id="decision-title"></h2>
+    <p id="decision-text"></p>
+    <div id="decision-card" class="decision-card" hidden></div>
+    <div class="dialog-actions">
+      <button id="cancel" class="secondary" type="button" autofocus>Cancelar</button>
+      <button id="confirm" class="primary" type="button">Confirmar</button>
+    </div>
+  </dialog>
 </body>
 </html>
