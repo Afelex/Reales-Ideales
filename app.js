@@ -124,11 +124,16 @@ function makeToken(piece) {
   node.setAttribute('aria-hidden', 'true');
   if (piece.cannon) span(node, 'cannon-shape', '');
   else {
+    const animal = character(piece)[1];
+    node.dataset.character = animal;
+    const portrait = document.createElement('span');
+    portrait.className = 'token-portrait';
     const image = document.createElement('img');
-    image.src = artwork(character(piece)[1]);
+    image.src = artwork(animal);
     image.alt = '';
     image.draggable = false;
-    node.append(image);
+    portrait.append(image);
+    node.append(portrait);
   }
   return node;
 }

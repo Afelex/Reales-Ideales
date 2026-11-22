@@ -276,17 +276,44 @@ dialog::backdrop { background: #35231893; }
     grid-template-areas: "red field blue" "phase field history";
   }
 }
+/* Fichas de tablero: cabeza recortada sobre peana circular por facción.
+   El arte completo se conserva intacto para las cartas y futuras vistas. */
 .token { width: 74%; max-width: 4.8rem; }
-.token:not(.cannon) { background: none; border: none; box-shadow: none; }
-.token:not(.cannon)::before { display: none; }
-.token img {
-  position: absolute; width: 85%; height: 112%; bottom: 0; object-fit: contain; object-position: bottom;
-  filter: drop-shadow(0 2px 1px #2e211b) drop-shadow(0 0 2px var(--piece));
+.token.I { --piece-rim: #194c6b; }
+.token.R { --piece-rim: #702922; }
+.token:not(.cannon) {
+  display: block; position: relative; width: 74%; aspect-ratio: 1;
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+}
+.hex .token:not(.cannon) { width: 64%; height: auto; }
+.hex[data-star="true"] .token:not(.cannon) { width: 54%; top: 28%; left: 56%; }
+.token:not(.cannon)::before {
+  content: ''; display: block; position: absolute; z-index: 0;
+  inset: auto 4% 5%; width: 92%; height: 53%; box-sizing: border-box;
+  border: 2px solid #ffe4ae; border-radius: 50%;
+  background: radial-gradient(ellipse at 35% 18%, #ffffff9c, #ffffff00 62%), var(--piece);
+  box-shadow: inset 0 2px 1px #fff9, inset 0 -4px 0 #271b2640,
+    0 3px 0 var(--piece-rim), 0 5px 4px #2e211b9e;
   pointer-events: none;
 }
 .token:not(.cannon)::after {
-  content: ''; width: 75%; height: 14%; position: absolute; bottom: -1%; z-index: -1;
-  border-radius: 50%; background: var(--piece); box-shadow: 0 2px 3px #331913b0;
+  content: ''; position: absolute; z-index: 1;
+  left: 17%; bottom: 17%; width: 66%; height: 29%;
+  border: 1px solid #ffefd380; border-radius: 50%;
+  box-shadow: inset 0 1px 1px #38211948;
+  pointer-events: none;
+}
+.token-portrait {
+  position: absolute; z-index: 2;
+  top: -9%; left: 1%; width: 98%; height: 79%;
+  overflow: hidden; pointer-events: none;
+}
+.token-portrait img {
+  display: block; position: absolute; left: 50%; top: 0;
+  width: 106%; height: auto; max-width: none;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 2px 1px #25170eda);
+  pointer-events: none;
 }
 .drag-token { width: 4.4rem; height: 4.4rem; }
 .duel:not([hidden]) {
