@@ -492,7 +492,7 @@ body.playing .phase-indicator {
   font-size: clamp(.61rem, 2.3vw, .75rem); line-height: 1.15;
 }
 body.playing .board {
-  flex: 0 1 auto; width: min(100%, calc((100dvh - 255px) * 1116 / 1410), 33rem);
+  flex: 0 1 auto; width: min(100%, calc(79.15dvh - 214px), 33rem);
   max-height: calc(100% - 2.9rem);
   margin: 0 auto; aspect-ratio: 1116 / 1410;
   background-size: 100% 100%;
@@ -622,7 +622,7 @@ body.playing .field .battle-result:not([hidden]) {
   body.playing .seat { align-self: start; padding: .7rem; }
   body.playing .seat-heading h2 { font-size: 1.1rem; }
   body.playing .board {
-    width: min(100%, calc((100dvh - 215px) * 1116 / 1410), 35rem);
+    width: min(100%, calc(79.15dvh - 170px), 35rem);
   }
   body.playing .controls { max-height: 9rem; }
   body.playing .hand-drawer { width: min(45rem, 67vw); bottom: 2rem; }
@@ -638,7 +638,7 @@ body.playing .field .battle-result:not([hidden]) {
     grid-template-areas: "field red blue" "field phase phase";
     gap: .3rem;
   }
-  body.playing .board { width: min(100%, calc((100dvh - 112px) * 1116 / 1410), 27rem); }
+  body.playing .board { width: min(100%, calc(79.15dvh - 89px), 27rem); }
   body.playing .seat { align-self: start; }
   body.playing .seat-heading { gap: .15rem; }
   body.playing .seat-stats { display: grid; gap: .1rem; }
