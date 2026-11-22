@@ -791,3 +791,18 @@ body.playing .controls .actions .end-turn {
   background: linear-gradient(180deg,#f9cb72,#e6a43e);
   box-shadow: inset 0 2px #ffe8b0, 0 3px #9c5d31;
 }
+
+
+/* La imagen se mantiene visible también durante arrastre táctil. */
+.drag-token[data-sprite], .drag-token.cannon {
+  display: block; width: 4.4rem; height: 4.4rem;
+  aspect-ratio: 1; max-width: none;
+  padding: 0; background: transparent;
+  border: 0; border-radius: 0; box-shadow: none;
+}
+.drag-token[data-sprite]::before,
+.drag-token[data-sprite]::after { content: none !important; }
+.drag-token[data-sprite] .token-portrait {
+  position: absolute; inset: 0; top: 0; left: 0;
+  width: 100%; height: 100%; overflow: visible;
+}
