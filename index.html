@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · Prototipo v0.9</title>
+  <title>Reales Ideales · Prototipo v0.12</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
@@ -18,8 +18,9 @@
         <summary>Cómo jugar</summary>
         <div class="help-content">
           <p>Arrastra una ficha propia a un hexágono verde para mover o a un rival marcado para atacar. También puedes tocar una ficha y luego su destino.</p>
-          <p>Haz hasta dos acciones en tu turno, con un solo ataque y dos fichas distintas si mueves dos veces. El cañón puede atacar a distancia.</p>
-          <p>En batalla, defensor y atacante pueden revelar cartas por turnos. Si empatan, salen las dos fichas. Gana por eliminación o por conservar más fichas al final de la ronda 12.</p>
+          <p>Haz hasta dos acciones por turno: mueve como máximo una ficha una casilla y declara un ataque en el orden que prefieras. El cañón ataca a distancia con +2; las fichas de vanguardia tienen +2 al atacar.</p>
+          <p>Cada jugador reserva tres cartas, pero solo puede activar dos por combate. Dos iguales producen COMBO +1. Dos Golpes decisivos vencedores permiten eliminar una segunda ficha rival. Exploración (+1) busca una carta de tu mazo que sustituye a la carta jugada después de la batalla.</p>
+          <p>Invocar cañón suma +1 durante el combate y permite transformar una ficha después. En empate salen ambas fichas. Gana por eliminación o por conservar más fichas al final de la ronda 12.</p>
           <p>Llega a una estrella enemiga para gastar un marcador y rescatar una ficha normal.</p>
         </div>
       </details>
@@ -39,18 +40,23 @@
         <div><h2>Idealistas</h2><small id="blue-rescues"></small></div>
         <strong id="blue" aria-label="Fichas idealistas">8</strong>
       </div>
-      <div id="hand-I" class="hand" aria-label="Cartas idealistas"></div>
+      <div id="hand-I" class="hand" aria-label="Reserva idealista, tres cartas"></div>
     </section>
     <section class="seat red" aria-label="Tablero realista">
       <div class="seat-heading">
         <div><h2 id="red-name">Realistas</h2><small id="red-rescues"></small></div>
         <strong id="red" aria-label="Fichas realistas">8</strong>
       </div>
-      <div id="hand-R" class="hand" aria-label="Cartas realistas"></div>
+      <div id="hand-R" class="hand" aria-label="Reserva realista, tres cartas"></div>
     </section>
     <section class="field" aria-label="Campo de juego">
       <div class="field-heading"><span id="round">Ronda 1 de 12</span><span id="active-side">Turno idealista</span></div>
+      <div id="phase-indicator" class="phase-indicator" role="status">Movimiento / ataque</div>
       <div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div>
+      <div class="deck-track" aria-label="Mazos y cantidad de cartas disponibles">
+        <div class="deck-count idealista"><span class="deck-icon" aria-hidden="true">▰</span> MAZO IDEALISTA <strong id="deck-I" aria-label="Cartas restantes del mazo idealista">25</strong></div>
+        <div class="deck-count realista"><span class="deck-icon" aria-hidden="true">▰</span> MAZO REALISTA <strong id="deck-R" aria-label="Cartas restantes del mazo realista">25</strong></div>
+      </div>
       <p id="battle-result" class="battle-result" role="status" hidden></p>
       <div class="legend"><span>★ Rescate</span><span><i class="cannon-mini" aria-hidden="true"></i> Cañón</span></div>
     </section>
@@ -67,6 +73,18 @@
       <button id="export" class="secondary">Exportar JSON</button>
     </details>
   </main>
+  <div id="phase-banner" class="phase-banner" role="status" aria-live="polite" hidden>
+    <div class="banner-content"><span class="banner-symbol" aria-hidden="true">✦</span>
+      <strong id="banner-title" class="banner-title"></strong>
+      <span id="banner-subtitle" class="banner-subtitle"></span>
+    </div>
+  </div>
+  <dialog id="search-choice" aria-labelledby="search-title" aria-describedby="search-info">
+    <h2 id="search-title">Elige una carta de tu mazo</h2>
+    <p id="search-info">La carta seleccionada ocupará el espacio de Exploración después del combate, no durante él.</p>
+    <div id="search-options" class="search-options"></div>
+    <div class="dialog-actions"><button id="search-cancel" type="button" class="secondary">Cancelar</button></div>
+  </dialog>
   <dialog id="decision" aria-labelledby="decision-title" aria-describedby="decision-text">
     <h2 id="decision-title"></h2>
     <p id="decision-text"></p>
