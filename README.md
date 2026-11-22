@@ -1,12 +1,24 @@
 # Reales Ideales
 
-Prototipo v0.12 de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
+Prototipo v0.13 (reglas v0.12) de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
 
 ## Abrir la demostración
 
 Abre `index.html` en un navegador. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** para jugar con los idealistas contra los realistas. La IA actúa con sus propias cartas y las jugadas visibles. El logotipo abre el menú principal. El juego funciona con archivos locales. Arrastra una ficha o toca primero la ficha y luego su destino. Confirma el movimiento o ataque en el diálogo. Durante el combate, las cartas están bajo el marcador de cada facción. Cada jugador tiene una reserva privada de tres cartas, pero solo puede activar dos en un combate; puede previsualizarlas y decidir si activa una o pasa. Un banner sobre toda la pantalla anuncia turnos, movimiento, ataque, combos, invocación y robo de cartas. El tablero incluye el contador del mazo de cada facción. El botón **Exportar JSON** conserva las jugadas públicas, bajas, invocaciones, rescates, duración y resultado. El tiempo se anota como dato de prueba.
 
 `game.js` contiene las reglas. `ai.js` decide las jugadas de la IA. `app.js` conecta las reglas con la interfaz. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
+
+## Interfaz adaptable v0.13 F1 (GitHub Pages)
+
+La interfaz de partida es ahora de **una sola pantalla** en móvil: cabecera compacta, HUD de las dos facciones con fichas/rescates/mazo, campo de juego central y dock de acciones inferior. El tablero completo permanece en la zona prioritaria sin colocar las tres cartas de cada bando por encima. El historial es un panel plegable del encabezado.
+
+Las **tres cartas** de la reserva se muestran en un cajón superpuesto que **no desplaza el tablero**. En el turno normal, se abre con **Mis 3 cartas**; cuando hay combate se abre automáticamente, pero las cartas permanecen **boca abajo** hasta que el jugador decide revelarlas. Al cambiar el actor en partidas locales, el cajón vuelve a ocultar las cartas antes de mostrar la reserva del siguiente jugador. La IA conserva ocultas sus cartas privadas.
+
+Se adapta a móvil vertical, orientación horizontal y escritorio. Utiliza `100dvh` y márgenes seguros del dispositivo. No requiere cambiar `game.js` o `ai.js` (las reglas siguen siendo v0.12).
+
+### Verificación visual recomendada
+
+Después de desplegar en GitHub Pages, revisar las ventanas **360×740**, **390×844**, **412×915**, **850×384** y **1366×768**: cabecera, HUD, las 27 casillas y el dock deben resultar utilizables sin desplazamiento de toda la página. Probar el flujo de privacidad de las cartas en modo local, combates, búsqueda, Combo decisivo, cambios de turno y el historial. En pantallas muy pequeñas los botones múltiples pueden desplazarse **dentro** del dock, no en la página completa.
 
 ## Identidad visual
 
