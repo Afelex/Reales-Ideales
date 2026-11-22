@@ -8,6 +8,7 @@
       case 'bonus': return game.battle.winner;
       case 'rescue': return game.rescue.side;
       case 'summon': return game.summons[0];
+      case 'combo': return game.battle.combo.side;
       default: return null;
     }
   }
@@ -47,23 +48,35 @@
     const opponent = side === 'I' ? 'R' : 'I';
     const ownCards = battle.played[side];
     const seenCards = battle.played[opponent];
-    const [ownBase, rivalBase] = side === battle.attacker ? [1, 0] : [0, 1];
+    const attacker = rules.piece(game, battle.a);
+    const starting = side === battle.attacker
+      ? 1 + (attacker.cannon ? 2 : rules.VANGUARD[side] === attacker.id ? 2 : 0)
+      : 0;
+    const rivalStarting = side === battle.defender
+      ? 1 + (attacker.cannon ? 2 : rules.VANGUARD[opponent] === attacker.id ? 2 : 0)
+      : 0;
     const bonus = (cards, key) => cards.reduce((sum, id) => sum + (rules.CARDS[id][key] ?? 0), 0);
+    const combo = cards => cards.length === 2 && cards[0] === cards[1] ? 1 : 0;
     function outcome(cards) {
-      const decisive = Number(cards.includes('decisive')) - Number(seenCards.includes('decisive'));
-      const mine = Math.max(0, ownBase + bonus(cards, 'own') + bonus(seenCards, 'rival'));
-      const theirs = Math.max(0, rivalBase + bonus(seenCards, 'own') + bonus(cards, 'rival'));
-      return decisive || Math.sign(mine - theirs);
+      const decisive = cards.filter(card => card === 'decisive').length
+        - seenCards.filter(card => card === 'decisive').length;
+      const mine = Math.max(0, starting + combo(cards) + bonus(cards, 'own') + bonus(seenCards, 'rival'));
+      const theirs = Math.max(0, rivalStarting + combo(seenCards) + bonus(seenCards, 'own') + bonus(cards, 'rival'));
+      return Math.sign(decisive || mine - theirs);
     }
-    const costs = { boost: 1, weaken: 1, major: 2, decisive: 4 };
+    const costs = { boost: 1, weaken: 1, major: 2, decisive: 3, cannon: 1, search: 0 };
     const current = outcome(ownCards);
     let best = { type: 'reveal', index: null };
     let bestScore = current * 6;
     for (const [index, card] of game.players[side].hand.entries()) {
       if (!rules.playable(game, side, card)) continue;
-      const score = outcome([...ownCards, card]) * 6 + (card === 'cannon' ? 3 : -costs[card]);
+      const options = card === 'search' ? rules.searchOptions(game, side) : [];
+      const preference = { decisive: 6, major: 5, cannon: 4, boost: 3, search: 2, weaken: 1 };
+      const searchTarget = options.sort((a, b) => preference[b] - preference[a])[0] ?? null;
+      const score = outcome([...ownCards, card]) * 6
+        + (card === 'cannon' ? 2 : card === 'search' ? 1 : -costs[card]);
       if (score > bestScore) {
-        best = { type: 'reveal', index };
+        best = { type: 'reveal', index, searchTarget };
         bestScore = score;
       }
     }
@@ -75,6 +88,12 @@
     if (game.phase === 'reveal') return cardChoice(rules, game, side);
     const allies = game.pieces.filter(piece => piece.side === side && piece.cell);
     const enemies = game.pieces.filter(piece => piece.side !== side && piece.cell);
+    if (game.phase === 'combo') {
+      const targets = rules.comboTargets(game).map(id => rules.piece(game, id));
+      const priority = p => (p.cannon ? 10 : rules.VANGUARD[p.side] === p.id ? 6 : 0);
+      targets.sort((a, b) => priority(b) - priority(a));
+      return { type: 'combo', target: targets[0]?.id ?? null };
+    }
     if (game.phase === 'summon') {
       const distanceFromFront = piece => Math.min(...enemies.map(enemy => distance(rules, piece.cell, enemy.cell)));
       const safest = allies.reduce((best, piece) => distanceFromFront(piece) > distanceFromFront(best) ? piece : best);
