@@ -42,6 +42,9 @@ let battleResult = null;
 let duel = null;
 let started = null;
 let ended = null;
+let drawerOpen = false;
+let lastRevealBattle = null;
+let lastRevealSlot = -1;
 let bannerTimer = null;
 let bannerQueue = [];
 let bannerShowing = false;
@@ -384,12 +387,59 @@ function chooseSearch(index) {
   }
   searchDialog.showModal();
 }
+function syncHandDrawer() {
+  const revealing = game.phase === 'reveal';
+  const actor = revealing ? rules.actor(game) : game.turn;
+  // Cada ventana de elección vuelve a estar cubierta, incluso en el modo local.
+  // Evita que un jugador vea las cartas privadas del siguiente participante.
+  if (revealing && (game.battle !== lastRevealBattle || game.battle.slot !== lastRevealSlot)) {
+    lastRevealBattle = game.battle;
+    lastRevealSlot = game.battle.slot;
+    privateHand = false;
+    drawerOpen = !isAITurn();
+  } else if (!revealing) {
+    if (lastRevealBattle) {
+      drawerOpen = false;
+      privateHand = false;
+    }
+    lastRevealBattle = null;
+    lastRevealSlot = -1;
+    if (game.phase !== 'turn') drawerOpen = false;
+  }
+  const drawer = byId('hand-drawer');
+  drawer.hidden = !drawerOpen || isAITurn();
+  drawer.dataset.side = actor;
+  byId('drawer-title').textContent = revealing
+    ? (actor === game.battle.defender ? 'Defensa' : 'Ataque') + ' · ' + rules.SIDE[actor]
+    : 'Reserva · ' + rules.SIDE[actor];
+  byId('drawer-hint').textContent = revealing
+    ? 'Puedes activar hasta 2 cartas en este combate'
+    : '3 cartas de reserva';
+  byId('hand-I').hidden = actor !== 'I';
+  byId('hand-R').hidden = actor !== 'R';
+}
+byId('drawer-close').addEventListener('click', () => {
+  drawerOpen = false;
+  privateHand = false;
+  if (game) render();
+});
+function createDrawerButton(label, nextOpen, nextPrivate, className) {
+  const control = button(actions, label, () => {
+    if (game.phase === 'turn') clearRevealed();
+    drawerOpen = nextOpen;
+    privateHand = nextPrivate;
+    render();
+  }, className + ' drawer-toggle');
+  control.setAttribute('aria-controls', 'hand-drawer');
+  control.setAttribute('aria-expanded', String(nextOpen));
+}
 function renderHands() {
   const revealing = game.phase === 'reveal';
   const actor = revealing ? rules.actor(game) : game.turn;
   for (const side of ['I', 'R']) {
     const hand = byId('hand-' + side);
-    hand.closest('.seat').dataset.prompt = String(actor === side && ['turn', 'reveal'].includes(game.phase));
+    const seat = document.querySelector('.seat.' + (side === 'I' ? 'blue' : 'red'));
+    seat.dataset.prompt = String(actor === side && ['turn', 'reveal'].includes(game.phase));
     hand.replaceChildren();
     for (let slot = 0; slot < rules.HAND_SIZE; slot++) {
       const face = shown[side].find(item => item.slot === slot);
@@ -420,6 +470,9 @@ function renderHands() {
 function nextTurn() {
   selection = null;
   privateHand = false;
+  drawerOpen = false;
+  lastRevealBattle = null;
+  lastRevealSlot = -1;
   clearRevealed();
   battleResult = null;
   duel = null;
@@ -437,29 +490,24 @@ function renderControls() {
   }
   switch (game.phase) {
     case 'turn':
-      say('Turno de ' + rules.SIDE[game.turn], game.actions === 2 ? 'Completaste tus dos acciones.'
-        : selection ? 'Suelta la ficha en una casilla marcada o toca su destino.'
-          : game.moved.length ? 'Ya realizaste tu movimiento. Puedes atacar o terminar.'
-            : 'Puedes mover una sola ficha y declarar un ataque, en el orden que prefieras.');
+      say('Turno de ' + rules.SIDE[game.turn], game.actions === 2 ? 'Dos acciones completadas.'
+        : selection ? 'Elige una casilla marcada.'
+          : game.moved.length ? 'Movimiento usado. Puedes atacar.'
+            : 'Un movimiento y un ataque por turno.');
       button(actions, 'Terminar turno', nextTurn, 'primary');
-      button(actions, privateHand ? 'Ocultar mis cartas' : 'Ver mis cartas', () => {
-        clearRevealed();
-        privateHand = !privateHand;
-        render();
-      }, 'secondary');
+      createDrawerButton(drawerOpen ? 'Cerrar cartas' : 'Mis 3 cartas',
+        !drawerOpen, !drawerOpen, 'secondary');
       break;
     case 'reveal': {
       const side = rules.actor(game);
       const role = side === game.battle.defender ? 'Defensa' : 'Ataque';
       say(role + ' · ' + rules.SIDE[side], privateHand
-        ? 'Elige una carta de tu lado para verla y decidir si la activas. También puedes pasar.'
-        : mode === 'ai' ? 'Puedes mirar tus cartas o pasar.'
-          : '¿Deseas activar una carta? Entrega el dispositivo a ' + rules.SIDE[side].toLowerCase() + '.');
-      if (!privateHand) button(actions, 'Ver mis cartas', () => {
-        privateHand = true;
-        render();
-      }, 'primary');
-      button(actions, 'Pasar sin activar', () => play(), 'secondary');
+        ? 'Elige una carta o pasa.'
+        : mode === 'ai' ? 'Revela tu reserva para responder.'
+          : 'Pasa el dispositivo al jugador indicado y revela sus cartas.');
+      if (!privateHand) createDrawerButton('Ver mis cartas', true, true, 'primary');
+      else createDrawerButton('Ocultar cartas', false, false, 'secondary');
+      button(actions, 'Pasar', () => play(), 'secondary');
       break;
     }
     case 'combo':
@@ -531,6 +579,7 @@ function render() {
         : battleResult.advantage ? 'Golpe decisivo · ' : '')
       + battleResult.force.join(' a ') + ' · ' + battleResult.text;
   }
+  syncHandDrawer();
   renderBoard();
   renderHands();
   renderControls();
@@ -591,6 +640,8 @@ function startGame(nextMode) {
   game = rules.makeGame();
   byId('inicio').hidden = true;
   byId('partida').hidden = false;
+  document.body.classList.add('playing');
+  byId('history').hidden = false;
   byId('restart').hidden = false;
   byId('red-name').textContent = mode === 'ai' ? 'Realistas · IA' : 'Realistas';
   render();
@@ -603,6 +654,9 @@ function returnToMenu() {
   mode = null;
   byId('inicio').hidden = false;
   byId('partida').hidden = true;
+  document.body.classList.remove('playing');
+  byId('history').hidden = true;
+  byId('history').open = false;
   byId('restart').hidden = true;
   byId('play-local').focus();
   window.scrollTo(0, 0);
@@ -621,7 +675,7 @@ byId('menu-link').addEventListener('click', event => {
 byId('restart').addEventListener('click', () =>
   confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => startGame(mode)));
 byId('export').addEventListener('click', () => {
-  const data = { version: '0.12', mode, complete: game.phase === 'end', round: game.round,
+  const data = { version: '0.13', mode, complete: game.phase === 'end', round: game.round,
     durationSeconds: started === null ? 0 : Math.floor(((ended ?? Date.now()) - started) / 1000),
     winner: game.winner, reason: game.reason, events: game.events };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
