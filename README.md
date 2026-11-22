@@ -1,6 +1,6 @@
 # Reales Ideales
 
-Prototipo v0.13 (reglas v0.12) de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
+Prototipo v0.14 (reglas v0.12) de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
 
 ## Abrir la demostración
 
@@ -91,3 +91,17 @@ El archivo `game.test.js` contempla 21 casos, incluyendo las bonificaciones de c
 ## Pruebas con jugadores nuevos
 
 Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique quién sale, quién se mueve y cómo se activa el rescate. Registra las ayudas en los tres primeros turnos, la duración total, la primera baja, rescates, victorias en defensa y ganas de revancha del 1 al 5. Para evaluar remontadas, identifica si un jugador que quedó dos fichas por debajo luego igualó o terminó ganando. Registra satisfacción por separado para cada persona. Una simulación permite contrastar reglas y jugadas legales. La comprensión y la diversión se observan en partidas de prueba con familias.
+
+## Integración gráfica v0.14
+
+Los materiales visuales aprobados el 22/11/2026 están versionados en `assets/v014/`:
+
+- `cartas-aprobadas.png`: lámina 3×2 de cartas ilustradas (Refuerzo, Debilitar, Refuerzo mayor, Golpe decisivo, Invocar cañón y Exploración). Los nombres y efectos se conservan en HTML para accesibilidad, y la capa visual usa las ilustraciones completas con títulos originales.
+- `canon.png`: cañón esculpido sobre base circular, con luminosidad de facción en el tablero.
+- `fichas-idealistas.png` y `fichas-realistas.png`: láminas 4×2 con los bustos y peanas de arcilla aprobados. La última ficha azul (gato) **no lleva estrella**.
+
+Las nuevas fichas se asignan por especie y no solo por posición: Mono, Llama, Guacamayo, Tigrillo, Gallo y Cuy utilizan su retrato correspondiente. Cuando una de las láminas no incluye el animal específico (p. ej. anaconda, cóndor, tortuga gigante o vicuña), se conserva su ilustración original y su nombre; no se reemplaza por otro animal.
+
+**Interfaz:** el botón **Terminar turno** está en el extremo derecho del dock móvil; la reserva de tres cartas se abre a la izquierda y conserva las restricciones del motor. La versión es exclusivamente visual: no altera reglas ni mecánicas.
+
+**Rendimiento:** los archivos de láminas se conservan como imágenes PNG originales aprobadas para priorizar la calidad de la ilustración. Se recomienda convertirlas a WebP optimizado en una fase posterior si se detecta lentitud de descarga en redes móviles.
