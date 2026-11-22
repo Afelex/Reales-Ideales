@@ -16,3 +16,12 @@ Lee [el reglamento y la guía de ejecución](README.md) antes de editar. Este re
 - Ataque del cañón +2, vanguardia I5/R4 +2 al atacar; no son acumulables. Invocar cañón aporta +1 en ese combate.
 - La IA entiende las fases `reveal` y `combo` y las búsquedas. La UI presenta banners y muestra los mazos restantes, que excluyen la reserva.
 - Ejecuta `node --test` y comprueba localmente el diálogo de selección de Exploración, los banners de cambio de fase y las cartas pequeñas en móvil.
+
+## UI v0.13 F1 — GitHub Pages
+- Diseño responsive en `index.html`, `styles.css` y `app.js`. Mantener la jerarquía: header compacto, dos `.seat` sin manos, campo `.field`, dock `.controls`, cajón `#hand-drawer`.
+- `#deck-I` y `#deck-R` están ahora en el HUD de facción, NO en la antigua barra debajo del tablero.
+- `#hand-I` y `#hand-R` viven dentro del cajón fijo; jamás moverlos de nuevo a las cápsulas superiores. La función `syncHandDrawer()` restablece el secreto de las cartas al alternar actor y ranuras de combate. Mantener `privateHand` y `drawerOpen` sincronizados.
+- `#duel` se muestra únicamente durante la etapa reveal para no tapar fichas tras la resolución.
+- La clase `body.playing` activa el layout `100dvh`; todo el scroll de historial/ayuda queda dentro de sus paneles y el de acciones dentro del dock.
+- Optimizar la visual de cartas y botones sin alterar `game.js`, `ai.js` ni sus pruebas. No confundir v0.13 UI con un cambio de mecánicas.
+- Asegurar que la app siga compatible con publicación automática en `https://afelex.github.io/Reales-Ideales/`.
