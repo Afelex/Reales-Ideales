@@ -238,6 +238,8 @@ function proposeDestination(id, cell) {
     confirmAction('¿Mover la ficha?', 'Mover a ' + pieceName(actor) + ' a la casilla ' + cell + '.', 'Mover', () => {
       started ??= Date.now();
       rules.move(game, id, cell);
+      drawerOpen = false;
+      privateHand = false;
       selection = null;
       render();
     });
@@ -469,6 +471,7 @@ function renderHands() {
 }
 function nextTurn() {
   selection = null;
+  drawerOpen = false;
   privateHand = false;
   drawerOpen = false;
   lastRevealBattle = null;
@@ -540,9 +543,9 @@ function renderControls() {
 }
 function renderDuel() {
   const view = byId('duel');
-  view.hidden = !duel;
+  view.hidden = !duel || game.phase !== 'reveal';
   view.replaceChildren();
-  if (!duel) return;
+  if (view.hidden) return;
   const [attacker, defender] = duel;
   for (const [index, piece] of duel.entries()) {
     if (index === 1) span(view, 'duel-versus', 'VS');
