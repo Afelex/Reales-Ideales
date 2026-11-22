@@ -2,12 +2,16 @@
   'use strict';
 
   const SIDE = { I: 'Idealistas', R: 'Realistas' };
+  const HAND_SIZE = 3;
+  // Fichas originalmente situadas en la punta central; la ventaja viaja con ellas.
+  const VANGUARD = { I: 'I5', R: 'R4' };
   const CARDS = {
     boost: { name: 'Refuerzo', count: 8, own: 1, description: 'Suma 1 a tu fuerza.' },
     weaken: { name: 'Debilitar', count: 8, rival: -1, description: 'Resta 1 a la fuerza rival.' },
     major: { name: 'Refuerzo mayor', count: 4, own: 2, description: 'Suma 2 a tu fuerza.' },
     decisive: { name: 'Golpe decisivo', count: 2, description: 'Gana. Si ambos lo juegan, se anulan.' },
-    cannon: { name: 'Invocar cañón', count: 2, description: 'Tras la batalla, transforma una ficha propia.' },
+    cannon: { name: 'Invocar cañón', count: 2, own: 1, description: '+1 durante el combate. Después, transforma una ficha propia en cañón.' },
+    search: { name: 'Exploración', count: 4, own: 1, description: '+1 y busca una carta de tu mazo que sustituye a Exploración al acabar el combate.' },
   };
   const CELLS = {};
   const ZONES = {
@@ -37,11 +41,15 @@
     return list;
   }
   function draw(player) {
-    while (player.hand.length < 2) {
+    let drawn = 0;
+    for (let slot = 0; slot < HAND_SIZE; slot++) {
+      if (player.hand[slot]) continue;
       if (!player.deck.length) player.deck = shuffle(player.discard.splice(0));
-      if (!player.deck.length) break;
-      player.hand.push(player.deck.pop());
+      if (!player.deck.length) continue;
+      player.hand[slot] = player.deck.pop();
+      drawn++;
     }
+    return drawn;
   }
   function makePlayer(deck) {
     const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, ownTurns: 0 };
@@ -70,7 +78,7 @@
   function moves(s, id) {
     const p = piece(s, id);
     const allowed = p?.cell && (s.phase === 'bonus' ? s.battle.winner === p.side
-      : s.phase === 'turn' && p.side === s.turn && s.actions < 2 && !s.moved.includes(id));
+      : s.phase === 'turn' && p.side === s.turn && s.actions < 2 && s.moved.length === 0);
     return allowed ? Object.keys(CELLS).filter(cell => adjacent(p.cell, cell) && !occupant(s, cell)) : [];
   }
   function attacks(s, id) {
@@ -125,7 +133,7 @@
     s.actions++;
     s.attacked = true;
     s.battle = { a: id, d: target, attacker: a.side, defender: d.side, nearby: adjacent(a.cell, d.cell),
-      slot: 0, played: { I: [], R: [] }, startedWithCannon: {
+      slot: 0, played: { I: [], R: [] }, search: { I: [], R: [] }, startedWithCannon: {
         I: s.pieces.some(p => p.side === 'I' && p.cell && p.cannon),
         R: s.pieces.some(p => p.side === 'R' && p.cell && p.cannon),
       } };
@@ -134,34 +142,66 @@
     return true;
   }
   const actor = s => s.battle.slot % 2 ? s.battle.attacker : s.battle.defender;
+  function searchOptions(s, side) {
+    const reserved = s.battle?.search[side].map(item => item.card) ?? [];
+    const remaining = s.players[side].deck.slice();
+    for (const card of reserved) {
+      const at = remaining.indexOf(card);
+      if (at !== -1) remaining.splice(at, 1);
+    }
+    return Object.keys(CARDS).filter(card => remaining.includes(card));
+  }
   function playable(s, side, card) {
+    if (s.phase !== 'reveal' || !card || s.battle.played[side].length >= 2) return false;
     return card !== 'cannon' || (!s.battle.startedWithCannon[side] && !s.battle.played[side].includes(card));
   }
-  function reveal(s, index) {
+  // El índice se mantiene como ranura estable (0, 1 o 2) durante el combate.
+  // La carta elegida por Exploración no entra en la reserva hasta la reposición final.
+  function reveal(s, index, searchedCard = null) {
     if (s.phase !== 'reveal') return false;
     const side = actor(s);
     if (index !== null) {
-      const hand = s.players[side].hand;
-      const card = hand[index];
-      if (!card || !playable(s, side, card)) return false;
-      hand.splice(index, 1);
+      const player = s.players[side];
+      const card = player.hand[index];
+      if (!playable(s, side, card)) return false;
+      if (card === 'search') {
+        const options = searchOptions(s, side);
+        if (options.length && !options.includes(searchedCard)) return false;
+        if (!options.length && searchedCard !== null) return false;
+      }
+      player.hand[index] = null;
       s.battle.played[side].push(card);
-      record(s, 'reveal', { side, card, text: SIDE[side] + ' revelan ' + CARDS[card].name + '.' });
+      if (card === 'search' && searchedCard) s.battle.search[side].push({ slot: index, card: searchedCard });
+      record(s, 'reveal', { side, card, text: SIDE[side] + ' activan ' + CARDS[card].name + '.' });
+      const cards = s.battle.played[side];
+      if (cards.length === 2 && cards[0] === cards[1])
+        record(s, 'combo-card', { side, card, text: '¡COMBO! ' + SIDE[side] + ' reciben +1 de fuerza.' });
     } else record(s, 'pass', { side, text: SIDE[side] + ' pasan.' });
     s.battle.slot++;
     if (s.battle.slot === 4) resolveBattle(s);
     return true;
   }
+  const comboBonus = cards => cards.length === 2 && cards[0] === cards[1] ? 1 : 0;
+  function baseAttack(s, p) {
+    return 1 + (p.cannon ? 2 : VANGUARD[p.side] === p.id ? 2 : 0);
+  }
   function strength(own, rival, base) {
     return Math.max(0, own.reduce((sum, id) => sum + (CARDS[id].own ?? 0), base)
       + rival.reduce((sum, id) => sum + (CARDS[id].rival ?? 0), 0));
+  }
+  function continueBattle(s, winner, cleared, nearby) {
+    if (winner && nearby) entry(s, winner, cleared, 'battle', 'advance');
+    else if (winner) s.phase = 'bonus';
+    else startSummons(s);
   }
   function resolveBattle(s) {
     const b = s.battle;
     const a = piece(s, b.a), d = piece(s, b.d);
     const ac = b.played[a.side], dc = b.played[d.side];
-    const af = strength(ac, dc, 1), df = strength(dc, ac, 0);
-    const decisive = Number(ac.includes('decisive')) - Number(dc.includes('decisive'));
+    const af = strength(ac, dc, baseAttack(s, a) + comboBonus(ac));
+    const df = strength(dc, ac, comboBonus(dc));
+    // Dos golpes decisivos superan a uno; uno por cada bando se anula.
+    const decisive = ac.filter(c => c === 'decisive').length - dc.filter(c => c === 'decisive').length;
     const difference = decisive || af - df;
     const winner = difference > 0 ? a : difference < 0 ? d : null;
     const loser = winner === a ? d : a;
@@ -173,17 +213,44 @@
       p.ready = 0;
     }
     b.winner = winner?.side ?? null;
+    const decisiveCombo = Boolean(winner && b.played[winner.side].filter(card => card === 'decisive').length === 2);
     record(s, 'battle', { attacker: a.side, defender: d.side, nearby: b.nearby, advantage: decisive,
-      force: [af, df], winner: b.winner, removed: removed.map(p => p.id),
+      force: [af, df], combos: { I: comboBonus(b.played.I), R: comboBonus(b.played.R) },
+      decisiveCombo, winner: b.winner, removed: removed.map(p => p.id),
       text: winner ? 'Vence ' + winner.id + '. Sale ' + loser.id + '.' : 'Empate. Salen ' + a.id + ' y ' + d.id + '.' });
-    const blue = remaining(s, 'I'), red = remaining(s, 'R');
-    if (!blue || !red) {
-      finish(s, blue ? 'I' : red ? 'R' : null, 'eliminación');
-    } else if (winner && b.nearby) {
-      entry(s, winner, cleared, 'battle', 'advance');
-    } else if (winner) {
-      s.phase = 'bonus';
-    } else startSummons(s);
+    if (!remaining(s, 'I') || !remaining(s, 'R')) {
+      finish(s, remaining(s, 'I') ? 'I' : remaining(s, 'R') ? 'R' : null, 'eliminación');
+      return;
+    }
+    if (decisiveCombo) {
+      b.combo = { side: winner.side, winner: winner.id, cleared, nearby: b.nearby };
+      s.phase = 'combo';
+      record(s, 'combo-ready', { side: winner.side, text: '¡COMBO DECISIVO! Elige una segunda ficha enemiga para eliminar.' });
+      return;
+    }
+    continueBattle(s, winner, cleared, b.nearby);
+  }
+  function comboTargets(s) {
+    if (s.phase !== 'combo') return [];
+    return s.pieces.filter(p => p.side !== s.battle.combo.side && p.cell).map(p => p.id);
+  }
+  function comboEliminate(s, targetId) {
+    if (s.phase !== 'combo') return false;
+    const options = comboTargets(s);
+    if (targetId !== null && !options.includes(targetId)) return false;
+    const { winner: winnerId, cleared, nearby, side } = s.battle.combo;
+    if (targetId !== null) {
+      const victim = piece(s, targetId);
+      victim.cell = null;
+      victim.cannon = false;
+      victim.ready = 0;
+      record(s, 'combo', { side, target: targetId, text: '¡COMBO DECISIVO! ' + targetId + ' es eliminada como segunda ficha.' });
+    } else record(s, 'combo-skip', { side, text: SIDE[side] + ' omiten la segunda eliminación.' });
+    s.battle.combo = null;
+    if (!remaining(s, 'I') || !remaining(s, 'R')) {
+      finish(s, remaining(s, 'I') ? 'I' : remaining(s, 'R') ? 'R' : null, 'eliminación');
+    } else continueBattle(s, piece(s, winnerId), cleared, nearby);
+    return true;
   }
   function skipBonus(s) {
     if (s.phase !== 'bonus') return false;
@@ -213,7 +280,15 @@
       for (const card of s.battle.played[side]) {
         (card === 'cannon' ? player.removed : player.discard).push(card);
       }
-      draw(player);
+      for (const { slot, card } of s.battle.search[side]) {
+        const index = player.deck.indexOf(card);
+        if (index === -1) continue; // El resultado del mazo nunca se inventa.
+        player.deck.splice(index, 1);
+        player.hand[slot] = card;
+        record(s, 'search', { side, text: SIDE[side] + ' colocan una carta buscada en su reserva.' });
+      }
+      const count = draw(player);
+      if (count) record(s, 'draw', { side, count, text: SIDE[side] + ' roban ' + count + ' carta' + (count === 1 ? '' : 's') + '.' });
     }
     s.battle = null;
     s.phase = 'turn';
@@ -242,8 +317,9 @@
     return true;
   }
 
-  const game = { SIDE, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, piece, occupant, remaining,
-    moves, attacks, move, attack, actor, playable, reveal, rescue, summon, skipBonus, nextTurn };
+  const game = { SIDE, HAND_SIZE, VANGUARD, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, piece, occupant, remaining,
+    moves, attacks, move, attack, actor, playable, searchOptions, reveal, comboTargets, comboEliminate,
+    rescue, summon, skipBonus, nextTurn };
   if (typeof module === 'object') module.exports = game;
   else window.RealesIdeales = game;
 })();
