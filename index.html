@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · Prototipo v0.12</title>
+  <title>Reales Ideales · Prototipo v0.13</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
@@ -24,6 +24,14 @@
           <p>Llega a una estrella enemiga para gastar un marcador y rescatar una ficha normal.</p>
         </div>
       </details>
+      <details id="history" class="activity" hidden>
+        <summary>Registro</summary>
+        <div class="history-content">
+          <h2>Registro de partida</h2>
+          <ol id="log" aria-label="Últimas jugadas"></ol>
+          <button id="export" class="secondary" type="button">Exportar JSON</button>
+        </div>
+      </details>
       <button id="restart" type="button" class="secondary" hidden>Nueva partida</button>
     </div>
   </header>
@@ -37,41 +45,50 @@
   <main id="partida" class="play-layout" hidden>
     <section class="seat blue" aria-label="Tablero idealista">
       <div class="seat-heading">
-        <div><h2>Idealistas</h2><small id="blue-rescues"></small></div>
+        <div class="seat-info">
+          <h2>Idealistas</h2>
+          <div class="seat-stats"><small id="blue-rescues">Rescates: 2</small><small class="seat-deck">Mazo <b id="deck-I">25</b></small></div>
+        </div>
         <strong id="blue" aria-label="Fichas idealistas">8</strong>
       </div>
-      <div id="hand-I" class="hand" aria-label="Reserva idealista, tres cartas"></div>
     </section>
     <section class="seat red" aria-label="Tablero realista">
       <div class="seat-heading">
-        <div><h2 id="red-name">Realistas</h2><small id="red-rescues"></small></div>
+        <div class="seat-info">
+          <h2 id="red-name">Realistas</h2>
+          <div class="seat-stats"><small id="red-rescues">Rescates: 2</small><small class="seat-deck">Mazo <b id="deck-R">25</b></small></div>
+        </div>
         <strong id="red" aria-label="Fichas realistas">8</strong>
       </div>
-      <div id="hand-R" class="hand" aria-label="Reserva realista, tres cartas"></div>
     </section>
     <section class="field" aria-label="Campo de juego">
       <div class="field-heading"><span id="round">Ronda 1 de 12</span><span id="active-side">Turno idealista</span></div>
       <div id="phase-indicator" class="phase-indicator" role="status">Movimiento / ataque</div>
       <div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div>
-      <div class="deck-track" aria-label="Mazos y cantidad de cartas disponibles">
-        <div class="deck-count idealista"><span class="deck-icon" aria-hidden="true">▰</span> MAZO IDEALISTA <strong id="deck-I" aria-label="Cartas restantes del mazo idealista">25</strong></div>
-        <div class="deck-count realista"><span class="deck-icon" aria-hidden="true">▰</span> MAZO REALISTA <strong id="deck-R" aria-label="Cartas restantes del mazo realista">25</strong></div>
-      </div>
+
       <p id="battle-result" class="battle-result" role="status" hidden></p>
+      <div id="duel" class="duel" hidden></div>
       <div class="legend"><span>★ Rescate</span><span><i class="cannon-mini" aria-hidden="true"></i> Cañón</span></div>
     </section>
     <section class="panel controls" aria-labelledby="phase-title">
-      <p id="turn-info" class="turn-info"></p>
-      <h2 id="phase-title" tabindex="-1"></h2>
+      <div class="control-heading">
+        <p id="turn-info" class="turn-info"></p>
+        <h2 id="phase-title" tabindex="-1"></h2>
+      </div>
       <p id="instructions" class="instructions" role="status"></p>
-      <div id="duel" class="duel" hidden></div>
       <div id="actions" class="actions"></div>
     </section>
-    <details class="panel activity">
-      <summary>Registro de partida</summary>
-      <ol id="log" aria-label="Últimas jugadas"></ol>
-      <button id="export" class="secondary">Exportar JSON</button>
-    </details>
+    <section id="hand-drawer" class="hand-drawer" aria-label="Reserva de cartas" hidden>
+      <div class="drawer-toolbar">
+        <strong id="drawer-title">Reserva de cartas</strong>
+        <span id="drawer-hint">3 cartas · máximo 2 por batalla</span>
+        <button id="drawer-close" type="button" class="drawer-close" aria-label="Cerrar reserva">✕</button>
+      </div>
+      <div class="drawer-hands">
+        <div id="hand-I" class="hand" aria-label="Reserva idealista, tres cartas"></div>
+        <div id="hand-R" class="hand" aria-label="Reserva realista, tres cartas"></div>
+      </div>
+    </section>
   </main>
   <div id="phase-banner" class="phase-banner" role="status" aria-live="polite" hidden>
     <div class="banner-content"><span class="banner-symbol" aria-hidden="true">✦</span>
