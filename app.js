@@ -19,13 +19,14 @@ const roster = {
     ['Llama', 'llama'], ['Gallo', 'gallo'],
   ],
 };
-const symbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '◆' };
+const symbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '+1', search: '⌕' };
 const cardLooks = {
   boost: ['Táctica', 'llama'],
   weaken: ['Control', 'anaconda'],
   major: ['Táctica', 'tigrillo'],
   decisive: ['Ataque', 'condor'],
   cannon: ['Invocación', null],
+  search: ['Exploración', null],
 };
 let game = null;
 let mode = null;
@@ -41,6 +42,11 @@ let battleResult = null;
 let duel = null;
 let started = null;
 let ended = null;
+let bannerTimer = null;
+let bannerQueue = [];
+let bannerShowing = false;
+let announcedEvents = 0;
+const searchDialog = byId('search-choice');
 
 function span(parent, className, text) {
   const node = document.createElement('span');
@@ -89,6 +95,62 @@ byId('confirm').addEventListener('click', () => {
   dialog.close();
   callback?.();
 });
+byId('search-cancel').addEventListener('click', () => searchDialog.close());
+
+function bannerFromEvent(event) {
+  switch (event.type) {
+    case 'turn': return { kind: event.side, title: 'TURNO DE ' + rules.SIDE[event.side].toUpperCase(), subtitle: 'Prepara tu movimiento o ataque' };
+    case 'move': return { kind: 'move', title: 'FASE DE MOVIMIENTO', subtitle: event.piece + ' avanza en el tablero' };
+    case 'attack': return {
+      kind: 'attack', title: mode === 'ai' && event.side === 'R' ? '¡TE DECLARAN ATAQUE!' : '¡ATAQUE DECLARADO!',
+      subtitle: 'Fase de ataque: prepara tus cartas'
+    };
+    case 'combo-card': return { kind: 'combo', title: '¡COMBO! +1', subtitle: 'Dos cartas iguales activadas' };
+    case 'combo-ready': return { kind: 'combo', title: '¡COMBO DECISIVO!', subtitle: 'Selecciona una segunda ficha enemiga' };
+    case 'combo': return { kind: 'combo', title: '¡DOBLE ELIMINACIÓN!', subtitle: 'Una segunda ficha cae ante el combo decisivo' };
+    case 'summon': return { kind: 'summon', title: '¡CAÑÓN INVOCADO!', subtitle: 'Disponible desde el siguiente turno propio' };
+    case 'rescue': return { kind: 'rescue', title: '¡FICHA RESCATADA!', subtitle: 'Regresa al campo de batalla' };
+    case 'draw': return { kind: 'draw', title: 'ROBO DE CARTAS', subtitle: rules.SIDE[event.side] + ': ' + event.count + ' carta(s)' };
+    case 'end': return { kind: 'end', title: 'FIN DE PARTIDA', subtitle: event.text };
+    default: return null;
+  }
+}
+function showNextBanner() {
+  clearTimeout(bannerTimer);
+  if (!game || !bannerQueue.length) {
+    byId('phase-banner').hidden = true;
+    bannerShowing = false;
+    scheduleAI();
+    return;
+  }
+  const next = bannerQueue.shift();
+  const node = byId('phase-banner');
+  node.dataset.kind = next.kind;
+  byId('banner-title').textContent = next.title;
+  byId('banner-subtitle').textContent = next.subtitle;
+  node.hidden = false;
+  bannerShowing = true;
+  bannerTimer = setTimeout(() => {
+    node.hidden = true;
+    bannerShowing = false;
+    showNextBanner();
+  }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 500 : 1350);
+}
+function announceNewEvents() {
+  const newEvents = game.events.slice(announcedEvents);
+  announcedEvents = game.events.length;
+  for (const event of newEvents) {
+    const banner = bannerFromEvent(event);
+    if (banner) bannerQueue.push(banner);
+  }
+  if (!bannerShowing && bannerQueue.length) showNextBanner();
+}
+function currentPhase() {
+  if (game.phase === 'turn') return 'Movimiento / ataque';
+  if (game.phase === 'reveal') return 'Fase de batalla';
+  return { combo: 'Combo decisivo', bonus: 'Avance adicional', rescue: 'Rescate',
+    summon: 'Invocación', end: 'Partida terminada' }[game.phase] ?? 'Preparación';
+}
 
 function artwork(name) {
   return 'assets/' + name + '.webp';
@@ -105,7 +167,8 @@ function renderCardFace(parent, card, preview = false) {
     image.alt = '';
     image.draggable = false;
     art.append(image);
-  } else span(art, 'cannon-shape', '');
+  } else if (card === 'search') span(art, 'search-shape', '⌕');
+  else span(art, 'cannon-shape', '');
   span(art, 'card-emblem', symbols[card]);
   span(parent, 'card-type', type);
   if (preview) span(parent, 'card-effect', rules.CARDS[card].description);
@@ -197,8 +260,15 @@ function startAttack(attacker, defender) {
   render();
 }
 function clickCell(cell) {
-  if (!game || isAITurn()) return;
+  if (!game || isAITurn() || bannerShowing) return;
   const piece = rules.occupant(game, cell);
+  if (game.phase === 'combo' && piece && rules.comboTargets(game).includes(piece.id)) {
+    confirmAction('¡Combo decisivo!', '¿Eliminar también a ' + pieceName(piece) + '?', 'Eliminar', () => {
+      rules.comboEliminate(game, piece.id);
+      render();
+    });
+    return;
+  }
   if (game.phase === 'summon' && piece) {
     rules.summon(game, piece.id);
   } else if (game.phase === 'rescue' && selection && !piece) {
@@ -220,6 +290,7 @@ function renderBoard() {
     let target = moves.includes(cell) ? 'move' : targets.includes(piece?.id) ? 'target' : '';
     if (game.phase === 'rescue' && selection && !piece && rules.ZONES[game.rescue.side].includes(cell)) target = 'move';
     if (game.phase === 'summon' && piece?.side === game.summons[0]) target = 'move';
+    if (game.phase === 'combo' && piece && rules.comboTargets(game).includes(piece.id)) target = 'target';
     hex.dataset.highlight = target;
     hex.setAttribute('aria-pressed', String(Boolean(piece && piece.id === selection)));
     hex.setAttribute('aria-label', [cell, star ? 'estrella de rescate' : '', piece
@@ -235,7 +306,7 @@ function renderBoard() {
 }
 board.addEventListener('pointerdown', event => {
   suppressClick = false;
-  if (!game || isAITurn() || dialog.open || !event.isPrimary || event.button !== 0) return;
+  if (!game || isAITurn() || dialog.open || searchDialog.open || bannerShowing || !event.isPrimary || event.button !== 0) return;
   const cell = event.target.closest('[data-cell]')?.dataset.cell;
   const piece = cell && rules.occupant(game, cell);
   if (!piece || !selectable(piece.id)) return;
@@ -277,24 +348,41 @@ function clearRevealed() {
   restoreCards = null;
   shown = { I: [], R: [] };
 }
-function play(index = null, slot = null) {
+function play(index = null, slot = null, searchTarget = null) {
   const side = rules.actor(game);
   const card = index === null ? null : game.players[side].hand[index];
-  if (card && slot === null) {
-    slot = [0, 1].filter(position => !shown[side].some(face => face.slot === position))[index];
-  }
-  if (!rules.reveal(game, index)) return;
+  if (card && slot === null) slot = index;
+  if (!rules.reveal(game, index, searchTarget)) return;
   if (card) shown[side].push({ slot, card, latest: true });
   privateHand = false;
   if (game.phase !== 'reveal') {
     battleResult = game.events.findLast(event => event.type === 'battle');
     restoreCards = setTimeout(() => {
       clearRevealed();
-      renderHands();
+      if (game) renderHands();
     }, 1550);
   }
   render();
-  if (card) shown[side].at(-1).latest = false;
+  if (card && shown[side].length) shown[side].at(-1).latest = false;
+}
+function chooseSearch(index) {
+  const side = rules.actor(game);
+  const options = rules.searchOptions(game, side);
+  if (!options.length) {
+    play(index, index, null);
+    return;
+  }
+  const choices = byId('search-options');
+  choices.replaceChildren();
+  for (const card of options) {
+    const copies = game.players[side].deck.filter(value => value === card).length
+      - game.battle.search[side].filter(value => value.card === card).length;
+    button(choices, rules.CARDS[card].name + ' · ' + copies + ' en el mazo', () => {
+      searchDialog.close();
+      play(index, index, card);
+    }, 'secondary search-option');
+  }
+  searchDialog.showModal();
 }
 function renderHands() {
   const revealing = game.phase === 'reveal';
@@ -303,11 +391,9 @@ function renderHands() {
     const hand = byId('hand-' + side);
     hand.closest('.seat').dataset.prompt = String(actor === side && ['turn', 'reveal'].includes(game.phase));
     hand.replaceChildren();
-    let index = 0;
-    for (let slot = 0; slot < 2; slot++) {
+    for (let slot = 0; slot < rules.HAND_SIZE; slot++) {
       const face = shown[side].find(item => item.slot === slot);
-      const handIndex = face ? null : index++;
-      const card = face?.card ?? game.players[side].hand[handIndex];
+      const card = face?.card ?? game.players[side].hand[slot];
       const visible = Boolean(face || (card && privateHand && actor === side && !isAITurn()));
       const node = document.createElement('button');
       node.type = 'button';
@@ -320,7 +406,8 @@ function renderHands() {
         const name = renderCardFace(node, card);
         node.setAttribute('aria-label', face ? 'Revelada: ' + name : name);
         if (!node.disabled) node.addEventListener('click', () =>
-          confirmAction(rules.CARDS[card].name, '¿Deseas activar esta carta?', 'Activar', () => play(handIndex, slot), card));
+          confirmAction(rules.CARDS[card].name, '¿Deseas activar esta carta?', 'Activar',
+            () => card === 'search' ? chooseSearch(slot) : play(slot, slot), card));
       } else {
         if (card) span(node, 'card-sigil', '✦');
         else node.textContent = '—';
@@ -337,7 +424,9 @@ function nextTurn() {
   battleResult = null;
   duel = null;
   started ??= Date.now();
-  rules.nextTurn(game);
+  const previous = game.turn;
+  if (!rules.nextTurn(game)) return;
+  if (game.phase !== 'end') bannerQueue.push({ kind: 'endturn', title: 'FIN DEL TURNO', subtitle: 'Termina el turno de ' + rules.SIDE[previous] });
   render();
 }
 function renderControls() {
@@ -349,7 +438,9 @@ function renderControls() {
   switch (game.phase) {
     case 'turn':
       say('Turno de ' + rules.SIDE[game.turn], game.actions === 2 ? 'Completaste tus dos acciones.'
-        : selection ? 'Suelta la ficha en una casilla marcada o toca su destino.' : 'Arrastra o toca una ficha propia.');
+        : selection ? 'Suelta la ficha en una casilla marcada o toca su destino.'
+          : game.moved.length ? 'Ya realizaste tu movimiento. Puedes atacar o terminar.'
+            : 'Puedes mover una sola ficha y declarar un ataque, en el orden que prefieras.');
       button(actions, 'Terminar turno', nextTurn, 'primary');
       button(actions, privateHand ? 'Ocultar mis cartas' : 'Ver mis cartas', () => {
         clearRevealed();
@@ -371,6 +462,13 @@ function renderControls() {
       button(actions, 'Pasar sin activar', () => play(), 'secondary');
       break;
     }
+    case 'combo':
+      say('¡Combo decisivo!', 'Selecciona en el tablero otra ficha enemiga para eliminarla.');
+      button(actions, 'Omitir segunda eliminación', () => {
+        rules.comboEliminate(game, null);
+        render();
+      }, 'secondary');
+      break;
     case 'bonus':
       say('Avance de ' + rules.SIDE[game.battle.winner], 'Mueve una ficha propia a una casilla libre vecina.');
       button(actions, 'Omitir avance', () => { selection = null; rules.skipBonus(game); render(); }, 'secondary');
@@ -419,13 +517,19 @@ function render() {
   byId('red').textContent = rules.remaining(game, 'R');
   byId('blue-rescues').textContent = 'Rescates: ' + game.players.I.rescues;
   byId('red-rescues').textContent = 'Rescates: ' + game.players.R.rescues;
+  byId('deck-I').textContent = game.players.I.deck.length;
+  byId('deck-R').textContent = game.players.R.deck.length;
+  byId('phase-indicator').textContent = currentPhase();
   byId('turn-info').textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4'
     : game.phase === 'turn' ? 'Acciones: ' + game.actions + ' de 2' : '';
   const result = byId('battle-result');
   result.hidden = !battleResult;
   if (battleResult) {
     result.dataset.winner = battleResult.winner ?? '';
-    result.textContent = (battleResult.advantage ? 'Golpe decisivo · ' : battleResult.force.join(' a ') + ' · ') + battleResult.text;
+    result.textContent = (battleResult.decisiveCombo ? '¡COMBO DECISIVO! · '
+      : battleResult.combos?.I || battleResult.combos?.R ? '¡COMBO +1! · '
+        : battleResult.advantage ? 'Golpe decisivo · ' : '')
+      + battleResult.force.join(' a ') + ' · ' + battleResult.text;
   }
   renderBoard();
   renderHands();
@@ -436,22 +540,24 @@ function render() {
     item.textContent = event.text;
     return item;
   }));
+  announceNewEvents();
   scheduleAI();
 }
 function scheduleAI() {
   clearTimeout(aiTimer);
   aiTimer = null;
-  if (!game || dialog.open || !isAITurn()) return;
+  if (!game || dialog.open || searchDialog.open || bannerShowing || !isAITurn()) return;
   aiTimer = setTimeout(() => {
     aiTimer = null;
-    if (!game || dialog.open || !isAITurn()) return;
+    if (!game || dialog.open || searchDialog.open || bannerShowing || !isAITurn()) return;
     const action = ai.choose(rules, game, 'R');
     if (!action) return;
     switch (action.type) {
       case 'attack':
         startAttack(rules.piece(game, action.piece), rules.piece(game, action.target));
         return;
-      case 'reveal': play(action.index); return;
+      case 'reveal': play(action.index, action.index, action.searchTarget ?? null); return;
+      case 'combo': rules.comboEliminate(game, action.target); break;
       case 'nextTurn': nextTurn(); return;
       case 'move': rules.move(game, action.piece, action.cell); break;
       case 'rescue': rules.rescue(game, action.piece, action.cell); break;
@@ -463,6 +569,12 @@ function scheduleAI() {
 }
 function resetPresentation() {
   clearTimeout(aiTimer);
+  clearTimeout(bannerTimer);
+  bannerQueue = [];
+  bannerShowing = false;
+  announcedEvents = 0;
+  byId('phase-banner').hidden = true;
+  if (searchDialog.open) searchDialog.close();
   drag?.ghost?.remove();
   drag = null;
   selection = null;
@@ -509,7 +621,7 @@ byId('menu-link').addEventListener('click', event => {
 byId('restart').addEventListener('click', () =>
   confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => startGame(mode)));
 byId('export').addEventListener('click', () => {
-  const data = { version: '0.9', mode, complete: game.phase === 'end', round: game.round,
+  const data = { version: '0.12', mode, complete: game.phase === 'end', round: game.round,
     durationSeconds: started === null ? 0 : Math.floor(((ended ?? Date.now()) - started) / 1000),
     winner: game.winner, reason: game.reason, events: game.events };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
