@@ -20,14 +20,23 @@ const roster = {
   ],
 };
 const symbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '+1', search: '⌕' };
+// Gráficos de cartas aprobados: una composición especial para cada carta.
 const cardLooks = {
-  boost: ['Táctica', 'llama'],
-  weaken: ['Control', 'anaconda'],
-  major: ['Táctica', 'tigrillo'],
-  decisive: ['Ataque', 'condor'],
-  cannon: ['Invocación', null],
-  search: ['Exploración', null],
+  boost: ['Táctica', 0],
+  weaken: ['Control', 1],
+  major: ['Táctica', 2],
+  decisive: ['Ataque', 3],
+  cannon: ['Invocación', 4],
+  search: ['Exploración', 5],
 };
+// Solo se asignan nuevas ilustraciones a especies coincidentes.
+// No sustituimos una anaconda por un mono, ni un cóndor por un loro.
+const portraitArt = {
+  I: { mono: 0, llama: 1, guacamayo: 3, tigrillo: 4, gallo: 2 },
+  R: { cuy: 5 },
+};
+const newAsset = filename => 'assets/v014/' + filename;
+
 let game = null;
 let mode = null;
 let aiTimer = null;
@@ -159,22 +168,21 @@ function artwork(name) {
   return 'assets/' + name + '.webp';
 }
 function renderCardFace(parent, card, preview = false) {
-  const [type, portrait] = cardLooks[card];
+  const [type, artIndex] = cardLooks[card];
+  parent.classList.add('illustrated');
   parent.dataset.card = card;
   const title = span(parent, 'card-title', rules.CARDS[card].name);
+  // El pliego ilustrado incluye los títulos y símbolos. La capa textual
+  // permanece disponible para accesibilidad, sin duplicarse visualmente.
   const art = span(parent, 'card-art', '');
+  art.dataset.artIndex = String(artIndex);
   art.setAttribute('aria-hidden', 'true');
-  if (portrait) {
-    const image = document.createElement('img');
-    image.src = artwork(portrait);
-    image.alt = '';
-    image.draggable = false;
-    art.append(image);
-  } else if (card === 'search') span(art, 'search-shape', '⌕');
-  else span(art, 'cannon-shape', '');
-  span(art, 'card-emblem', symbols[card]);
+  span(parent, 'card-emblem', symbols[card]);
   span(parent, 'card-type', type);
-  if (preview) span(parent, 'card-effect', rules.CARDS[card].description);
+  if (preview) {
+    parent.setAttribute('aria-label', rules.CARDS[card].name + ': ' + rules.CARDS[card].description);
+    span(parent, 'card-effect', rules.CARDS[card].description);
+  }
   return title.textContent;
 }
 function character(piece) {
@@ -188,17 +196,34 @@ function makeToken(piece) {
   node.className = 'token ' + piece.side + (piece.cannon ? ' cannon' : '');
   node.dataset.piece = piece.id;
   node.setAttribute('aria-hidden', 'true');
-  if (piece.cannon) span(node, 'cannon-shape', '');
-  else {
+  if (piece.cannon) {
+    const image = document.createElement('img');
+    image.className = 'cannon-art';
+    image.src = newAsset('canon.png');
+    image.alt = '';
+    image.draggable = false;
+    node.append(image);
+  } else {
     const animal = character(piece)[1];
     node.dataset.character = animal;
     const portrait = document.createElement('span');
     portrait.className = 'token-portrait';
-    const image = document.createElement('img');
-    image.src = artwork(animal);
-    image.alt = '';
-    image.draggable = false;
-    portrait.append(image);
+    const sprite = portraitArt[piece.side][animal];
+    if (Number.isInteger(sprite)) {
+      node.dataset.sprite = String(sprite);
+      const art = document.createElement('span');
+      art.className = 'token-sprite';
+      art.dataset.sprite = String(sprite);
+      art.dataset.side = piece.side;
+      portrait.append(art);
+    } else {
+      // Conserva el retrato original cuando el pliego no contiene la especie.
+      const image = document.createElement('img');
+      image.src = artwork(animal);
+      image.alt = '';
+      image.draggable = false;
+      portrait.append(image);
+    }
     node.append(portrait);
   }
   return node;
@@ -497,7 +522,7 @@ function renderControls() {
         : selection ? 'Elige una casilla marcada.'
           : game.moved.length ? 'Movimiento usado. Puedes atacar.'
             : 'Un movimiento y un ataque por turno.');
-      button(actions, 'Terminar turno', nextTurn, 'primary');
+      button(actions, 'Terminar turno', nextTurn, 'primary end-turn');
       createDrawerButton(drawerOpen ? 'Cerrar cartas' : 'Mis 3 cartas',
         !drawerOpen, !drawerOpen, 'secondary');
       break;
@@ -678,7 +703,7 @@ byId('menu-link').addEventListener('click', event => {
 byId('restart').addEventListener('click', () =>
   confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => startGame(mode)));
 byId('export').addEventListener('click', () => {
-  const data = { version: '0.13', mode, complete: game.phase === 'end', round: game.round,
+  const data = { version: '0.14', mode, complete: game.phase === 'end', round: game.round,
     durationSeconds: started === null ? 0 : Math.floor(((ended ?? Date.now()) - started) / 1000),
     winner: game.winner, reason: game.reason, events: game.events };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
