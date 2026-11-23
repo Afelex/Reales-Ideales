@@ -7,11 +7,20 @@
   let ctx = null;
   let master = null;
   let noiseBuffer = null;
-  let muted = false;
-  try { muted = localStorage.getItem(STORAGE_KEY) === 'off'; } catch { /* sin almacenamiento */ }
+  // Música y efectos se controlan por separado (panel de ajustes).
+  let effectsOn = true;
+  let musicOn = true;
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === 'off') effectsOn = musicOn = false;
+    else if (saved?.startsWith('{')) ({ effectsOn = true, musicOn = true } = JSON.parse(saved));
+  } catch { /* sin almacenamiento */ }
+  const save = () => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ effectsOn, musicOn })); } catch { /* sin almacenamiento */ }
+  };
 
   function audio() {
-    if (muted) return null;
+    if (!effectsOn && !musicOn) return null;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return null;
     if (!ctx) {
@@ -56,7 +65,7 @@
     fade(old, 0, 600, () => old.pause());
   }
   function applyMusic() {
-    if (muted || !wanted) {
+    if (!musicOn || !wanted) {
       stopCurrent();
       return;
     }
@@ -82,13 +91,13 @@
   }
   function duck(level) {
     duckLevel = level;
-    if (current && !muted) fade(current.el, TRACKS[current.name].volume * level, 500);
+    if (current && musicOn) fade(current.el, TRACKS[current.name].volume * level, 500);
   }
 
   // Los navegadores exigen un gesto del usuario para habilitar el audio.
   const unlock = () => {
-    if (muted) return;
-    audio();
+    if (!effectsOn && !musicOn) return;
+    if (effectsOn) audio();
     if (wanted && (!current || current.el.paused)) applyMusic();
   };
   window.addEventListener('pointerdown', unlock, { passive: true });
@@ -257,14 +266,25 @@
   };
 
   function play(name, ...args) {
-    if (muted || !sounds[name]) return;
+    if (!effectsOn || !sounds[name]) return;
     try { sounds[name](...args); } catch { /* audio no disponible */ }
   }
   function setMuted(value) {
-    muted = Boolean(value);
-    try { localStorage.setItem(STORAGE_KEY, muted ? 'off' : 'on'); } catch { /* sin almacenamiento */ }
-    if (!muted) play('move');
+    effectsOn = musicOn = !value;
+    save();
+    if (effectsOn) play('move');
     applyMusic();
   }
-  window.RealesIdealesFX = { play, setMuted, isMuted: () => muted, music, duck };
+  function setEffects(on) {
+    effectsOn = Boolean(on);
+    save();
+    if (effectsOn) play('move');
+  }
+  function setMusic(on) {
+    musicOn = Boolean(on);
+    save();
+    applyMusic();
+  }
+  window.RealesIdealesFX = { play, setMuted, isMuted: () => !effectsOn && !musicOn, music, duck,
+    setEffects, setMusic, effectsOn: () => effectsOn, musicOn: () => musicOn };
 })();

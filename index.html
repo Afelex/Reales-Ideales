@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=017-escena">
+  <link rel="stylesheet" href="styles.css?v=018-tablero">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
-  <script defer src="fx.js?v=017-escena"></script>
-  <script defer src="app.js?v=017-escena"></script>
+  <script defer src="fx.js?v=018-tablero"></script>
+  <script defer src="app.js?v=018-tablero"></script>
 </head>
 <body>
   <header class="masthead">
@@ -35,8 +35,8 @@
           <button id="export" class="secondary" type="button">Exportar JSON</button>
         </div>
       </details>
-      <button id="sound-toggle" type="button" class="secondary sound-toggle" aria-pressed="true" aria-label="Sonido activado" title="Sonido">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path class="speaker" d="M4 9.5h3.2L12 5.2v13.6l-4.8-4.3H4z"/><path class="sound-on" d="M15.2 9.1a4 4 0 0 1 0 5.8M17.6 6.6a7.5 7.5 0 0 1 0 10.8"/><path class="sound-off" d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></svg>
+      <button id="settings-button" type="button" class="secondary settings-button" aria-haspopup="dialog" aria-label="Ajustes" title="Ajustes">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
       </button>
       <button id="restart" type="button" class="secondary" hidden>Nueva partida</button>
     </div>
@@ -142,6 +142,20 @@
       </div>
     </div>
   </section>
+  <dialog id="settings" aria-labelledby="settings-title">
+    <h2 id="settings-title">Ajustes</h2>
+    <form method="dialog" class="settings-form">
+      <fieldset><legend>Música</legend>
+        <label><input type="radio" name="music" value="on"> Sí</label><label><input type="radio" name="music" value="off"> No</label></fieldset>
+      <fieldset><legend>Efectos de sonido</legend>
+        <label><input type="radio" name="effects" value="on"> Sí</label><label><input type="radio" name="effects" value="off"> No</label></fieldset>
+      <fieldset><legend>Temporizador</legend>
+        <label><input type="radio" name="timer" value="off"> Sin tiempo</label><label><input type="radio" name="timer" value="relaxed"> Relajado</label><label><input type="radio" name="timer" value="normal"> Normal</label></fieldset>
+      <fieldset><legend>Velocidad de animación</legend>
+        <label><input type="radio" name="speed" value="1"> Normal</label><label><input type="radio" name="speed" value="1.8"> Rápida</label></fieldset>
+      <div class="dialog-actions"><button class="primary" value="ok">Listo</button></div>
+    </form>
+  </dialog>
   <dialog id="search-choice" aria-labelledby="search-title" aria-describedby="search-info">
     <h2 id="search-title">Elige una carta de tu mazo</h2>
     <p id="search-info">La carta seleccionada ocupará el espacio de Exploración después del combate, no durante él.</p>
