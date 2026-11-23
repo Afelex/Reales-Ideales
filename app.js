@@ -233,10 +233,13 @@ function clearEffects() {
   lastCells = new Map();
   document.querySelector('.field')?.classList.remove('fx-shake', 'fx-shake-strong');
 }
+// Centro de una casilla en pantalla: mismo sistema de referencia que el video del escenario.
 function cellPoint(cell) {
-  const rect = hexButtons.get(cell)?.getBoundingClientRect();
-  if (!rect?.width) return null;
-  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: rect.width };
+  const geometry = sceneGeometry?.cells[cell];
+  const rect = board.getBoundingClientRect();
+  if (!geometry || !rect.width) return null;
+  const scale = rect.width / sceneGeometry.width;
+  return { x: rect.left + geometry.x * scale, y: rect.top + geometry.y * scale, size: geometry.w * scale };
 }
 let fxCells = new Map();
 function pieceCell(id) {
@@ -283,7 +286,7 @@ function tokenRect(id, cell) {
   const rect = board.querySelector('[data-piece="' + id + '"]')?.getBoundingClientRect();
   if (rect?.width) return rect;
   const point = cellPoint(cell);
-  return point && { width: point.size * .78, height: point.size * .78 };
+  return point && { width: point.size * TOKEN_SCALE, height: point.size * TOKEN_SCALE };
 }
 function hideToken(id) {
   fxHidden.add(id);
@@ -788,18 +791,41 @@ function buildBoardArt() {
   return art;
 }
 // === Escenarios del tablero ===
-// "andes": video en bucle con la cuadrícula ya dibujada (720×1280; se recortan
-// los 200 px superiores de cielo). "plaza": tablero SVG sobre la plaza.
-// Cada escenario define dónde cae el centro de cada casilla, en porcentaje.
-const ANDES = { width: 720, height: 1280, crop: 200, columns: [129, 242, 354, 467, 579], firstRow: 472.5, step: 132.75 };
+// Cada escenario describe su fotograma (ancho × alto en píxeles) y, para cada casilla
+// lógica, el centro y el contorno visibles. En "andes" las medidas salen del video
+// con perspectiva (tools/medir_escenario.py); en "plaza", del tablero SVG regular.
+// Casillas, fichas y animaciones comparten ese único sistema de referencia.
+const TOKEN_SCALE = .66;
+const tokenLayer = document.createElement('div');
+tokenLayer.className = 'token-layer';
+board.append(tokenLayer);
+const boardViewport = board.parentElement;
+let sceneGeometry = null;
+function withBounds(cells) {
+  for (const cell of Object.values(cells)) {
+    const xs = cell.poly.map(p => p[0]), ys = cell.poly.map(p => p[1]);
+    Object.assign(cell, { left: Math.min(...xs), top: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs),
+      h: Math.max(...ys) - Math.min(...ys) });
+  }
+  return cells;
+}
+function plazaCells() {
+  const cells = {};
+  for (const cell of Object.values(rules.CELLS)) {
+    const { center, edges } = boardColumns[cell.col];
+    const rowIndex = Math.floor((cell.row - 1) / 2);
+    const top = edges[rowIndex], bottom = edges[rowIndex + 1], cy = (top + bottom) / 2;
+    const w = 1116 * .22, h = bottom - top;
+    cells[cell.id] = { x: center, y: cy, poly: [[center - w / 2, cy], [center - w / 4, top], [center + w / 4, top],
+      [center + w / 2, cy], [center + w / 4, bottom], [center - w / 4, bottom]] };
+  }
+  return cells;
+}
+const scenes = window.RealesIdealesEscenarios ?? {};
 const BOARD_THEMES = {
   andes: {
-    place(cell) {
-      const visible = ANDES.height - ANDES.crop;
-      const y = ANDES.firstRow + (cell.row - 1) / 2 * ANDES.step;
-      return { left: ANDES.columns[cell.col] / ANDES.width * 100, top: (y - ANDES.crop) / visible * 100,
-        height: ANDES.step / visible * 100 };
-    },
+    geometry: () => ({ width: scenes.andes.width, height: scenes.andes.height, crop: 200, cells: withBounds(structuredClone(scenes.andes.cells)) }),
+    fullscreen: true,
     art() {
       const video = document.createElement('video');
       video.className = 'board-video';
@@ -820,29 +846,78 @@ const BOARD_THEMES = {
     },
   },
   plaza: {
-    place(cell) {
-      const { center, edges } = boardColumns[cell.col];
-      const rowIndex = Math.floor((cell.row - 1) / 2);
-      const top = edges[rowIndex], bottom = edges[rowIndex + 1];
-      return { left: center / 1116 * 100, top: (top + bottom) / 2 / 1410 * 100, height: (bottom - top) / 1410 * 100 };
-    },
+    geometry: () => ({ width: 1116, height: 1410, crop: 0, cells: withBounds(plazaCells()) }),
+    fullscreen: false,
     art: buildBoardArt,
   },
 };
+// Posición de la ficha: base apoyada un poco por debajo del centro de la casilla,
+// tamaño proporcional al ancho visible (las casillas del fondo son más pequeñas).
+function placeToken(token, cellId) {
+  const g = sceneGeometry.cells[cellId];
+  const { width: W, height: H } = sceneGeometry;
+  const size = g.w * TOKEN_SCALE;
+  token.style.width = size / W * 100 + '%';
+  token.style.left = (g.x - size / 2) / W * 100 + '%';
+  token.style.top = (g.y + g.h * .2 - size) / H * 100 + '%';
+  token.style.zIndex = String(Math.round(g.y));
+}
 function applyBoardTheme() {
-  const name = BOARD_THEMES[settings.board] ? settings.board : 'andes';
+  const name = BOARD_THEMES[settings.board] && (settings.board !== 'andes' || scenes.andes) ? settings.board : 'plaza';
   const theme = BOARD_THEMES[name];
+  sceneGeometry = theme.geometry();
+  const { width: W, height: H, cells } = sceneGeometry;
   board.dataset.theme = name;
+  board.dataset.geometry = 'true';
   document.body.dataset.theme = name;
   board.querySelector('.board-art, .board-video')?.remove();
   board.prepend(theme.art());
   for (const [id, hex] of hexButtons) {
-    const place = theme.place(rules.CELLS[id]);
-    hex.style.left = place.left + '%';
-    hex.style.top = place.top + '%';
-    hex.style.height = place.height + '%';
+    const g = cells[id];
+    hex.style.left = g.left / W * 100 + '%';
+    hex.style.top = g.top / H * 100 + '%';
+    hex.style.width = g.w / W * 100 + '%';
+    hex.style.height = g.h / H * 100 + '%';
+    hex.style.clipPath = 'polygon(' + g.poly.map(([x, y]) =>
+      ((x - g.left) / g.w * 100).toFixed(2) + '% ' + ((y - g.top) / g.h * 100).toFixed(2) + '%').join(',') + ')';
+  }
+  layoutScene();
+  if (game) renderBoard();
+}
+// Encaje del escenario: en móvil vertical el video cubre toda la pantalla (como object-fit: cover,
+// pero calculado aquí para que la capa interactiva use exactamente la misma escala y recorte).
+// En el resto de pantallas, el tablero va en su columna recortando el cielo superior.
+const portraitPhone = window.matchMedia('(orientation: portrait) and (max-width: 849px)');
+function layoutScene() {
+  if (!sceneGeometry) return;
+  const { width: W, height: H, crop } = sceneGeometry;
+  const full = document.body.classList.contains('playing') && BOARD_THEMES[board.dataset.theme].fullscreen && portraitPhone.matches;
+  document.body.classList.toggle('scene-full', full);
+  // En pantalla completa el escenario cuelga de <body>, detrás de toda la interfaz;
+  // en las demás vistas vuelve a su columna.
+  const home = byId('partida').querySelector('.board-stage');
+  if (full && boardViewport.parentElement !== document.body) document.body.prepend(boardViewport);
+  if (!full && boardViewport.parentElement !== home) home.append(boardViewport);
+  if (full) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const scale = Math.max(vw / W, vh / H);
+    const width = W * scale, height = H * scale;
+    // Si sobra alto, se recorta el cielo (arriba) y nunca el terreno de juego.
+    Object.assign(board.style, { left: (vw - width) / 2 + 'px', top: Math.min(0, vh - height) + 'px',
+      width: width + 'px', height: height + 'px' });
+    boardViewport.style.removeProperty('--scene-aspect');
+    // Límites del terreno en pantalla para colocar la interfaz alrededor de las fichas.
+    const ys = Object.values(sceneGeometry.cells).flatMap(c => [c.y + c.h * .2 - c.w * TOKEN_SCALE, c.top + c.h]);
+    const offset = Math.min(0, vh - height);
+    document.body.style.setProperty('--grid-top', Math.min(...ys) * scale + offset + 'px');
+    document.body.style.setProperty('--grid-bottom', Math.max(...ys) * scale + offset + 'px');
+  } else {
+    boardViewport.style.setProperty('--scene-aspect', String(W / (H - crop)));
+    Object.assign(board.style, { left: '0', width: '100%', top: -crop / (H - crop) * 100 + '%', height: H / (H - crop) * 100 + '%' });
   }
 }
+window.addEventListener('resize', layoutScene);
+portraitPhone.addEventListener?.('change', layoutScene);
 applyBoardTheme();
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
@@ -982,6 +1057,7 @@ function specialReadyPieces() {
   return new Set(game.pieces.filter(p => p.side === game.turn && p.cell && rules.specialOptions(game, p.id).length).map(p => p.id));
 }
 function renderBoard() {
+  const tokens = [];
   const ready = specialReadyPieces();
   const special = specialView();
   const moves = special ? special.destinations : selection ? rules.moves(game, selection) : [];
@@ -1000,15 +1076,22 @@ function renderBoard() {
     hex.setAttribute('aria-label', [cell, star ? 'estrella de rescate' : '', piece
       ? rules.SIDE[piece.side] + ' · ' + pieceName(piece) : 'libre',
       target === 'target' ? 'objetivo de ataque' : target === 'move' ? 'movimiento disponible' : ''].filter(Boolean).join(', '));
-    hex.replaceChildren();
     if (piece) {
       const token = makeToken(piece);
       if (drag?.ghost && drag.id === piece.id) token.classList.add('origin');
       if (fxHidden.has(piece.id)) token.classList.add('fx-pending');
       if (ready.has(piece.id)) token.classList.add('ss-glow');
-      hex.append(token);
+      // La ficha refleja el estado de su casilla (selección, objetivo, estrella).
+      token.dataset.highlight = target;
+      token.dataset.selected = String(piece.id === selection);
+      token.dataset.star = String(star);
+      if (star) span(token, 'token-star', '');
+      if (hex.dataset.power) token.dataset.power = 'true';
+      placeToken(token, cell);
+      tokens.push(token);
     }
   }
+  tokenLayer.replaceChildren(...tokens);
 }
 board.addEventListener('pointerdown', event => {
   suppressClick = false;
@@ -1716,6 +1799,7 @@ function render() {
         : battleResult.advantage ? 'Golpe decisivo · ' : '')
       + describe(battleResult);
   }
+  document.body.classList.toggle('revealing', game.phase === 'reveal');
   syncHandDrawer();
   renderBoard();
   renderHands();
@@ -1811,6 +1895,7 @@ function startGame(nextMode) {
   byId('inicio').hidden = true;
   byId('partida').hidden = false;
   document.body.classList.add('playing');
+  layoutScene();
   byId('history').hidden = false;
   byId('restart').hidden = false;
   byId('red-name').textContent = mode === 'ai' ? 'Realistas · IA' : 'Realistas';
@@ -1825,7 +1910,8 @@ function returnToMenu() {
   mode = null;
   byId('inicio').hidden = false;
   byId('partida').hidden = true;
-  document.body.classList.remove('playing');
+  document.body.classList.remove('playing', 'revealing');
+  layoutScene();
   byId('history').hidden = true;
   byId('history').open = false;
   byId('restart').hidden = true;

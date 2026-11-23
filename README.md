@@ -115,11 +115,25 @@ La interfaz muestra banners de pantalla completa para los cambios principales: c
 - **Tablero SVG integrado** con la plaza.
 - **Recursos más ligeros:** WebP para cartas y cañón; arte sin uso movido a `assets/reserva/`.
 
-## Escenario «Campo andino» (v0.19)
+## Escenario «Campo andino» (v0.20)
 
-El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.mp4`, 9 s, sin audio, 1 MB): un campo de plastilina con la cuadrícula de 27 hexágonos ya dibujada, estrellas giratorias en las casillas de rescate, bandera al viento y la llama alada con su cañón. Las fichas se colocan sobre sus hexágonos con las medidas de `ANDES` en `app.js` (video de 720×1280, recortado 200 px de cielo). El bucle funde el último segundo con el inicio para no dar saltos. Con animaciones reducidas se muestra la imagen fija (`campo-andino-poster.webp`). Alrededor, `campo-andino-fondo.webp` (el mismo escenario desenfocado) da profundidad de campo.
+El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.mp4`, 9 s, sin audio, 1 MB) cuya grilla hexagonal, inclinada en perspectiva, **es** el tablero: no se dibuja ninguna grilla encima.
 
-En **Ajustes → Escenario** se puede volver a la **Plaza** con el tablero SVG. Cada escenario define su vídeo o dibujo y la posición de las casillas en `BOARD_THEMES`, así que añadir mapas nuevos solo requiere el arte y sus medidas.
+- **Un solo sistema de referencia:** casillas, fichas y animaciones usan las coordenadas del fotograma del video (720×1280). Cada casilla tiene su centro y su contorno en perspectiva, medidos en `assets/escenario/campo-andino-casillas.js`.
+  - las zonas táctiles son polígonos con la forma real de cada hexágono;
+  - las fichas se apoyan con la base sobre el centro, con sombra en el suelo y un tamaño proporcional a la profundidad;
+  - las fichas de delante tapan a las de atrás.
+- **Pantalla completa en móvil vertical:** el video cubre el 100 % de la pantalla, sin bordes ni desplazamiento. `layoutScene()` calcula la misma escala y el mismo recorte para el video y para la capa interactiva; si sobra alto, recorta cielo y nunca terreno. La interfaz flota encima. Durante el combate, los marcadores se apartan y las cartas ocupan la franja del cielo, hasta justo encima de las fichas (`--grid-top`). En escritorio y en horizontal, el video va en su columna recortando el cielo.
+- **Bucle sin salto:** el último segundo se funde con el inicio. Con animaciones reducidas se muestra la imagen fija.
+- **Ajustes → Escenario:** permite volver a la **Plaza** (tablero SVG). Cada escenario se define en `BOARD_THEMES`.
+
+**Medición y cambio de video.** `tools/medir_escenario.py` detecta las celdas del video, ajusta una homografía (transformación de perspectiva) entre una grilla hexagonal ideal y los centros medidos, y escribe el archivo de casillas. En el video actual el error medio es de 2,4 px. Requiere `opencv-python-headless` y `numpy` solo para medir.
+
+```
+python3 tools/medir_escenario.py VIDEO.mp4 assets/escenario/campo-andino-casillas.js andes [--omitir A:2,...] [--verificacion revision.png]
+```
+
+> **Pendiente:** el video actual tiene 33 hexágonos (columnas de 6-7-7-7-6) y el juego 27 (5-6-5-6-5). Mientras llega el video regenerado, se omite la fila central sobrante (`--omitir A:2,B:3,C:2,C:6,D:3,E:2`). `tools/guia-escenario-27.png` (generada con `tools/guia_escenario.py`) es la referencia de la grilla de 27 casillas para generar el nuevo escenario; al recibirlo basta con optimizarlo y volver a medirlo sin `--omitir`.
 
 ## Pruebas automatizadas
 
