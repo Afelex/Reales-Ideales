@@ -146,8 +146,26 @@ function announceNewEvents() {
     const banner = bannerFromEvent(event);
     if (banner) bannerQueue.push(banner);
   }
+  // Primero la animación, después el banner: como en los juegos de artillería.
+  const duration = playEffects(newEvents);
+  if (duration > 0) {
+    fxBusy = true;
+    document.body.classList.add('fx-busy');
+    clearTimeout(fxBusyTimer);
+    fxBusyTimer = setTimeout(releaseEffects, duration);
+  } else if (!fxBusy && !bannerShowing && bannerQueue.length) showNextBanner();
+}
+function releaseEffects() {
+  fxBusy = false;
+  fxBusyTimer = null;
+  document.body.classList.remove('fx-busy');
+  if (!game) return;
   if (!bannerShowing && bannerQueue.length) showNextBanner();
-  playEffects(newEvents);
+  else scheduleAI();
+}
+// Ocupado mientras hay animación o banner: se bloquean clics y la IA.
+function busy() {
+  return fxBusy || bannerShowing;
 }
 
 // === Efectos visuales y sonoros ===
@@ -163,7 +181,11 @@ const cardColors = {
 const fxEmblems = new Set(['boost', 'weaken', 'major', 'decisive', 'cannon']);
 const fxSymbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '+1', search: '⌕' };
 let fxTimers = [];
+let fxBusy = false;
+let fxBusyTimer = null;
 let lastCells = new Map();
+// Fichas cuyo dibujo real se oculta mientras su réplica animada recorre el tablero.
+const fxHidden = new Set();
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function later(ms, callback) {
   const timer = setTimeout(() => {
@@ -175,6 +197,11 @@ function later(ms, callback) {
 function clearEffects() {
   fxTimers.forEach(clearTimeout);
   fxTimers = [];
+  clearTimeout(fxBusyTimer);
+  fxBusyTimer = null;
+  fxBusy = false;
+  document.body.classList.remove('fx-busy');
+  fxHidden.clear();
   fxLayer.replaceChildren();
   lastCells = new Map();
   document.querySelector('.field')?.classList.remove('fx-shake', 'fx-shake-strong');
@@ -216,6 +243,63 @@ function shake(strong = false) {
   field.classList.add(strong ? 'fx-shake-strong' : 'fx-shake');
   later(650, () => field.classList.remove('fx-shake', 'fx-shake-strong'));
 }
+// Globo de diálogo junto a una ficha, como los gritos de los vehículos.
+function speech(cell, text, side, life = 1100) {
+  const point = cellPoint(cell);
+  if (!point) return;
+  const right = point.x < window.innerWidth - 150;
+  const bubble = spawn('fx-bubble ' + (right ? 'to-right' : 'to-left') + ' side-' + side,
+    { x: point.x + (right ? 1 : -1) * point.size * .12, y: point.y - point.size * .3, size: 0 }, {}, life);
+  if (bubble) bubble.textContent = text;
+}
+function tokenRect(id, cell) {
+  const rect = board.querySelector('[data-piece="' + id + '"]')?.getBoundingClientRect();
+  if (rect?.width) return rect;
+  const point = cellPoint(cell);
+  return point && { width: point.size * .78, height: point.size * .78 };
+}
+function hideToken(id) {
+  fxHidden.add(id);
+  board.querySelector('[data-piece="' + id + '"]')?.classList.add('fx-pending');
+}
+function showToken(id) {
+  fxHidden.delete(id);
+  board.querySelector('[data-piece="' + id + '"]')?.classList.remove('fx-pending');
+}
+// Réplica de una ficha sobre la capa de efectos (vehículo o resto antes de explotar).
+function tokenClone(piece, point, rect, className, life) {
+  const node = spawn(className, { ...point, size: 0 }, { w: rect.width + 'px', h: rect.height + 'px' }, life);
+  if (node) node.append(makeToken(piece));
+  return node;
+}
+const DRIVE_MS = 900;
+// Desplazamiento tipo camioncito: avanza a tumbos, levanta polvo y suena el motor.
+function drive(event) {
+  const piece = rules.piece(game, event.piece);
+  const from = cellPoint(event.from), to = cellPoint(event.to);
+  const rect = tokenRect(event.piece, event.to);
+  if (!piece || !from || !to || !rect) return;
+  fx.play('drive', DRIVE_MS / 1000);
+  if (reducedMotion()) {
+    spawn('fx-dust', to, {}, 700);
+  } else {
+    const vehicle = tokenClone(piece, from, rect, 'fx-vehicle', DRIVE_MS + 60);
+    if (vehicle) {
+      vehicle.style.setProperty('--dx', (to.x - from.x) + 'px');
+      vehicle.style.setProperty('--dy', (to.y - from.y) + 'px');
+      vehicle.style.setProperty('--tilt', (to.x >= from.x ? 5 : -5) + 'deg');
+    }
+    for (let i = 0; i < 4; i++) later(i * DRIVE_MS / 4, () => {
+      const t = i / 4;
+      spawn('fx-dust small', { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t + rect.height * .35, size: rect.width * .5 }, {}, 650);
+    });
+  }
+  later(DRIVE_MS, () => {
+    showToken(event.piece);
+    fx.play('ok');
+    speech(event.to, '¡Ok!', piece.side, 950);
+  });
+}
 function explodeAt(cell, big = false) {
   const point = cellPoint(cell);
   spawn('fx-explosion' + (big ? ' big' : ''), point, {}, 1200);
@@ -225,6 +309,13 @@ function explodeAt(cell, big = false) {
     const reach = (point?.size ?? 60) * (0.8 + Math.random() * 0.6);
     spawn('fx-debris', point, { dx: Math.cos(angle) * reach + 'px', dy: Math.sin(angle) * reach + 'px' }, 900);
   }
+}
+const SHOT_DELAY = 650, SHOT_FLIGHT = 720;
+function attackSequence(event) {
+  const fromCell = pieceCell(event.piece), toCell = pieceCell(event.target);
+  speech(fromCell, '¡Al ataque!', event.side, 1200);
+  fx.play('charge');
+  later(SHOT_DELAY, () => fireShell(fromCell, toCell, event.side));
 }
 function fireShell(fromCell, toCell, side) {
   const from = cellPoint(fromCell), to = cellPoint(toCell);
@@ -243,37 +334,69 @@ function fireShell(fromCell, toCell, side) {
   inner.style.setProperty('--dy', dy + 'px');
   inner.style.setProperty('--peak', (dy / 2 - arc) + 'px');
   shell.append(inner);
-  later(720, () => {
+  later(SHOT_FLIGHT, () => {
     spawn('fx-impact', to, {}, 700);
     spawn('fx-lock', to, {}, 1400);
     fx.play('explosion');
     shake();
   });
 }
+// Escaparate de carta: la carta activada entra volando desde su bando,
+// se voltea y muestra nombre y efecto para que el rival la vea.
+const SHOWCASE_MS = 1700;
+function showcase(event) {
+  const card = event.type === 'reveal' ? event.card : null;
+  const node = spawn('fx-showcase from-' + event.side, { x: window.innerWidth / 2, y: window.innerHeight * .42, size: 0 }, {},
+    card ? SHOWCASE_MS : 1000);
+  if (!node) return;
+  const role = game.battle && event.side === game.battle.defender ? 'responden' : 'activan';
+  span(node, 'fx-showcase-who', rules.SIDE[event.side] + (card ? ' ' + role : ' pasan'));
+  if (!card) {
+    node.classList.add('pass');
+    span(node, 'fx-showcase-pass', 'Sin carta');
+    fx.play('pass');
+    return;
+  }
+  const [color, glow] = cardColors[card];
+  node.style.setProperty('--color', color);
+  node.style.setProperty('--glow', glow);
+  const face = span(node, 'card front fx-showcase-card', '');
+  renderCardFace(face, card);
+  span(node, 'fx-showcase-effect', rules.CARDS[card].description);
+  fx.play('deal');
+  later(380, () => {
+    fx.play(card);
+    const burst = spawn('fx-card-burst', { x: window.innerWidth / 2, y: window.innerHeight * .42, size: 0 }, { color, glow }, 1100);
+    if (burst && fxEmblems.has(card)) {
+      const emblem = document.createElement('img');
+      emblem.src = 'assets/clay/emblemas/' + card + '.webp';
+      emblem.alt = '';
+      burst.append(emblem);
+    } else if (burst) burst.textContent = fxSymbols[card];
+  });
+}
+// Las fichas vencidas siguen a la vista hasta que estalla su casilla.
+function keepUntilExplosion(id, delay) {
+  const cell = pieceCell(id);
+  const piece = rules.piece(game, id);
+  const point = cellPoint(cell);
+  const rect = point && { width: point.size * .78, height: point.size * .78 };
+  if (!piece || !point || delay <= 0) return;
+  tokenClone(piece, point, rect, 'fx-remnant', delay + 80);
+}
 function effectFor(event) {
   switch (event.type) {
-    case 'move': {
-      fx.play('move');
-      spawn('fx-dust', cellPoint(event.to), {}, 700);
+    case 'move':
+    case 'bonus':
+    case 'advance':
+      drive(event);
       return;
-    }
     case 'attack':
-      fireShell(pieceCell(event.piece), pieceCell(event.target), event.side);
+      attackSequence(event);
       return;
-    case 'reveal': {
-      fx.play(event.card);
-      const [color, glow] = cardColors[event.card];
-      const burst = spawn('fx-card-burst', centerPoint(), { color, glow }, 1100);
-      if (burst && fxEmblems.has(event.card)) {
-        const emblem = document.createElement('img');
-        emblem.src = 'assets/clay/emblemas/' + event.card + '.webp';
-        emblem.alt = '';
-        burst.append(emblem);
-      } else if (burst) burst.textContent = fxSymbols[event.card];
-      return;
-    }
+    case 'reveal':
     case 'pass':
-      fx.play('pass');
+      showcase(event);
       return;
     case 'combo-card':
     case 'combo-ready':
@@ -301,6 +424,7 @@ function effectFor(event) {
     case 'rescue':
       fx.play('rescue');
       spawn('fx-rescue', cellPoint(event.to), {}, 1300);
+      speech(event.to, '¡Ok!', event.side, 950);
       return;
     case 'draw':
     case 'search':
@@ -313,12 +437,12 @@ function effectFor(event) {
       fx.play('victory');
       flash('#f0b52e', '#fff7e6');
       spawn('fx-rays', centerPoint(), {}, 1600);
-      return;
-    default:
   }
 }
-const fxDurations = { move: 120, attack: 760, reveal: 420, pass: 100, 'combo-card': 520,
-  'combo-ready': 520, battle: 700, combo: 600, summon: 400, rescue: 400 };
+// Duración de cada animación: el siguiente evento y los banners esperan a que termine.
+const fxDurations = { move: DRIVE_MS + 800, bonus: DRIVE_MS + 800, advance: DRIVE_MS + 800,
+  attack: SHOT_DELAY + SHOT_FLIGHT + 500, reveal: SHOWCASE_MS, pass: 900, 'combo-card': 700,
+  'combo-ready': 700, battle: 1100, combo: 1000, summon: 1100, rescue: 1100, end: 1200 };
 function playEffects(events) {
   // Instantánea de casillas: las fichas eliminadas conservan su posición previa.
   const cells = new Map(lastCells);
@@ -326,11 +450,15 @@ function playEffects(events) {
   fxCells = cells;
   let delay = 0;
   for (const event of events) {
+    if (['move', 'bonus', 'advance'].includes(event.type)) hideToken(event.piece);
+    if (event.type === 'battle') event.removed.forEach(id => keepUntilExplosion(id, delay));
+    if (event.type === 'combo') keepUntilExplosion(event.target, delay);
     if (delay) later(delay, () => { if (game) { fxCells = cells; effectFor(event); } });
     else effectFor(event);
     delay += fxDurations[event.type] ?? 0;
   }
   lastCells = new Map(game.pieces.filter(p => p.cell).map(p => [p.id, p.cell]));
+  return delay;
 }
 function syncSoundToggle() {
   const on = !fx.isMuted();
@@ -446,7 +574,7 @@ function startAttack(attacker, defender) {
   render();
 }
 function clickCell(cell) {
-  if (!game || isAITurn() || bannerShowing) return;
+  if (!game || isAITurn() || busy()) return;
   const piece = rules.occupant(game, cell);
   if (game.phase === 'combo' && piece && rules.comboTargets(game).includes(piece.id)) {
     confirmAction('¡Combo decisivo!', '¿Eliminar también a ' + pieceName(piece) + '?', 'Eliminar', () => {
@@ -486,13 +614,14 @@ function renderBoard() {
     if (piece) {
       const token = makeToken(piece);
       if (drag?.ghost && drag.id === piece.id) token.classList.add('origin');
+      if (fxHidden.has(piece.id)) token.classList.add('fx-pending');
       hex.append(token);
     }
   }
 }
 board.addEventListener('pointerdown', event => {
   suppressClick = false;
-  if (!game || isAITurn() || dialog.open || searchDialog.open || bannerShowing || !event.isPrimary || event.button !== 0) return;
+  if (!game || isAITurn() || dialog.open || searchDialog.open || busy() || !event.isPrimary || event.button !== 0) return;
   const cell = event.target.closest('[data-cell]')?.dataset.cell;
   const piece = cell && rules.occupant(game, cell);
   if (!piece || !selectable(piece.id)) return;
@@ -583,11 +712,14 @@ function syncHandDrawer() {
     lastRevealBattle = game.battle;
     lastRevealSlot = game.battle.slot;
     privateHand = false;
+    peeked = new Set();
+    closeCardMenu();
     drawerOpen = !isAITurn();
   } else if (!revealing) {
     if (lastRevealBattle) {
       drawerOpen = false;
       privateHand = false;
+      peeked = new Set();
     }
     lastRevealBattle = null;
     lastRevealSlot = -1;
@@ -608,6 +740,9 @@ function syncHandDrawer() {
 byId('drawer-close').addEventListener('click', () => {
   drawerOpen = false;
   privateHand = false;
+  peeked = new Set();
+  cardMenu = null;
+  cardMenuNode.hidden = true;
   if (game) render();
 });
 function createDrawerButton(label, nextOpen, nextPrivate, className) {
@@ -620,41 +755,119 @@ function createDrawerButton(label, nextOpen, nextPrivate, className) {
   control.setAttribute('aria-controls', 'hand-drawer');
   control.setAttribute('aria-expanded', String(nextOpen));
 }
+// Cartas vistas una a una con un toque, sin pulsar "Ver mis cartas".
+let peeked = new Set();
+let cardMenu = null;
+const cardMenuNode = document.createElement('div');
+cardMenuNode.id = 'card-menu';
+cardMenuNode.className = 'card-menu';
+cardMenuNode.hidden = true;
+cardMenuNode.setAttribute('role', 'group');
+document.body.append(cardMenuNode);
+function closeCardMenu() {
+  if (cardMenu === null) return;
+  cardMenu = null;
+  cardMenuNode.hidden = true;
+  if (game) renderHands();
+}
+// Un toque fuera del menú y de la carta lo cancela.
+document.addEventListener('pointerdown', event => {
+  if (cardMenu === null || cardMenuNode.contains(event.target)) return;
+  if (event.target.closest?.('.card[data-slot="' + cardMenu.slot + '"]')) return;
+  closeCardMenu();
+}, true);
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeCardMenu(); });
+function openCardMenu(node, side, slot, card) {
+  cardMenu = { side, slot };
+  cardMenuNode.replaceChildren();
+  span(cardMenuNode, 'card-menu-title', rules.CARDS[card].name);
+  span(cardMenuNode, 'card-menu-text', rules.CARDS[card].description);
+  const row = document.createElement('div');
+  row.className = 'card-menu-actions';
+  cardMenuNode.append(row);
+  button(row, 'Cancelar', closeCardMenu, 'secondary');
+  const activate = button(row, 'Activar', () => {
+    cardMenu = null;
+    cardMenuNode.hidden = true;
+    card === 'search' ? chooseSearch(slot) : play(slot, slot);
+  }, 'primary');
+  cardMenuNode.hidden = false;
+  const rect = node.getBoundingClientRect();
+  const width = cardMenuNode.offsetWidth;
+  const left = Math.min(Math.max(8, rect.left + rect.width / 2 - width / 2), window.innerWidth - width - 8);
+  cardMenuNode.style.left = left + 'px';
+  cardMenuNode.style.top = Math.max(8, rect.top - cardMenuNode.offsetHeight - 10) + 'px';
+  cardMenuNode.style.setProperty('--arrow', (rect.left + rect.width / 2 - left) + 'px');
+  activate.focus();
+}
 function renderHands() {
   const revealing = game.phase === 'reveal';
   const actor = revealing ? rules.actor(game) : game.turn;
+  let menuNode = null;
   for (const side of ['I', 'R']) {
     const hand = byId('hand-' + side);
     const seat = document.querySelector('.seat.' + (side === 'I' ? 'blue' : 'red'));
     seat.dataset.prompt = String(actor === side && ['turn', 'reveal'].includes(game.phase));
     hand.replaceChildren();
+    const own = actor === side && !isAITurn() && ['turn', 'reveal'].includes(game.phase);
     for (let slot = 0; slot < rules.HAND_SIZE; slot++) {
       const face = shown[side].find(item => item.slot === slot);
       const card = face?.card ?? game.players[side].hand[slot];
-      const visible = Boolean(face || (card && privateHand && actor === side && !isAITurn()));
+      const visible = Boolean(face || (card && own && (privateHand || peeked.has(slot))));
+      const canPlay = Boolean(revealing && own && card && !face && rules.playable(game, side, card));
       const node = document.createElement('button');
       node.type = 'button';
+      node.dataset.slot = String(slot);
       node.className = 'card ' + (visible ? 'front' : card ? 'back' : 'empty');
-      node.disabled = !visible || !revealing || !privateHand || actor !== side || Boolean(face)
-        || !rules.playable(game, side, card);
+      node.disabled = Boolean(face) || !card || !own || (visible && !canPlay);
       if (face) node.classList.add('played', ...(face.latest ? ['new'] : []));
-      if (visible && !face && !node.disabled) node.classList.add('ready');
+      if (visible && canPlay) node.classList.add('ready');
+      if (visible && !face && peeked.has(slot) && !privateHand) node.classList.add('peeked');
       if (visible) {
         const name = renderCardFace(node, card);
-        node.setAttribute('aria-label', face ? 'Revelada: ' + name : name);
-        if (!node.disabled) node.addEventListener('click', () =>
-          confirmAction(rules.CARDS[card].name, '¿Deseas activar esta carta?', 'Activar',
-            () => card === 'search' ? chooseSearch(slot) : play(slot, slot), card));
+        node.setAttribute('aria-label', face ? 'Revelada: ' + name : canPlay ? name + '. Toca de nuevo para activar' : name);
       } else {
         if (!card) node.textContent = '—';
-        node.setAttribute('aria-label', card ? 'Carta boca abajo ' + (slot + 1) : 'Sin carta');
+        node.setAttribute('aria-label', card ? 'Carta boca abajo ' + (slot + 1) + '. Toca para verla' : 'Sin carta');
+      }
+      if (!node.disabled) node.addEventListener('click', () => {
+        if (busy()) return;
+        if (!visible) {
+          // Primer toque: voltear solo esta carta.
+          peeked.add(slot);
+          fx.play('deal');
+          cardMenu = null;
+          cardMenuNode.hidden = true;
+          renderHands();
+          return;
+        }
+        if (cardMenu?.slot === slot && cardMenu.side === side) closeCardMenu();
+        else {
+          renderHands();
+          const fresh = byId('hand-' + side).querySelector('[data-slot="' + slot + '"]');
+          fresh.classList.add('menu-open');
+          openCardMenu(fresh, side, slot, card);
+        }
+      });
+      if (cardMenu && cardMenu.side === side && cardMenu.slot === slot) {
+        if (canPlay && visible) {
+          node.classList.add('menu-open');
+          menuNode = node;
+        }
       }
       hand.append(node);
     }
   }
+  if (cardMenu && !menuNode) {
+    cardMenu = null;
+    cardMenuNode.hidden = true;
+  }
 }
 function nextTurn() {
   selection = null;
+  peeked = new Set();
+  cardMenu = null;
+  cardMenuNode.hidden = true;
   drawerOpen = false;
   privateHand = false;
   drawerOpen = false;
@@ -688,11 +901,11 @@ function renderControls() {
     case 'reveal': {
       const side = rules.actor(game);
       const role = side === game.battle.defender ? 'Defensa' : 'Ataque';
-      say(role + ' · ' + rules.SIDE[side], privateHand
-        ? 'Elige una carta o pasa.'
-        : mode === 'ai' ? 'Revela tu reserva para responder.'
-          : 'Pasa el dispositivo al jugador indicado y revela sus cartas.');
-      if (!privateHand) createDrawerButton('Ver mis cartas', true, true, 'primary');
+      say(role + ' · ' + rules.SIDE[side], privateHand || peeked.size
+        ? 'Toca una carta descubierta para activarla, o pasa.'
+        : mode === 'ai' ? 'Toca una carta para verla y otra vez para activarla.'
+          : 'Pasa el dispositivo al jugador indicado. Toca una carta para verla.');
+      if (!privateHand) createDrawerButton('Ver todas', true, true, 'secondary');
       else createDrawerButton('Ocultar cartas', false, false, 'secondary');
       button(actions, 'Pasar', () => play(), 'secondary');
       break;
@@ -784,10 +997,10 @@ function render() {
 function scheduleAI() {
   clearTimeout(aiTimer);
   aiTimer = null;
-  if (!game || dialog.open || searchDialog.open || bannerShowing || !isAITurn()) return;
+  if (!game || dialog.open || searchDialog.open || busy() || !isAITurn()) return;
   aiTimer = setTimeout(() => {
     aiTimer = null;
-    if (!game || dialog.open || searchDialog.open || bannerShowing || !isAITurn()) return;
+    if (!game || dialog.open || searchDialog.open || busy() || !isAITurn()) return;
     const action = ai.choose(rules, game, 'R');
     if (!action) return;
     switch (action.type) {
@@ -818,6 +1031,9 @@ function resetPresentation() {
   drag = null;
   selection = null;
   privateHand = false;
+  peeked = new Set();
+  cardMenu = null;
+  cardMenuNode.hidden = true;
   clearRevealed();
   battleResult = null;
   duel = null;

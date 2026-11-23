@@ -969,3 +969,113 @@ body.playing .controls .actions .end-turn {
   .field.fx-shake .board, .field.fx-shake-strong .board { animation: none; }
 }
 @keyframes fx-fade { 0% { opacity: 0; } 15% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* === v0.15: animaciones de estilo artillería antes de los banners === */
+/* Mientras dura una animación no se aceptan jugadas. */
+body.fx-busy .play-layout { pointer-events: none; }
+.token.fx-pending { visibility: hidden; }
+
+/* Ficha que avanza como un camioncito: avance a tumbos con inclinación. */
+.fx-vehicle, .fx-remnant { width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); border-radius: 0; }
+.fx-vehicle > .token, .fx-remnant > .token { width: 100%; height: 100%; }
+.fx-vehicle { animation: fx-travel .9s cubic-bezier(.45, .05, .4, 1) forwards; }
+.fx-vehicle > .token { animation: fx-bumpy .9s linear forwards; transform-origin: 50% 90%; }
+@keyframes fx-travel { to { transform: translate(var(--dx), var(--dy)); } }
+@keyframes fx-bumpy {
+  0% { transform: rotate(0) translateY(0); }
+  8% { transform: rotate(calc(var(--tilt) * -1)) translateY(-1px); }
+  18% { transform: rotate(var(--tilt)) translateY(-5px); }
+  30% { transform: rotate(calc(var(--tilt) * .4)) translateY(0); }
+  42% { transform: rotate(var(--tilt)) translateY(-6px); }
+  54% { transform: rotate(calc(var(--tilt) * -.3)) translateY(0); }
+  66% { transform: rotate(var(--tilt)) translateY(-4px); }
+  78% { transform: rotate(0) translateY(0); }
+  88% { transform: rotate(calc(var(--tilt) * -1.4)) translateY(-2px); }
+  100% { transform: rotate(0) translateY(0); }
+}
+.fx-dust.small { animation-duration: .6s; }
+.fx-remnant > .token { animation: fx-tremble .18s linear infinite; }
+@keyframes fx-tremble { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1.5px); } }
+
+/* Globos de diálogo: "¡Ok!" y "¡Al ataque!". */
+.fx-bubble {
+  width: max-content; height: auto; margin: 0; padding: .32rem .7rem; border-radius: 1rem;
+  background: #fffaf0; color: #2c1a12; border: 3px solid #3b2418;
+  font: 900 clamp(.9rem, 2.4vw, 1.15rem)/1.1 Georgia, serif; white-space: nowrap;
+  box-shadow: 0 4px 0 #3b241855, 0 6px 14px #1d0f0a66;
+  transform-origin: 0 100%; transform: translate(0, -100%);
+  animation: fx-bubble-pop 1s cubic-bezier(.2, 1.6, .4, 1) forwards;
+}
+.fx-bubble.to-left { transform-origin: 100% 100%; translate: -100% 0; }
+.fx-bubble.side-I { border-color: #235f82; }
+.fx-bubble.side-R { border-color: #9d312f; }
+.fx-bubble::after {
+  content: ''; position: absolute; bottom: -12px; left: 12px; width: 14px; height: 14px;
+  background: inherit; border: inherit; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0;
+  transform: rotate(45deg) skew(10deg, 10deg);
+}
+.fx-bubble.to-left::after { left: auto; right: 12px; }
+@keyframes fx-bubble-pop {
+  0% { transform: translate(0, -100%) scale(.2); opacity: 0; }
+  18% { transform: translate(0, -100%) scale(1.08); opacity: 1; }
+  28% { transform: translate(0, -100%) scale(1); }
+  82% { transform: translate(0, -100%) scale(1); opacity: 1; }
+  100% { transform: translate(0, -115%) scale(.95); opacity: 0; }
+}
+
+/* Escaparate de cartas activadas: entra volando, se voltea y se aparta. */
+.fx-showcase {
+  width: min(15rem, 70vw); height: auto; margin: 0; border-radius: 1rem; translate: -50% -50%;
+  display: grid; justify-items: center; gap: .45rem; padding: .7rem .7rem .9rem;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--glow, #fff2c6) 55%, transparent), transparent 70%), #2a1712e6;
+  border: 3px solid var(--color, #c79a52); box-shadow: 0 0 0 4px #2a171299, 0 0 28px var(--color, #c79a52);
+  perspective: 700px;
+  animation: fx-showcase-in 1.7s cubic-bezier(.2, .9, .3, 1) forwards;
+}
+.fx-showcase.from-R { --from: -60vw; }
+.fx-showcase.from-I { --from: 60vw; }
+.fx-showcase.pass { width: min(12rem, 60vw); animation-duration: 1s; --color: #8a7a6a; }
+.fx-showcase-who { color: #fff2d0; font: 800 .95rem/1.1 system-ui, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+.fx-showcase-pass { color: #fff7e6; font: 900 1.4rem/1 Georgia, serif; }
+.fx-showcase-card { width: min(10.5rem, 52vw); min-height: 0; animation: fx-flip .5s .15s ease-out both; backface-visibility: hidden; }
+.fx-showcase-card .card-title { font-size: 1.05rem; }
+.fx-showcase-effect { max-width: 13rem; padding: .3rem .55rem; border-radius: .45rem; background: #fff4d8; color: #2c1a12;
+  font: 700 .9rem/1.25 system-ui, sans-serif; text-align: center; }
+@keyframes fx-showcase-in {
+  0% { transform: translateX(var(--from, 0)) rotate(-12deg) scale(.6); opacity: 0; }
+  20% { transform: translateX(0) rotate(2deg) scale(1.04); opacity: 1; }
+  28% { transform: rotate(0) scale(1); }
+  82% { transform: scale(1); opacity: 1; }
+  100% { transform: translateY(-30px) scale(.85); opacity: 0; }
+}
+@keyframes fx-flip { from { transform: rotateY(90deg); } to { transform: rotateY(0); } }
+
+/* Cartas de la reserva: toque para ver, segundo toque para el menú. */
+.card.peeked { animation: reveal-card .35s ease-out; }
+.card.menu-open { outline: 3px solid #f0b52e; outline-offset: 1px; transform: translateY(-4px); box-shadow: 0 0 16px #f0b52e99; }
+.card-menu {
+  position: fixed; z-index: 1050; width: min(16rem, calc(100vw - 16px));
+  display: grid; gap: .35rem; padding: .7rem .75rem .75rem; border-radius: .8rem;
+  background: #fff7e6; color: #2c1a12; border: 2px solid #8a5a2b;
+  box-shadow: 0 10px 28px #1d0f0a80;
+  animation: fx-menu-in .18s ease-out;
+}
+.card-menu[hidden] { display: none; }
+.card-menu::after {
+  content: ''; position: absolute; bottom: -9px; left: calc(var(--arrow, 50%) - 8px); width: 16px; height: 16px;
+  background: inherit; border: inherit; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.card-menu-title { font: 900 1.05rem/1.15 Georgia, serif; }
+.card-menu-text { font: 600 .86rem/1.3 system-ui, sans-serif; color: #4a3326; }
+.card-menu-actions { display: flex; justify-content: flex-end; gap: .45rem; margin-top: .2rem; }
+.card-menu-actions button { min-height: 2.6rem; padding-inline: 1rem; }
+@keyframes fx-menu-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-vehicle, .fx-vehicle > .token, .fx-remnant > .token { animation: none !important; }
+  .fx-bubble, .fx-showcase { animation: fx-fade 1s ease-out forwards !important; transform: translate(0, -100%) !important; }
+  .fx-showcase { transform: none !important; }
+  .fx-showcase-card, .card.peeked, .card-menu { animation: none; }
+}
+/* El resultado se lee después de la explosión, no antes. */
+body.fx-busy .battle-result { visibility: hidden; }
