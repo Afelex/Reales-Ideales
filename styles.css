@@ -1079,3 +1079,66 @@ body.fx-busy .play-layout { pointer-events: none; }
 }
 /* El resultado se lee después de la explosión, no antes. */
 body.fx-busy .battle-result { visibility: hidden; }
+
+/* === v0.15: fuerza de combate visible y contadores tras la explosión === */
+.duel-force {
+  display: inline-flex; align-items: baseline; gap: .3rem; margin-top: .15rem;
+  padding: .1rem .55rem; border-radius: 999px; background: #2c1a12; color: #fff4d8;
+}
+.duelist[data-side="I"] .duel-force { background: #235f82; }
+.duelist[data-side="R"] .duel-force { background: #9d312f; }
+.duel-force-label { font: 700 .7rem/1 system-ui, sans-serif; text-transform: uppercase; letter-spacing: .05em; }
+.duel-force-value { font: 900 1.5rem/1 Georgia, serif; display: inline-block; }
+.duel-force-value.bump-up { animation: force-bump .5s ease-out; color: #c8ffb5; }
+.duel-force-value.bump-down { animation: force-bump .5s ease-out; color: #ffc2b5; }
+@keyframes force-bump { 0% { transform: scale(1); } 40% { transform: scale(1.5); } 100% { transform: scale(1); } }
+.force-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .15rem; max-width: 9rem; margin-top: .15rem; }
+.force-chip {
+  padding: .05rem .35rem; border-radius: .4rem; font: 750 .66rem/1.25 system-ui, sans-serif; white-space: nowrap;
+  background: #efe1c4; color: #4a3326;
+}
+.force-chip.up { background: #d6f0c8; color: #1f5a1c; }
+.force-chip.down { background: #f6d0c6; color: #8a221b; }
+.force-chip.decisive { background: #2c1a12; color: #ffd98a; }
+.duel[data-lead="I"] .duelist[data-side="I"] .duel-force,
+.duel[data-lead="R"] .duelist[data-side="R"] .duel-force { box-shadow: 0 0 0 2px #f0b52e, 0 0 10px #f0b52e; }
+body.playing .field .duel:not([hidden]) { max-width: 20rem; }
+body.playing .duelist .duel-force-value { font-size: 1.3rem; }
+
+/* Número que vuela desde la carta hasta el marcador. */
+.fx-number {
+  width: max-content; height: auto; margin: 0; border-radius: 0; translate: -50% -100%;
+  font: 900 2.2rem/1 Georgia, serif; color: #fff;
+  -webkit-text-stroke: 2px #1f5a1c; paint-order: stroke fill; text-shadow: 0 3px 0 #1f5a1c, 0 0 14px #9dff7a;
+  animation: fx-number 1.35s cubic-bezier(.2, 1.4, .4, 1) forwards;
+}
+.fx-number.down { -webkit-text-stroke-color: #8a221b; text-shadow: 0 3px 0 #8a221b, 0 0 14px #ff8a7a; }
+.fx-number.decisive { font-size: 1.5rem; -webkit-text-stroke-color: #2c1a12; text-shadow: 0 3px 0 #2c1a12, 0 0 14px #ffd98a; color: #ffd98a; }
+@keyframes fx-number {
+  0% { transform: translateY(20px) scale(.3); opacity: 0; }
+  20% { transform: translateY(-10px) scale(1.25); opacity: 1; }
+  35% { transform: translateY(-14px) scale(1); }
+  80% { opacity: 1; }
+  100% { transform: translateY(-46px) scale(.9); opacity: 0; }
+}
+
+/* Resumen de fuerza en el cajón de cartas. */
+#drawer-hint:has(.hint-force) { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .25rem .45rem; }
+.hint-force { font: 800 .9rem/1.1 system-ui, sans-serif; color: #2c1a12; }
+.hint-status { padding: .08rem .45rem; border-radius: 999px; font: 800 .74rem/1.3 system-ui, sans-serif; }
+.hint-status.up { background: #d6f0c8; color: #1f5a1c; }
+.hint-status.down { background: #f6d0c6; color: #8a221b; }
+.hint-status.tie { background: #efe1c4; color: #4a3326; }
+.hint-rule { font-size: .72rem; color: var(--quiet); }
+
+/* Contador de fichas: baja con un golpe después de la explosión. */
+.count-drop { animation: count-drop .7s ease-out; }
+@keyframes count-drop {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.45); color: #ffd98a; }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-number { animation: fx-fade 1.2s ease-out forwards !important; transform: none !important; }
+  .duel-force-value.bump-up, .duel-force-value.bump-down, .count-drop { animation: none; }
+}
