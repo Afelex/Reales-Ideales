@@ -22,6 +22,8 @@ Después de desplegar en GitHub Pages, revisar las ventanas **360×740**, **390�
 
 ## Identidad visual
 
+Usa el arte propio de Reales Ideales para la portada, el tablero y el jardín de plastilina. Los controles, menús y avisos llevan etiquetas e iconos ilustrados. Evita los emojis en toda la interfaz.
+
 La portada, el logotipo y los doce animales proceden del arte de Reales Ideales. El tablero floral completo contiene 27 hexágonos, con los idealistas arriba y los realistas abajo. Las casillas interactivas siguen la ubicación de los códigos y las cuatro estrellas de la ilustración.
 
 Cada bando comienza con ocho fichas. Puma y vicuña se repiten entre los realistas, y llama y gallo entre los idealistas. Todos los animales siguen las reglas de la ficha normal. La pantalla de combate presenta las dos fichas participantes antes de revelar cartas.

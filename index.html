@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=014">
+  <link rel="stylesheet" href="styles.css?v=014-jardin">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
-  <script defer src="fx.js?v=014"></script>
-  <script defer src="app.js?v=014"></script>
+  <script defer src="fx.js?v=014-jardin-fx"></script>
+  <script defer src="app.js?v=014-jardin-fx"></script>
 </head>
 <body>
   <header class="masthead">
@@ -18,6 +18,7 @@
       <details class="help">
         <summary>Cómo jugar</summary>
         <div class="help-content">
+          <img class="help-art" src="assets/clay/portada-jardin.webp" alt="" width="1536" height="1024" loading="lazy">
           <p>Arrastra una ficha propia a un hexágono verde para mover o a un rival marcado para atacar. También puedes tocar una ficha y luego su destino.</p>
           <p>Haz hasta dos acciones por turno: mueve como máximo una ficha una casilla y declara un ataque en el orden que prefieras. El cañón ataca a distancia con +2; las fichas de vanguardia tienen +2 al atacar.</p>
           <p>Cada jugador reserva tres cartas, pero solo puede activar dos por combate. Dos iguales producen COMBO +1. Dos Golpes decisivos vencedores permiten eliminar una segunda ficha rival. Exploración (+1) busca una carta de tu mazo que sustituye a la carta jugada después de la batalla.</p>
@@ -33,12 +34,17 @@
           <button id="export" class="secondary" type="button">Exportar JSON</button>
         </div>
       </details>
-      <button id="sound-toggle" type="button" class="secondary sound-toggle" aria-pressed="true" aria-label="Sonido activado">🔊</button>
+      <button id="sound-toggle" type="button" class="secondary sound-toggle" aria-pressed="true" aria-label="Sonido activado" title="Sonido">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path class="speaker" d="M4 9.5h3.2L12 5.2v13.6l-4.8-4.3H4z"/><path class="sound-on" d="M15.2 9.1a4 4 0 0 1 0 5.8M17.6 6.6a7.5 7.5 0 0 1 0 10.8"/><path class="sound-off" d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></svg>
+      </button>
       <button id="restart" type="button" class="secondary" hidden>Nueva partida</button>
     </div>
   </header>
-  <section id="inicio" class="cover" aria-label="Portada de Reales Ideales">
-    <img class="cover-art" src="assets/portada.webp" alt="Animalitos de plastilina en una plaza andina con estandartes realistas e idealistas" width="1260" height="704">
+  <section id="inicio" class="cover" aria-labelledby="cover-title">
+    <div class="cover-scene">
+      <img class="cover-art" src="assets/clay/portada-jardin.webp" alt="El gato idealista y la llama realista en un jardín andino de plastilina" width="1536" height="1024" fetchpriority="high">
+      <h1 id="cover-title"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></h1>
+    </div>
     <div class="cover-actions">
       <button id="play-local" type="button" class="primary menu-play">Jugar con una persona</button>
       <button id="play-ai" type="button" class="secondary menu-play">Versus IA</button>
@@ -47,6 +53,7 @@
   <main id="partida" class="play-layout" hidden>
     <section class="seat blue" aria-label="Tablero idealista">
       <div class="seat-heading">
+        <img class="seat-crest" src="assets/clay/emblemas/idealista.webp" alt="" width="34" height="46">
         <div class="seat-info">
           <h2>Idealistas</h2>
           <div class="seat-stats"><small id="blue-rescues">Rescates: 2</small><small class="seat-deck">Mazo <b id="deck-I">25</b></small></div>
@@ -56,6 +63,7 @@
     </section>
     <section class="seat red" aria-label="Tablero realista">
       <div class="seat-heading">
+        <img class="seat-crest" src="assets/clay/emblemas/realista.webp" alt="" width="34" height="46">
         <div class="seat-info">
           <h2 id="red-name">Realistas</h2>
           <div class="seat-stats"><small id="red-rescues">Rescates: 2</small><small class="seat-deck">Mazo <b id="deck-R">25</b></small></div>
@@ -70,7 +78,10 @@
 
       <p id="battle-result" class="battle-result" role="status" hidden></p>
       <div id="duel" class="duel" hidden></div>
-      <div class="legend"><span>★ Rescate</span><span><i class="cannon-mini" aria-hidden="true"></i> Cañón</span></div>
+      <div class="legend">
+        <span><img src="assets/clay/emblemas/rescate.webp" alt="" width="18" height="18"> Rescate</span>
+        <span><img src="assets/clay/emblemas/cannon.webp" alt="" width="18" height="18"> Cañón</span>
+      </div>
     </section>
     <section class="panel controls" aria-labelledby="phase-title">
       <div class="control-heading">
@@ -84,7 +95,7 @@
       <div class="drawer-toolbar">
         <strong id="drawer-title">Reserva de cartas</strong>
         <span id="drawer-hint">3 cartas · máximo 2 por batalla</span>
-        <button id="drawer-close" type="button" class="drawer-close" aria-label="Cerrar reserva">✕</button>
+        <button id="drawer-close" type="button" class="drawer-close" aria-label="Cerrar reserva"></button>
       </div>
       <div class="drawer-hands">
         <div id="hand-I" class="hand" aria-label="Reserva idealista, tres cartas"></div>
@@ -93,7 +104,7 @@
     </section>
   </main>
   <div id="phase-banner" class="phase-banner" role="status" aria-live="polite" hidden>
-    <div class="banner-content"><span class="banner-symbol" aria-hidden="true">✦</span>
+    <div class="banner-content"><span class="banner-symbol" aria-hidden="true"></span>
       <strong id="banner-title" class="banner-title"></strong>
       <span id="banner-subtitle" class="banner-subtitle"></span>
     </div>

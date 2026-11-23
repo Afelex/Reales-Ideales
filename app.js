@@ -8,32 +8,21 @@ const actions = byId('actions');
 const dialog = byId('decision');
 const hexButtons = new Map();
 const roster = {
-  R: [
-    ['Anaconda', 'anaconda'], ['Puma', 'puma'], ['Cóndor', 'condor'],
-    ['Gallo de las rocas', 'gallo-de-las-rocas'], ['Cuy', 'cuy'], ['Vicuña', 'vicuna'],
-    ['Puma', 'puma'], ['Vicuña', 'vicuna'],
-  ],
-  I: [
-    ['Mono', 'mono'], ['Llama', 'llama'], ['Guacamayo', 'guacamayo'],
-    ['Tortuga gigante', 'tortuga-gigante'], ['Tigrillo', 'tigrillo'], ['Gallo', 'gallo'],
-    ['Llama', 'llama'], ['Gallo', 'gallo'],
-  ],
+  I: ['mono', 'llama', 'guacamayo', 'rana', 'tigrillo', 'gallo', 'cuy', 'gato'],
+  R: ['rana', 'tigrillo', 'guacamayo', 'gallo', 'cuy', 'llama', 'mono', 'gato'],
 };
-const symbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '+1', search: '⌕' };
-// Gráficos de cartas aprobados: una composición especial para cada carta.
-const cardLooks = {
-  boost: ['Táctica', 0],
-  weaken: ['Control', 1],
-  major: ['Táctica', 2],
-  decisive: ['Ataque', 3],
-  cannon: ['Invocación', 4],
-  search: ['Exploración', 5],
+const animals = {
+  mono: 'Mono', llama: 'Llama', gallo: 'Gallo', guacamayo: 'Guacamayo',
+  tigrillo: 'Tigrillo', cuy: 'Cuy', rana: 'Rana', gato: 'Gato',
 };
-// Solo se asignan nuevas ilustraciones a especies coincidentes.
-// No sustituimos una anaconda por un mono, ni un cóndor por un loro.
-const portraitArt = {
-  I: { mono: 0, llama: 1, guacamayo: 3, tigrillo: 4, gallo: 2 },
-  R: { cuy: 5 },
+const tokenFaction = { I: 'idealista', R: 'realista' };
+const cardTypes = {
+  boost: 'Táctica',
+  weaken: 'Control',
+  major: 'Táctica',
+  decisive: 'Ataque',
+  cannon: 'Invocación',
+  search: 'Exploración',
 };
 const newAsset = filename => 'assets/v014/' + filename;
 
@@ -84,7 +73,9 @@ function confirmAction(title, text, label, callback, card = null) {
   if (dialog.open) return;
   byId('decision-title').textContent = title;
   byId('decision-text').textContent = text;
-  byId('confirm').textContent = label;
+  const confirm = byId('confirm');
+  confirm.textContent = label;
+  confirm.dataset.action = label;
   const preview = byId('decision-card');
   preview.hidden = !card;
   preview.replaceChildren();
@@ -168,6 +159,9 @@ const cardColors = {
   boost: ['#62c46a', '#f7ffd9'], weaken: ['#7b4bb0', '#e6d4ff'], major: ['#f0b52e', '#fff3c4'],
   decisive: ['#d8312a', '#fff0e6'], cannon: ['#a0703c', '#ffd9a0'], search: ['#2c9fa4', '#d8fffb'],
 };
+// Emblemas de plastilina de Sites; Exploración usa su símbolo textual.
+const fxEmblems = new Set(['boost', 'weaken', 'major', 'decisive', 'cannon']);
+const fxSymbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '+1', search: '⌕' };
 let fxTimers = [];
 let lastCells = new Map();
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -270,7 +264,12 @@ function effectFor(event) {
       fx.play(event.card);
       const [color, glow] = cardColors[event.card];
       const burst = spawn('fx-card-burst', centerPoint(), { color, glow }, 1100);
-      if (burst) burst.textContent = symbols[event.card];
+      if (burst && fxEmblems.has(event.card)) {
+        const emblem = document.createElement('img');
+        emblem.src = 'assets/clay/emblemas/' + event.card + '.webp';
+        emblem.alt = '';
+        burst.append(emblem);
+      } else if (burst) burst.textContent = fxSymbols[event.card];
       return;
     }
     case 'pass':
@@ -336,7 +335,7 @@ function playEffects(events) {
 function syncSoundToggle() {
   const on = !fx.isMuted();
   const toggle = byId('sound-toggle');
-  toggle.textContent = on ? '🔊' : '🔇';
+  toggle.dataset.sound = on ? 'on' : 'off';
   toggle.setAttribute('aria-pressed', String(on));
   toggle.setAttribute('aria-label', on ? 'Sonido activado' : 'Sonido desactivado');
 }
@@ -352,21 +351,13 @@ function currentPhase() {
     summon: 'Invocación', end: 'Partida terminada' }[game.phase] ?? 'Preparación';
 }
 
-function artwork(name) {
-  return 'assets/' + name + '.webp';
-}
 function renderCardFace(parent, card, preview = false) {
-  const [type, artIndex] = cardLooks[card];
   parent.classList.add('illustrated');
   parent.dataset.card = card;
   const title = span(parent, 'card-title', rules.CARDS[card].name);
-  // El pliego ilustrado incluye los títulos y símbolos. La capa textual
-  // permanece disponible para accesibilidad, sin duplicarse visualmente.
   const art = span(parent, 'card-art', '');
-  art.dataset.artIndex = String(artIndex);
   art.setAttribute('aria-hidden', 'true');
-  span(parent, 'card-emblem', symbols[card]);
-  span(parent, 'card-type', type);
+  span(parent, 'card-type', cardTypes[card]);
   if (preview) {
     parent.setAttribute('aria-label', rules.CARDS[card].name + ': ' + rules.CARDS[card].description);
     span(parent, 'card-effect', rules.CARDS[card].description);
@@ -377,43 +368,20 @@ function character(piece) {
   return roster[piece.side][Number(piece.id.slice(1)) - 1];
 }
 function pieceName(piece) {
-  return piece.cannon ? 'Cañón ' + piece.id : character(piece)[0] + ' ' + piece.id;
+  return (piece.cannon ? 'Cañón' : animals[character(piece)]) + ' ' + piece.id;
 }
 function makeToken(piece) {
   const node = document.createElement('span');
   node.className = 'token ' + piece.side + (piece.cannon ? ' cannon' : '');
   node.dataset.piece = piece.id;
   node.setAttribute('aria-hidden', 'true');
-  if (piece.cannon) {
-    const image = document.createElement('img');
-    image.className = 'cannon-art';
-    image.src = newAsset('canon.png');
-    image.alt = '';
-    image.draggable = false;
-    node.append(image);
-  } else {
-    const animal = character(piece)[1];
-    node.dataset.character = animal;
-    const portrait = document.createElement('span');
-    portrait.className = 'token-portrait';
-    const sprite = portraitArt[piece.side][animal];
-    if (Number.isInteger(sprite)) {
-      node.dataset.sprite = String(sprite);
-      const art = document.createElement('span');
-      art.className = 'token-sprite';
-      art.dataset.sprite = String(sprite);
-      art.dataset.side = piece.side;
-      portrait.append(art);
-    } else {
-      // Conserva el retrato original cuando el pliego no contiene la especie.
-      const image = document.createElement('img');
-      image.src = artwork(animal);
-      image.alt = '';
-      image.draggable = false;
-      portrait.append(image);
-    }
-    node.append(portrait);
-  }
+  const image = document.createElement('img');
+  image.className = 'token-art';
+  image.src = piece.cannon ? newAsset('canon.png')
+    : `assets/clay/fichas/${tokenFaction[piece.side]}-${character(piece)}.webp`;
+  image.alt = '';
+  image.draggable = false;
+  node.append(image);
   return node;
 }
 // Coordinates measured against the 1116 × 1410 board illustration.
@@ -595,10 +563,14 @@ function chooseSearch(index) {
   for (const card of options) {
     const copies = game.players[side].deck.filter(value => value === card).length
       - game.battle.search[side].filter(value => value.card === card).length;
-    button(choices, rules.CARDS[card].name + ' · ' + copies + ' en el mazo', () => {
+    const option = button(choices, rules.CARDS[card].name + ' · ' + copies + ' en el mazo', () => {
       searchDialog.close();
       play(index, index, card);
-    }, 'secondary search-option');
+    }, 'secondary search-option illustrated');
+    option.dataset.card = card;
+    const thumbnail = span(option, 'card-art', '');
+    thumbnail.setAttribute('aria-hidden', 'true');
+    option.prepend(thumbnail);
   }
   searchDialog.showModal();
 }
@@ -674,8 +646,7 @@ function renderHands() {
           confirmAction(rules.CARDS[card].name, '¿Deseas activar esta carta?', 'Activar',
             () => card === 'search' ? chooseSearch(slot) : play(slot, slot), card));
       } else {
-        if (card) span(node, 'card-sigil', '✦');
-        else node.textContent = '—';
+        if (!card) node.textContent = '—';
         node.setAttribute('aria-label', card ? 'Carta boca abajo ' + (slot + 1) : 'Sin carta');
       }
       hand.append(node);
@@ -742,7 +713,7 @@ function renderControls() {
         ? 'Coloca a ' + selection + ' en una de tus casillas de despliegue libres.'
         : 'Elige la ficha que volverá al tablero como ficha normal.');
       game.pieces.filter(piece => !piece.cell && piece.side === game.rescue.side).forEach(piece =>
-        button(actions, 'Rescatar a ' + character(piece)[0] + ' ' + piece.id, () => { selection = piece.id; render(); }, 'primary'));
+        button(actions, 'Rescatar a ' + animals[character(piece)] + ' ' + piece.id, () => { selection = piece.id; render(); }, 'primary'));
       button(actions, 'Guardar marcador', () => { rules.rescue(game, null); selection = null; render(); }, 'secondary');
       break;
     case 'summon':
@@ -766,7 +737,7 @@ function renderDuel() {
     portrait.className = 'duelist';
     portrait.dataset.side = piece.side;
     portrait.append(makeToken(piece));
-    span(portrait, 'duelist-name', piece.cannon ? 'Cañón' : character(piece)[0]);
+    span(portrait, 'duelist-name', piece.cannon ? 'Cañón' : animals[character(piece)]);
     span(portrait, 'duelist-role', index === 0 ? 'Ataca' : 'Defiende');
     if (battleResult?.removed.includes(piece.id)) portrait.dataset.defeated = 'true';
     view.append(portrait);
@@ -783,7 +754,9 @@ function render() {
   byId('red-rescues').textContent = 'Rescates: ' + game.players.R.rescues;
   byId('deck-I').textContent = game.players.I.deck.length;
   byId('deck-R').textContent = game.players.R.deck.length;
-  byId('phase-indicator').textContent = currentPhase();
+  const phase = byId('phase-indicator');
+  phase.textContent = currentPhase();
+  phase.dataset.phase = game.phase;
   byId('turn-info').textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4'
     : game.phase === 'turn' ? 'Acciones: ' + game.actions + ' de 2' : '';
   const result = byId('battle-result');
