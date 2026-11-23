@@ -181,6 +181,14 @@
     summon() { sounds.cannon(); notes('triangle', [392, 523, 784], 0.1, 0.75, 0.3, 0.18); },
     rescue() { notes('sine', [523, 659, 784, 1047, 1319], 0.08, 0, 0.35, 0.2); },
     deal() { [0, 0.07, 0.14].forEach(t => noise(t, 0.06, { peak: 0.22, filter: 'bandpass', from: 2500, to: 1500, q: 1.2 })); },
+    // Tic del temporizador en los últimos segundos.
+    tick() { tone('square', 1320, 1320, 0, 0.05, 0.06); tone('sine', 660, 660, 0, 0.06, 0.12); },
+    // Derrota: notas que caen y un golpe sordo.
+    defeat() {
+      notes('triangle', [392, 349, 311, 262], 0.22, 0, 0.32, 0.2);
+      tone('sawtooth', 130, 65, 0.9, 0.8, 0.12);
+      tone('sine', 70, 35, 0.9, 0.9, 0.5);
+    },
     victory() {
       notes('square', [523, 523, 523, 698], 0.15, 0, 0.18, 0.08);
       notes('triangle', [523, 659, 784, 1047], 0.15, 0, 0.35, 0.2);
