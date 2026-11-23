@@ -115,6 +115,12 @@ La interfaz muestra banners de pantalla completa para los cambios principales: c
 - **Tablero SVG integrado** con la plaza.
 - **Recursos más ligeros:** WebP para cartas y cañón; arte sin uso movido a `assets/reserva/`.
 
+## Escenario «Campo andino» (v0.19)
+
+El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.mp4`, 9 s, sin audio, 1 MB): un campo de plastilina con la cuadrícula de 27 hexágonos ya dibujada, estrellas giratorias en las casillas de rescate, bandera al viento y la llama alada con su cañón. Las fichas se colocan sobre sus hexágonos con las medidas de `ANDES` en `app.js` (video de 720×1280, recortado 200 px de cielo). El bucle funde el último segundo con el inicio para no dar saltos. Con animaciones reducidas se muestra la imagen fija (`campo-andino-poster.webp`). Alrededor, `campo-andino-fondo.webp` (el mismo escenario desenfocado) da profundidad de campo.
+
+En **Ajustes → Escenario** se puede volver a la **Plaza** con el tablero SVG. Cada escenario define su vídeo o dibujo y la posición de las casillas en `BOARD_THEMES`, así que añadir mapas nuevos solo requiere el arte y sus medidas.
+
 ## Pruebas automatizadas
 
 El archivo `game.test.js` contempla 30 casos: fuerza base 0, cañón inmediato, barra de ataque especial, los ocho poderes, límite de movimiento, combos, búsqueda diferida, reserva de tres y eliminación doble. Ejecuta `node --test` para comprobar la regresión.

@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=018-tablero">
+  <link rel="stylesheet" href="styles.css?v=019-video">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
-  <script defer src="fx.js?v=018-tablero"></script>
-  <script defer src="app.js?v=018-tablero"></script>
+  <script defer src="fx.js?v=019-video"></script>
+  <script defer src="app.js?v=019-video"></script>
 </head>
 <body>
   <header class="masthead">
@@ -145,6 +145,8 @@
   <dialog id="settings" aria-labelledby="settings-title">
     <h2 id="settings-title">Ajustes</h2>
     <form method="dialog" class="settings-form">
+      <fieldset><legend>Escenario</legend>
+        <label><input type="radio" name="board" value="andes"> Campo andino</label><label><input type="radio" name="board" value="plaza"> Plaza</label></fieldset>
       <fieldset><legend>Música</legend>
         <label><input type="radio" name="music" value="on"> Sí</label><label><input type="radio" name="music" value="off"> No</label></fieldset>
       <fieldset><legend>Efectos de sonido</legend>

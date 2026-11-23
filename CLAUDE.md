@@ -22,7 +22,7 @@ Lee [el reglamento y la guía de ejecución](README.md) antes de editar. Este re
 - `#deck-I` y `#deck-R` están ahora en el HUD de facción, NO en la antigua barra debajo del tablero.
 - `#hand-I` y `#hand-R` viven dentro del cajón fijo; jamás moverlos de nuevo a las cápsulas superiores. La función `syncHandDrawer()` restablece el secreto de las cartas al alternar actor y ranuras de combate. Mantener `privateHand` y `drawerOpen` sincronizados.
 - `#duel` se muestra durante la etapa reveal y se retira antes de la explosión. En escritorio va en la columna izquierda y el cajón en la derecha; en móvil el cajón entra en el flujo de la cuadrícula. Nada debe tapar las fichas ni desplazarse.
-- Textos visibles sin códigos (I5, C6): usar `pieceName()`/`describe()`. El tablero es SVG (`buildBoardArt()`); no volver a una imagen con códigos pintados.
+- Textos visibles sin códigos (I5, C6): usar `pieceName()`/`describe()`. Los tableros son escenarios de `BOARD_THEMES` en `app.js`: «Campo andino» (video en bucle, por defecto) y «Plaza» (SVG, `buildBoardArt()`). Si cambia el arte de un escenario, recalibra la posición de sus casillas; no usar imágenes con códigos pintados.
 - Animaciones primero y banners después (`fxBusy`, `busy()`); respetar los ajustes de velocidad y temporizador.
 - La clase `body.playing` activa el layout `100dvh`; todo el scroll de historial/ayuda queda dentro de sus paneles y el de acciones dentro del dock.
 - Optimizar la visual de cartas y botones sin alterar `game.js`, `ai.js` ni sus pruebas. No confundir v0.13 UI con un cambio de mecánicas.

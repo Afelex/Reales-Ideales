@@ -46,7 +46,7 @@ let announcedEvents = 0;
 const searchDialog = byId('search-choice');
 // === Ajustes del jugador (se guardan en este navegador) ===
 const SETTINGS_KEY = 'reales-ideales-ajustes';
-const settings = { timer: 'normal', speed: 1 };
+const settings = { timer: 'normal', speed: 1, board: 'andes' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch { /* sin almacenamiento */ }
 settings.speed = Number(settings.speed) || 1;
 const saveSettings = () => {
@@ -592,7 +592,7 @@ const settingsDialog = byId('settings');
 const settingsForm = settingsDialog.querySelector('form');
 function syncSettingsForm() {
   const values = { music: fx.musicOn() ? 'on' : 'off', effects: fx.effectsOn() ? 'on' : 'off',
-    timer: settings.timer, speed: String(settings.speed) };
+    timer: settings.timer, speed: String(settings.speed), board: settings.board };
   for (const [name, value] of Object.entries(values))
     settingsForm.querySelector('input[name="' + name + '"][value="' + value + '"]').checked = true;
 }
@@ -610,6 +610,10 @@ settingsForm.addEventListener('change', event => {
     if (game) syncTimer();
   }
   if (name === 'speed') settings.speed = Number(value);
+  if (name === 'board') {
+    settings.board = value;
+    applyBoardTheme();
+  }
   saveSettings();
 });
 settingsDialog.addEventListener('close', () => { if (game) scheduleAI(); });
@@ -700,14 +704,6 @@ for (const cell of Object.values(rules.CELLS)) {
   const hex = button(board, '', () => { if (!suppressClick) clickCell(cell.id); }, 'hex');
   hex.dataset.cell = cell.id;
   hex.dataset.star = String(rescueCells.has(cell.id));
-
-  const { center, edges } = boardColumns[cell.col];
-  const rowIndex = Math.floor((cell.row - 1) / 2);
-  const top = edges[rowIndex];
-  const bottom = edges[rowIndex + 1];
-  hex.style.left = (center / 1116 * 100) + '%';
-  hex.style.top = ((top + bottom) / 2 / 1410 * 100) + '%';
-  hex.style.height = ((bottom - top) / 1410 * 100) + '%';
   hexButtons.set(cell.id, hex);
 }
 // === Tablero dibujado en SVG ===
@@ -791,7 +787,63 @@ function buildBoardArt() {
   for (const [x, y, r] of [[40, 520, -90], [40, 900, -90], [1076, 520, 90], [1076, 900, 90]]) flower(x, y, 110, r);
   return art;
 }
-board.prepend(buildBoardArt());
+// === Escenarios del tablero ===
+// "andes": video en bucle con la cuadrícula ya dibujada (720×1280; se recortan
+// los 200 px superiores de cielo). "plaza": tablero SVG sobre la plaza.
+// Cada escenario define dónde cae el centro de cada casilla, en porcentaje.
+const ANDES = { width: 720, height: 1280, crop: 200, columns: [129, 242, 354, 467, 579], firstRow: 472.5, step: 132.75 };
+const BOARD_THEMES = {
+  andes: {
+    place(cell) {
+      const visible = ANDES.height - ANDES.crop;
+      const y = ANDES.firstRow + (cell.row - 1) / 2 * ANDES.step;
+      return { left: ANDES.columns[cell.col] / ANDES.width * 100, top: (y - ANDES.crop) / visible * 100,
+        height: ANDES.step / visible * 100 };
+    },
+    art() {
+      const video = document.createElement('video');
+      video.className = 'board-video';
+      video.src = 'assets/escenario/campo-andino.mp4';
+      video.poster = 'assets/escenario/campo-andino-poster.webp';
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('aria-hidden', 'true');
+      video.preload = 'auto';
+      // Con animaciones reducidas queda la imagen fija del escenario.
+      if (!reducedMotion()) {
+        video.autoplay = true;
+        video.play?.().catch(() => {});
+      }
+      return video;
+    },
+  },
+  plaza: {
+    place(cell) {
+      const { center, edges } = boardColumns[cell.col];
+      const rowIndex = Math.floor((cell.row - 1) / 2);
+      const top = edges[rowIndex], bottom = edges[rowIndex + 1];
+      return { left: center / 1116 * 100, top: (top + bottom) / 2 / 1410 * 100, height: (bottom - top) / 1410 * 100 };
+    },
+    art: buildBoardArt,
+  },
+};
+function applyBoardTheme() {
+  const name = BOARD_THEMES[settings.board] ? settings.board : 'andes';
+  const theme = BOARD_THEMES[name];
+  board.dataset.theme = name;
+  document.body.dataset.theme = name;
+  board.querySelector('.board-art, .board-video')?.remove();
+  board.prepend(theme.art());
+  for (const [id, hex] of hexButtons) {
+    const place = theme.place(rules.CELLS[id]);
+    hex.style.left = place.left + '%';
+    hex.style.top = place.top + '%';
+    hex.style.height = place.height + '%';
+  }
+}
+applyBoardTheme();
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
 }
