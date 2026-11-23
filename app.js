@@ -148,6 +148,10 @@ function announceNewEvents() {
   for (const event of newEvents) {
     const banner = bannerFromEvent(event);
     if (banner) bannerQueue.push(banner);
+    if (event.type === 'turn' && game.players[event.side].charge >= rules.CHARGE_MAX
+        && !(mode === 'ai' && event.side === 'R'))
+      bannerQueue.push({ kind: 'special', title: '¡ATAQUE ESPECIAL LISTO!',
+        subtitle: 'Toca una ficha con fuego y pulsa el botón ESPECIAL' });
   }
   // Primero la animación, después el banner: como en los juegos de artillería.
   const duration = playEffects(newEvents);
@@ -582,6 +586,8 @@ byId('sound-toggle').addEventListener('click', () => {
   syncSoundToggle();
 });
 syncSoundToggle();
+// Música del menú principal; empieza con el primer gesto si el navegador bloquea el audio automático.
+fx.music('menu');
 function currentPhase() {
   if (game.phase === 'turn') return 'Movimiento / ataque';
   if (game.phase === 'reveal') return 'Fase de batalla';
@@ -762,7 +768,13 @@ function clickCell(cell) {
   }
   render();
 }
+function specialReadyPieces() {
+  if (game.phase !== 'turn' || isAITurn() || specialMode || game.attacked || game.actions >= 2) return new Set();
+  if (game.players[game.turn].charge < rules.CHARGE_MAX) return new Set();
+  return new Set(game.pieces.filter(p => p.side === game.turn && p.cell && rules.specialOptions(game, p.id).length).map(p => p.id));
+}
 function renderBoard() {
+  const ready = specialReadyPieces();
   const special = specialView();
   const moves = special ? special.destinations : selection ? rules.moves(game, selection) : [];
   const targets = special ? special.targets : selection ? rules.attacks(game, selection) : [];
@@ -785,6 +797,7 @@ function renderBoard() {
       const token = makeToken(piece);
       if (drag?.ghost && drag.id === piece.id) token.classList.add('origin');
       if (fxHidden.has(piece.id)) token.classList.add('fx-pending');
+      if (ready.has(piece.id)) token.classList.add('ss-glow');
       hex.append(token);
     }
   }
@@ -862,14 +875,15 @@ function chooseSearch(index) {
   for (const card of options) {
     const copies = game.players[side].deck.filter(value => value === card).length
       - game.battle.search[side].filter(value => value.card === card).length;
-    const option = button(choices, rules.CARDS[card].name + ' · ' + copies + ' en el mazo', () => {
+    const option = button(choices, '', () => {
       searchDialog.close();
       play(index, index, card);
-    }, 'secondary search-option illustrated');
-    option.dataset.card = card;
-    const thumbnail = span(option, 'card-art', '');
-    thumbnail.setAttribute('aria-hidden', 'true');
-    option.prepend(thumbnail);
+    }, 'search-option');
+    option.setAttribute('aria-label', rules.CARDS[card].name + ', ' + copies + ' en el mazo');
+    const face = span(option, 'card front search-face', '');
+    renderCardFace(face, card);
+    span(option, 'search-name', rules.CARDS[card].name);
+    span(option, 'search-count', copies + ' en el mazo');
   }
   searchDialog.showModal();
 }
@@ -897,6 +911,7 @@ function syncHandDrawer() {
   }
   const drawer = byId('hand-drawer');
   drawer.hidden = !drawerOpen || isAITurn();
+  document.body.classList.toggle('drawer-visible', !drawer.hidden);
   drawer.dataset.side = actor;
   byId('drawer-title').textContent = revealing
     ? (actor === game.battle.defender ? 'Defensa' : 'Ataque') + ' · ' + rules.SIDE[actor]
@@ -913,9 +928,18 @@ function renderSpecialFire() {
   const show = game.phase === 'turn' && !isAITurn() && !game.attacked && game.actions < 2
     && game.players[side].charge >= rules.CHARGE_MAX;
   specialFire.hidden = !show;
+  document.body.classList.toggle('ss-ready', show);
+  const hint = byId('special-hint');
+  hint.hidden = !show;
   if (!show) return;
   const options = selection ? rules.specialOptions(game, selection) : [];
   const power = options.length ? rules.SPECIALS[rules.piece(game, selection).animal] : null;
+  // Guía en tres pasos: ficha con fuego, botón ESPECIAL y objetivo marcado.
+  hint.dataset.step = specialMode ? 'target' : power ? 'press' : 'piece';
+  hint.textContent = specialMode
+    ? (specialView()?.destinations.length && !specialAt ? 'Paso 3: elige casilla verde u objetivo rojo' : 'Paso 3: toca el objetivo rojo')
+    : power ? 'Paso 2: pulsa ESPECIAL' : selection ? 'Esa ficha no alcanza a nadie: elige otra con fuego'
+      : 'Paso 1: toca una ficha con fuego';
   specialFire.dataset.side = side;
   specialFire.classList.toggle('armed', Boolean(power));
   specialFire.classList.toggle('active', specialMode);
@@ -1349,6 +1373,7 @@ function maybeShowEnd() {
     ? 'La partida se decidió por eliminación en la ronda ' + game.round + '.'
     : 'Se completaron las 12 rondas: ' + rules.remaining(game, 'I') + ' fichas idealistas contra ' + rules.remaining(game, 'R') + ' realistas.';
   screen.hidden = false;
+  fx.duck(.3);
   fx.play(kind === 'lose' ? 'defeat' : 'victory');
   byId('end-ok').focus();
 }
@@ -1571,6 +1596,7 @@ function resetPresentation() {
 }
 function startGame(nextMode) {
   resetPresentation();
+  fx.music('battle');
   mode = nextMode;
   game = rules.makeGame();
   byId('inicio').hidden = true;
@@ -1585,6 +1611,7 @@ function startGame(nextMode) {
 }
 function returnToMenu() {
   resetPresentation();
+  fx.music('menu');
   game = null;
   mode = null;
   byId('inicio').hidden = false;
