@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css?v=014">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
+  <script defer src="fx.js?v=014"></script>
   <script defer src="app.js?v=014"></script>
 </head>
 <body>
@@ -32,6 +33,7 @@
           <button id="export" class="secondary" type="button">Exportar JSON</button>
         </div>
       </details>
+      <button id="sound-toggle" type="button" class="secondary sound-toggle" aria-pressed="true" aria-label="Sonido activado">🔊</button>
       <button id="restart" type="button" class="secondary" hidden>Nueva partida</button>
     </div>
   </header>
@@ -96,6 +98,7 @@
       <span id="banner-subtitle" class="banner-subtitle"></span>
     </div>
   </div>
+  <div id="fx-layer" class="fx-layer" aria-hidden="true"></div>
   <dialog id="search-choice" aria-labelledby="search-title" aria-describedby="search-info">
     <h2 id="search-title">Elige una carta de tu mazo</h2>
     <p id="search-info">La carta seleccionada ocupará el espacio de Exploración después del combate, no durante él.</p>

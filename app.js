@@ -156,7 +156,195 @@ function announceNewEvents() {
     if (banner) bannerQueue.push(banner);
   }
   if (!bannerShowing && bannerQueue.length) showNextBanner();
+  playEffects(newEvents);
 }
+
+// === Efectos visuales y sonoros ===
+// Se derivan solo de los eventos del motor; la acción sigue explicada por
+// banners, registro y resultado aunque la animación esté desactivada.
+const fx = window.RealesIdealesFX;
+const fxLayer = byId('fx-layer');
+const cardColors = {
+  boost: ['#62c46a', '#f7ffd9'], weaken: ['#7b4bb0', '#e6d4ff'], major: ['#f0b52e', '#fff3c4'],
+  decisive: ['#d8312a', '#fff0e6'], cannon: ['#a0703c', '#ffd9a0'], search: ['#2c9fa4', '#d8fffb'],
+};
+let fxTimers = [];
+let lastCells = new Map();
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function later(ms, callback) {
+  const timer = setTimeout(() => {
+    fxTimers = fxTimers.filter(value => value !== timer);
+    callback();
+  }, ms);
+  fxTimers.push(timer);
+}
+function clearEffects() {
+  fxTimers.forEach(clearTimeout);
+  fxTimers = [];
+  fxLayer.replaceChildren();
+  lastCells = new Map();
+  document.querySelector('.field')?.classList.remove('fx-shake', 'fx-shake-strong');
+}
+function cellPoint(cell) {
+  const rect = hexButtons.get(cell)?.getBoundingClientRect();
+  if (!rect?.width) return null;
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: rect.width };
+}
+let fxCells = new Map();
+function pieceCell(id) {
+  return fxCells.get(id) ?? null;
+}
+function centerPoint() {
+  const duelNode = byId('duel');
+  const rect = (duelNode.hidden ? board : duelNode).getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: Math.min(rect.width, 120) };
+}
+function spawn(className, point, vars = {}, life = 1300) {
+  if (!point) return null;
+  const node = document.createElement('span');
+  node.className = 'fx ' + className;
+  node.style.left = point.x + 'px';
+  node.style.top = point.y + 'px';
+  node.style.setProperty('--size', point.size + 'px');
+  for (const [key, value] of Object.entries(vars)) node.style.setProperty('--' + key, value);
+  fxLayer.append(node);
+  setTimeout(() => node.remove(), life);
+  return node;
+}
+function flash(color, glow) {
+  spawn('fx-flash', { x: 0, y: 0, size: 0 }, { color, glow }, 900);
+}
+function shake(strong = false) {
+  if (reducedMotion()) return;
+  const field = document.querySelector('.field');
+  field.classList.remove('fx-shake', 'fx-shake-strong');
+  void field.offsetWidth;
+  field.classList.add(strong ? 'fx-shake-strong' : 'fx-shake');
+  later(650, () => field.classList.remove('fx-shake', 'fx-shake-strong'));
+}
+function explodeAt(cell, big = false) {
+  const point = cellPoint(cell);
+  spawn('fx-explosion' + (big ? ' big' : ''), point, {}, 1200);
+  spawn('fx-shockwave', point, {}, 900);
+  if (!reducedMotion()) for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2 + Math.random() * .4;
+    const reach = (point?.size ?? 60) * (0.8 + Math.random() * 0.6);
+    spawn('fx-debris', point, { dx: Math.cos(angle) * reach + 'px', dy: Math.sin(angle) * reach + 'px' }, 900);
+  }
+}
+function fireShell(fromCell, toCell, side) {
+  const from = cellPoint(fromCell), to = cellPoint(toCell);
+  if (!from || !to) return;
+  fx.play('launch');
+  spawn('fx-muzzle', from, {}, 500);
+  if (reducedMotion()) {
+    spawn('fx-lock', to, {}, 1400);
+    return;
+  }
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const arc = Math.max(70, Math.hypot(dx, dy) * 0.55);
+  const shell = spawn('fx-shell-x', from, { dx: dx + 'px' }, 900);
+  const inner = document.createElement('span');
+  inner.className = 'fx-shell side-' + side;
+  inner.style.setProperty('--dy', dy + 'px');
+  inner.style.setProperty('--peak', (dy / 2 - arc) + 'px');
+  shell.append(inner);
+  later(720, () => {
+    spawn('fx-impact', to, {}, 700);
+    spawn('fx-lock', to, {}, 1400);
+    fx.play('explosion');
+    shake();
+  });
+}
+function effectFor(event) {
+  switch (event.type) {
+    case 'move': {
+      fx.play('move');
+      spawn('fx-dust', cellPoint(event.to), {}, 700);
+      return;
+    }
+    case 'attack':
+      fireShell(pieceCell(event.piece), pieceCell(event.target), event.side);
+      return;
+    case 'reveal': {
+      fx.play(event.card);
+      const [color, glow] = cardColors[event.card];
+      const burst = spawn('fx-card-burst', centerPoint(), { color, glow }, 1100);
+      if (burst) burst.textContent = symbols[event.card];
+      return;
+    }
+    case 'pass':
+      fx.play('pass');
+      return;
+    case 'combo-card':
+    case 'combo-ready':
+      fx.play('combo');
+      flash('#673b97', '#fff0a0');
+      spawn('fx-rays', centerPoint(), {}, 1100);
+      return;
+    case 'battle': {
+      const big = event.decisiveCombo || Math.abs(event.force[0] - event.force[1]) >= 3;
+      event.removed.length > 1 ? fx.play('draw') : fx.play('explosion', big);
+      event.removed.forEach((id, i) => later(i * 170, () => explodeAt(pieceCell(id), big)));
+      if (event.winner) flash(event.winner === 'I' ? '#235f82' : '#9d312f', '#ffe3a3');
+      shake(big || event.removed.length > 1);
+      return;
+    }
+    case 'combo':
+      fx.play('explosion', true);
+      explodeAt(pieceCell(event.target), true);
+      shake(true);
+      return;
+    case 'summon':
+      fx.play('summon');
+      spawn('fx-summon', cellPoint(event.cell), {}, 1300);
+      return;
+    case 'rescue':
+      fx.play('rescue');
+      spawn('fx-rescue', cellPoint(event.to), {}, 1300);
+      return;
+    case 'draw':
+    case 'search':
+      fx.play('deal');
+      return;
+    case 'turn':
+      fx.play('turn', event.side);
+      return;
+    case 'end':
+      fx.play('victory');
+      flash('#f0b52e', '#fff7e6');
+      spawn('fx-rays', centerPoint(), {}, 1600);
+      return;
+    default:
+  }
+}
+const fxDurations = { move: 120, attack: 760, reveal: 420, pass: 100, 'combo-card': 520,
+  'combo-ready': 520, battle: 700, combo: 600, summon: 400, rescue: 400 };
+function playEffects(events) {
+  // Instantánea de casillas: las fichas eliminadas conservan su posición previa.
+  const cells = new Map(lastCells);
+  for (const p of game.pieces) if (p.cell) cells.set(p.id, p.cell);
+  fxCells = cells;
+  let delay = 0;
+  for (const event of events) {
+    if (delay) later(delay, () => { if (game) { fxCells = cells; effectFor(event); } });
+    else effectFor(event);
+    delay += fxDurations[event.type] ?? 0;
+  }
+  lastCells = new Map(game.pieces.filter(p => p.cell).map(p => [p.id, p.cell]));
+}
+function syncSoundToggle() {
+  const on = !fx.isMuted();
+  const toggle = byId('sound-toggle');
+  toggle.textContent = on ? '🔊' : '🔇';
+  toggle.setAttribute('aria-pressed', String(on));
+  toggle.setAttribute('aria-label', on ? 'Sonido activado' : 'Sonido desactivado');
+}
+byId('sound-toggle').addEventListener('click', () => {
+  fx.setMuted(!fx.isMuted());
+  syncSoundToggle();
+});
+syncSoundToggle();
 function currentPhase() {
   if (game.phase === 'turn') return 'Movimiento / ataque';
   if (game.phase === 'reveal') return 'Fase de batalla';
@@ -650,6 +838,7 @@ function resetPresentation() {
   bannerQueue = [];
   bannerShowing = false;
   announcedEvents = 0;
+  clearEffects();
   byId('phase-banner').hidden = true;
   if (searchDialog.open) searchDialog.close();
   drag?.ghost?.remove();
