@@ -90,6 +90,42 @@
       tone('triangle', 60, 30, 0.05, 0.5, 0.45);
       if (big) noise(0.18, 0.7, { peak: 0.45, from: 900, to: 60 });
     },
+    // Motor de camioncito: traqueteo grave modulado mientras avanza.
+    drive(duration = 0.9) {
+      const a = audio();
+      if (!a) return;
+      const t = a.currentTime;
+      const osc = a.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(55, t);
+      osc.frequency.linearRampToValueAtTime(75, t + duration * 0.4);
+      osc.frequency.linearRampToValueAtTime(50, t + duration);
+      const filter = a.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 420;
+      const gain = a.createGain();
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.22, t + 0.08);
+      gain.gain.setValueAtTime(0.22, t + duration - 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      // Pulso de pistones: modula el volumen unas 14 veces por segundo.
+      const lfo = a.createOscillator();
+      const depth = a.createGain();
+      lfo.frequency.value = 14;
+      depth.gain.value = 0.12;
+      lfo.connect(depth).connect(gain.gain);
+      osc.connect(filter).connect(gain).connect(master);
+      osc.start(t); lfo.start(t);
+      osc.stop(t + duration + 0.05); lfo.stop(t + duration + 0.05);
+      [0.15, 0.45, 0.72].forEach(at => noise(at * duration, 0.09, { peak: 0.12, filter: 'bandpass', from: 700, to: 300, q: 1.5 }));
+    },
+    // Respuesta corta y alegre al llegar.
+    ok() { notes('square', [784, 1175], 0.08, 0, 0.1, 0.07); notes('sine', [784, 1175], 0.08, 0, 0.14, 0.16); },
+    // Grito de ataque: corneta ascendente antes del disparo.
+    charge() {
+      notes('sawtooth', [392, 523, 659], 0.09, 0, 0.14, 0.07);
+      tone('triangle', 784, 988, 0.27, 0.3, 0.2);
+    },
     // Ambos caen: dos explosiones encadenadas.
     draw() { sounds.explosion(); setTimeout(() => sounds.explosion(), 170); },
     move() {
