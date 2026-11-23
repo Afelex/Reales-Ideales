@@ -126,6 +126,14 @@
       notes('sawtooth', [392, 523, 659], 0.09, 0, 0.14, 0.07);
       tone('triangle', 784, 988, 0.27, 0.3, 0.2);
     },
+    // Ataque especial: carga de energía ascendente y estallido.
+    special() {
+      tone('sawtooth', 110, 880, 0, 0.7, 0.1, 0.05);
+      tone('square', 220, 1760, 0.05, 0.65, 0.05, 0.05);
+      noise(0, 0.7, { peak: 0.18, filter: 'bandpass', from: 400, to: 4000, q: 2, attack: 0.3 });
+      notes('triangle', [523, 784, 1047, 1568], 0.06, 0.7, 0.3, 0.2);
+      tone('sine', 80, 40, 0.7, 0.4, 0.7);
+    },
     // Ambos caen: dos explosiones encadenadas.
     draw() { sounds.explosion(); setTimeout(() => sounds.explosion(), 170); },
     move() {

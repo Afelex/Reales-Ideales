@@ -1,6 +1,6 @@
 # Reales Ideales
 
-Prototipo v0.14 (reglas v0.12) de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
+Prototipo v0.15 (propuesta de reglas v0.15) de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
 
 ## Abrir la demostración
 
@@ -52,9 +52,28 @@ Haz hasta dos acciones en el orden que prefieras: **solo un movimiento normal** 
 - **Mover.** Elige una única ficha propia y desplázala una casilla libre adyacente. No se permite realizar un segundo movimiento normal ese turno. Puedes entrar en cualquier zona.
 - **Atacar.** Elige una ficha propia y una enemiga adyacente. El cañón puede atacar a cualquier ficha enemiga. El turno admite un solo ataque.
 
+## Ataques especiales (v0.15)
+
+Cada bando tiene una **barra de ataque especial** de tres segmentos. Se llena 1/3 al empezar cada turno propio: el primer ataque especial llega en el **turno 3** de cada jugador. Al usarlo, la barra vuelve a 0 y se recarga en tres turnos. Llena, se queda llena hasta que se use.
+
+El ataque especial **solo se usa al atacar**, en lugar del ataque normal del turno. Primero se elige el poder y el objetivo; después empieza el combate por cartas. El cañón no puede lanzar ataques especiales. Cada animal tiene el suyo:
+
+| Animal | Ataque especial | Efecto |
+|---|---|---|
+| Tigrillo | Garra de Trueno | +3 de fuerza. |
+| Llama | Carga Andina | Ataca hasta 2 casillas en línea recta (la casilla intermedia debe estar libre), con +2. |
+| Guacamayo | Bombardeo en Picada | Ataca a una ficha a 1 o 2 casillas, incluso por encima de otra, con +2. |
+| Rana | Salto Relámpago | Se mueve hasta 2 casillas libres y ataca, con +2. |
+| Gallo | Estandarte de Guerra | +1 y el rival solo puede activar 1 carta. |
+| Mono | Doble Impacto | +1 y, si gana, elimina además a otra ficha enemiga vecina (o la perdona). |
+| Cuy | Túnel Relámpago | Aparece en una casilla libre junto a cualquier enemigo y ataca, con +2. |
+| Gato | Sombra Letal | El rival no puede activar cartas en este combate. |
+
+El desplazamiento de Salto Relámpago y Túnel Relámpago no gasta el movimiento normal ni activa rescates.
+
 ## Combate
 
-1. La ficha atacante comienza con 1 de fuerza y la defensora con 0. El **cañón** suma +2 ofensivos, y la **ficha de vanguardia** de cada bando (I5/R4) suma +2 ofensivos. Esas dos ventajas no se acumulan: convertir la vanguardia en cañón mantiene una sola bonificación de +2.
+1. **Todas las fichas empiezan con 0 de fuerza**, ataquen o defiendan. Un **cañón** suma +2 cuando ataca. El ataque especial añade su bono al atacante. Ya no existe la ficha de vanguardia.
 2. Cada jugador conserva **tres cartas** en su reserva, pero puede activar como máximo **dos** durante cada combate. Las cuatro oportunidades se alternan: defensor, atacante, defensor, atacante. Pasar conserva la siguiente oportunidad. Las cartas reveladas se ven antes de decidir.
 3. **COMBO:** dos cartas iguales activadas por un mismo jugador durante el combate conceden +1 extra a su fuerza. **Golpe decisivo** tiene prioridad sobre los valores de fuerza: un golpe contra uno se anula, mientras que dos contra uno prevalecen. Si el ganador usó dos Golpes decisivos, activa **COMBO DECISIVO** y puede elegir una segunda ficha enemiga del tablero para eliminar, además del objetivo principal. Puede omitir la segunda eliminación. Si hay igual cantidad de Golpes decisivos, decide la fuerza; si ambos tienen dos, el ganador también puede reclamar el combo.
 4. La ficha con más fuerza vence y se retira la otra. En empate se retiran ambas. Comprueba inmediatamente si termina la partida.
@@ -63,7 +82,7 @@ Haz hasta dos acciones en el orden que prefieras: **solo un movimiento normal** 
 
 ## Cañón y rescate
 
-**Invocar cañón aporta +1 de fuerza en el combate en que se utiliza.** Puedes revelarla si empezaste esa batalla sin cañón. Como máximo se juega una invocación propia por combate. Después de la baja, el avance y el posible rescate, sustituye una ficha propia que siga en juego por tu cañón en la misma casilla. Si ambos bandos invocan, elige primero el defensor. La carta no modifica fuerza y queda fuera de la partida. El cañón puede atacar desde el siguiente turno de su dueño y se mueve como una ficha normal. Si pierde al disparar desde lejos, se retira igualmente. Ambas facciones pueden tener su propio cañón simultáneamente. La segunda invocación está disponible en un combate posterior a la pérdida del primer cañón.
+**Invocar cañón convierte al instante en cañón a tu ficha que combate y le suma +2** en ese combate, tanto al atacar como al defender. Puedes revelarla si empezaste esa batalla sin cañón. Como máximo se juega una invocación propia por combate. La carta queda fuera de la partida. El cañón puede atacar desde el siguiente turno de su dueño y se mueve como una ficha normal. Si pierde al disparar desde lejos, se retira igualmente. Ambas facciones pueden tener su propio cañón simultáneamente. La segunda invocación está disponible en un combate posterior a la pérdida del primer cañón.
 
 Al entrar en una estrella del extremo rival, puedes gastar un marcador y colocar una ficha propia eliminada en cualquier casilla libre de tu zona inicial. Cuenta la llegada por movimiento normal o por avance tras combate. Permanecer en la estrella no vuelve a activarla. Si prefieres guardar el marcador o el rescate es imposible, puedes intentarlo en otra llegada. La ficha recuperada vuelve **como ficha normal**, incluso si había sido el cañón. Los idealistas rescatan en B11 y D11. Los realistas rescatan en B1 y D1.
 
@@ -75,7 +94,7 @@ Al entrar en una estrella del extremo rival, puedes gastar un marcador y colocar
 | Debilitar | 8 | −1 a la ficha rival |
 | Refuerzo mayor | 4 | +2 a tu ficha |
 | Golpe decisivo | 2 | Tu ficha gana, salvo si el rival también lo juega |
-| Invocar cañón | 2 | +1 de fuerza y transforma una ficha propia después de la batalla |
+| Invocar cañón | 2 | Tu ficha en combate se convierte en cañón al instante y suma +2 |
 | Exploración | 4 | +1 de fuerza; eliges una carta del mazo que ocupa la misma ranura al terminar la batalla |
 
 ## Victoria y empate
@@ -88,7 +107,20 @@ La interfaz muestra banners de pantalla completa para los cambios principales: c
 
 ## Pruebas automatizadas
 
-El archivo `game.test.js` contempla 21 casos, incluyendo las bonificaciones de cañón/vanguardia, límite de movimiento, combos, búsqueda diferida, reserva de tres y eliminación doble. Ejecuta `node --test` para comprobar la regresión. La lógica también se probó mediante simulación de 70 partidas IA contra IA.
+El archivo `game.test.js` contempla 30 casos: fuerza base 0, cañón inmediato, barra de ataque especial, los ocho poderes, límite de movimiento, combos, búsqueda diferida, reserva de tres y eliminación doble. Ejecuta `node --test` para comprobar la regresión.
+
+### Simulación de equilibrio v0.15
+
+2000 partidas IA contra IA por versión (la misma IA en ambos bandos; indica tendencias, no sustituye las pruebas en mesa):
+
+| Métrica | v0.12 (atacante 1, vanguardia +2) | v0.15 |
+|---|---|---|
+| Victorias Idealistas / Realistas / empate | 63% / 34% / 3% | 49% / 48% / 4% |
+| Batallas que gana el atacante | 75% | 59% |
+| Batallas en empate (doble baja) | 9% | 25% |
+| Victorias con ataque especial / sin él | — | 75% / 49% |
+| Ataques especiales por partida | — | 4,0 |
+| Rondas por partida | 7,4 | 7,7 |
 
 ## Pruebas con jugadores nuevos
 
