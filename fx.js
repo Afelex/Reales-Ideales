@@ -29,8 +29,68 @@
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
+  // === Música de fondo: Clan Quest en el menú y Clan Charge en la partida ===
+  const TRACKS = {
+    menu: { src: 'assets/audio/clan-quest.mp3', volume: 0.38 },
+    battle: { src: 'assets/audio/clan-charge.mp3', volume: 0.26 },
+  };
+  let wanted = null;
+  let current = null; // { name, el }
+  let duckLevel = 1;
+  function fade(el, to, ms, done) {
+    const from = el.volume, start = performance.now();
+    clearInterval(el._fade);
+    el._fade = setInterval(() => {
+      const t = Math.min(1, (performance.now() - start) / ms);
+      el.volume = Math.max(0, Math.min(1, from + (to - from) * t));
+      if (t >= 1) {
+        clearInterval(el._fade);
+        done?.();
+      }
+    }, 40);
+  }
+  function stopCurrent() {
+    if (!current) return;
+    const old = current.el;
+    current = null;
+    fade(old, 0, 600, () => old.pause());
+  }
+  function applyMusic() {
+    if (muted || !wanted) {
+      stopCurrent();
+      return;
+    }
+    const track = TRACKS[wanted];
+    if (current?.name === wanted) {
+      if (current.el.paused) current.el.play().catch(() => {});
+      fade(current.el, track.volume * duckLevel, 400);
+      return;
+    }
+    stopCurrent();
+    const el = new Audio(track.src);
+    el.loop = true;
+    el.volume = 0;
+    el.preload = 'auto';
+    current = { name: wanted, el };
+    // Sin un gesto previo el navegador rechaza play(); se reintenta en el primer toque.
+    el.play().then(() => fade(el, track.volume * duckLevel, 900)).catch(() => {});
+  }
+  function music(name) {
+    wanted = name;
+    duckLevel = 1;
+    applyMusic();
+  }
+  function duck(level) {
+    duckLevel = level;
+    if (current && !muted) fade(current.el, TRACKS[current.name].volume * level, 500);
+  }
+
   // Los navegadores exigen un gesto del usuario para habilitar el audio.
-  const unlock = () => { if (!muted) audio(); };
+  const unlock = () => {
+    if (muted) return;
+    audio();
+    if (wanted && (!current || current.el.paused)) applyMusic();
+  };
   window.addEventListener('pointerdown', unlock, { passive: true });
   window.addEventListener('keydown', unlock);
 
@@ -204,6 +264,7 @@
     muted = Boolean(value);
     try { localStorage.setItem(STORAGE_KEY, muted ? 'off' : 'on'); } catch { /* sin almacenamiento */ }
     if (!muted) play('move');
+    applyMusic();
   }
-  window.RealesIdealesFX = { play, setMuted, isMuted: () => muted };
+  window.RealesIdealesFX = { play, setMuted, isMuted: () => muted, music, duck };
 })();

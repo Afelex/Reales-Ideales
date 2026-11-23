@@ -105,6 +105,14 @@ Si un bando se queda sin fichas, gana el otro de inmediato. Si ambos pierden su 
 
 La interfaz muestra banners de pantalla completa para los cambios principales: comienzo/fin de turno, movimiento, declaración de ataque, robo de cartas, invocación, rescate y combos. Un rótulo más pequeño indica la fase actual. Cada facción tiene un contador de **cartas restantes en su mazo**, sin contar las cartas en reserva ni el descarte. La reserva de cada jugador solo se descubre cuando le corresponde elegir.
 
+## Interfaz de partida v0.17
+
+- **Escena única:** el tablero se apoya sobre el empedrado de la plaza, con inclinación leve y sombra de contacto, sin recuadro propio.
+- **Las fichas siempre a la vista:** en escritorio el duelo ocupa la columna izquierda y las cartas la derecha. En móvil vertical el cajón entra en el flujo y el tablero se ajusta para caber entero. En horizontal, el duelo y las cartas usan la columna derecha.
+- **Sin desplazamientos:** el cajón, la elección de Exploración (cuadrícula de cartas) y la ayuda caben en pantalla.
+- **Guía del ataque especial:** aviso "¡ATAQUE ESPECIAL LISTO!" al llenarse la barra, fichas con anillo de fuego, botón redondo ESPECIAL en el dock y un globo con flecha que indica cada paso. Paso 1: ficha con fuego. Paso 2: botón. Paso 3: objetivo con mira.
+- **Música:** *Clan Quest* en el menú principal y *Clan Charge* durante la partida, con transición suave. Se silencia con el botón de sonido. Los navegadores pueden esperar al primer toque para empezar a sonar. Pistas creadas por el autor con Suno, en `assets/audio/`.
+
 ## Pruebas automatizadas
 
 El archivo `game.test.js` contempla 30 casos: fuerza base 0, cañón inmediato, barra de ataque especial, los ocho poderes, límite de movimiento, combos, búsqueda diferida, reserva de tres y eliminación doble. Ejecuta `node --test` para comprobar la regresión.

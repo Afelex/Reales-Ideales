@@ -1324,3 +1324,156 @@ body.fx-busy .special-fire, body.banner-on .special-fire { visibility: hidden; }
 .fx-hero { width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); border-radius: 0; }
 .fx-hero > .token { width: 100%; height: 100%; }
 .rival-played .mini-card.card { width: 3.9rem; }
+
+/* === v0.17: escena integrada, nada tapa las fichas, sin desplazamientos === */
+/* Una sola escena: el tablero se apoya sobre el empedrado de la plaza. */
+body.playing {
+  background: radial-gradient(ellipse at 50% 58%, transparent 38%, #1a0c0670 100%),
+    linear-gradient(#ffd9a018, transparent 40%),
+    var(--garden-scene) center 42% / cover no-repeat #53694c;
+}
+body.playing .field { background: transparent; border-color: transparent; box-shadow: none; }
+body.playing .board-stage {
+  flex: 1 1 auto; min-height: 0; width: 100%; position: relative;
+  display: grid; place-items: center; container-type: size;
+}
+body.playing .board {
+  width: min(100cqw, calc(100cqh * .7915), 35rem); max-height: none; margin: 0;
+  /* Inclinación leve y sombra de contacto: el tablero descansa sobre el suelo. */
+  transform: perspective(1600px) rotateX(9deg); transform-origin: 50% 60%;
+  filter: drop-shadow(0 16px 10px #2a140a80) drop-shadow(0 3px 2px #2a140a66);
+}
+body.playing .hex .token { filter: drop-shadow(0 4px 2px #2a140a73); }
+
+/* Cajón de cartas sin desplazamiento interno. */
+body.playing .drawer-hands { overflow: hidden; }
+body.playing .hand-drawer { overflow: hidden; }
+
+/* Botón de fuego dentro del dock, con guía paso a paso encima. */
+body.playing .controls { position: relative; }
+body.playing.ss-ready .controls { padding-right: 5.6rem; overflow: visible; }
+body.playing .special-fire {
+  right: .45rem; top: 50%; bottom: auto; translate: 0 -50%;
+  width: 4.7rem; height: 4.7rem;
+}
+.special-hint {
+  position: absolute; z-index: 12; right: .2rem; bottom: calc(100% + .55rem); margin: 0;
+  max-width: min(17rem, 80vw); padding: .4rem .7rem; border-radius: .7rem;
+  background: #fff7e6; color: #2c1a12; border: 2px solid #e8431c;
+  font: 800 clamp(.75rem, 2.6vw, .9rem)/1.2 system-ui, sans-serif; text-align: center;
+  box-shadow: 0 6px 14px #1d0f0a80; pointer-events: none;
+  animation: hint-bounce 1s ease-in-out infinite;
+}
+.special-hint::after {
+  content: ''; position: absolute; right: 1.8rem; top: 100%;
+  border: .7rem solid transparent; border-top-color: #e8431c; border-bottom: 0;
+}
+.special-hint[data-step="piece"]::after { right: auto; left: 50%; translate: -50% 0; border-top-color: transparent; }
+.special-hint[data-step="piece"]::before {
+  content: ''; position: absolute; left: 50%; bottom: 100%; translate: -50% 0;
+  border: .7rem solid transparent; border-bottom-color: #e8431c; border-top: 0;
+}
+@keyframes hint-bounce { 50% { transform: translateY(-5px); } }
+body.fx-busy .special-hint, body.banner-on .special-hint { visibility: hidden; }
+
+/* Fichas que pueden lanzar su ataque especial: anillo de fuego. */
+.hex .token.ss-glow { position: relative; filter: drop-shadow(0 0 6px #ff7a2a) drop-shadow(0 0 2px #fff3a0); animation: ss-pulse 1s ease-in-out infinite; }
+.hex .token.ss-glow::after {
+  content: ''; position: absolute; inset: -9%; border-radius: 50%;
+  border: 3px solid #ffb02e; box-shadow: 0 0 10px 3px #ff7a2acc, inset 0 0 8px #ff7a2a99;
+  animation: ss-ring 1s ease-in-out infinite;
+}
+@keyframes ss-pulse { 50% { transform: translateY(-3px); } }
+@keyframes ss-ring { 50% { inset: -15%; opacity: .55; } }
+.phase-banner[data-kind="special"] .banner-content { --banner-main: #b3361c; --banner-glow: #ffd34d; }
+
+/* Exploración: cuadrícula de cartas, sin lista desplazable. */
+#search-choice { width: min(34rem, calc(100vw - 1.2rem)); max-height: calc(100dvh - 1.2rem); overflow: hidden; }
+.search-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; max-height: none; overflow: visible; margin: .7rem 0; }
+.search-option {
+  display: grid; justify-items: center; align-content: start; gap: .12rem; width: auto; padding: .3rem .25rem .35rem;
+  border-radius: .7rem; border: 2px solid #c9995f; background: #fff2d8; text-align: center; color: #2c1a12; box-shadow: 0 3px 0 #a5784a;
+}
+.search-option:hover, .search-option:focus-visible { border-color: #f0b52e; transform: translateY(-2px); }
+.search-option .search-face.card { width: min(100%, 6.6rem, calc((100dvh - 16rem) / 2 * .89)); pointer-events: none; }
+.search-name { font: 800 .78rem/1.1 Georgia, serif; }
+.search-count { font: 650 .68rem/1.1 system-ui, sans-serif; color: var(--quiet); }
+
+/* Móvil vertical: el cajón entra en el flujo y el tablero se encoge para seguir entero a la vista. */
+@media (orientation: portrait) and (max-width: 849px) {
+  body.playing .play-layout {
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "red blue" "field field" "hand hand" "phase phase";
+  }
+  body.playing .hand-drawer {
+    grid-area: hand; position: relative; inset: auto; transform: none;
+    width: 100%; max-height: none; padding: .35rem .45rem .45rem; gap: .25rem;
+  }
+  body.playing .hand-drawer .hand { max-width: 17.5rem; }
+  body.playing .rival-played { margin: 0; padding: .2rem .45rem; }
+  body.playing .rival-played .mini-card.card { width: 2.5rem; }
+  body.playing .rival-played-label { font-size: .62rem; }
+  body.playing .field .duel:not([hidden]) {
+    position: static; inset: auto; width: 100%; max-width: 22rem; margin: .1rem auto 0; flex: 0 0 auto;
+  }
+  body.playing.drawer-visible .field .duel { display: none; }
+  body.playing.drawer-visible .controls .instructions { display: none; }
+  body.playing .legend { display: none; }
+}
+
+/* Escritorio: cartas a la derecha y duelo a la izquierda, en los márgenes de la plaza. */
+@media (min-width: 850px) and (min-height: 610px) {
+  body.playing .hand-drawer, body.playing .field .duel:not([hidden]) {
+    position: fixed; transform: none; bottom: auto;
+    top: calc(var(--game-header) + 8.6rem);
+    width: min(26rem, calc(50vw - 15.8rem)); max-width: none;
+  }
+  body.playing .hand-drawer { left: auto; right: .8rem; max-height: calc(100dvh - var(--game-header) - 9.6rem); }
+  body.playing .field .duel:not([hidden]) { left: .8rem; right: auto; padding: .6rem; }
+  body.playing .duelist .token { width: 4.4rem; }
+  body.playing .duelist-name { font-size: .85rem; }
+  body.playing .duelist-role { font-size: .72rem; }
+  body.playing .duel .mini-card.card { width: 3.3rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .special-hint, .hex .token.ss-glow, .hex .token.ss-glow::after { animation: none; }
+}
+/* Ayuda sin desplazamiento: dos columnas en pantallas anchas y sin ilustración en móvil. */
+body.playing .masthead .help-content {
+  max-height: calc(100dvh - var(--game-header) - .8rem); overflow: hidden;
+  font-size: clamp(.8rem, 2.4vw, .92rem); line-height: 1.35;
+}
+body.playing .masthead .help-content .help-art { display: none; }
+@media (min-width: 700px) {
+  body.playing .masthead .help-content { width: min(44rem, calc(100vw - 1rem)); column-count: 2; column-gap: 1.2rem; }
+  body.playing .masthead .help-content p { break-inside: avoid; }
+}
+/* Móvil horizontal: el duelo pasa a la columna derecha y el cajón usa todo su espacio. */
+@media (orientation: landscape) and (max-height: 560px) {
+  body.playing .hand-drawer { height: 100%; max-height: none; padding: .3rem .4rem; gap: .2rem; }
+  body.playing .rival-played { margin: 0; padding: .1rem .4rem; gap: .35rem; }
+  body.playing .rival-played .mini-card.card { width: 1.7rem; }
+  body.playing .rival-played-label { font-size: .58rem; }
+  body.playing .drawer-toolbar { font-size: .7rem; }
+  body.playing.drawer-visible .controls .instructions { display: none; }
+  body.playing .field .duel:not([hidden]) {
+    position: fixed; inset: auto; left: auto; right: .45rem; top: calc(var(--game-header) + 5.6rem);
+    width: calc(48vw - 1.2rem); max-width: none; margin: 0; padding: .25rem;
+  }
+  body.playing.drawer-visible .field .duel { display: none; }
+  body.playing .duel .force-chips, body.playing .duel .duel-cards .mini-empty { display: none; }
+  body.playing .duelist .token { width: 2.6rem; }
+}
+/* Objetivo de ataque: mira giratoria y pulso, visible también sobre las casillas rojas. */
+.hex[data-highlight="target"] { background: radial-gradient(ellipse, #ffffff40 28%, #ff3b1ff2 72%); animation: target-pulse .8s ease-in-out infinite alternate; }
+.hex[data-highlight="target"] .token { position: relative; }
+.hex[data-highlight="target"] .token::after {
+  content: ''; position: absolute; inset: -4%; border-radius: 50%;
+  border: 3px dashed #fff; box-shadow: 0 0 0 2px #c8160e, 0 0 10px #ff3b1f;
+  animation: target-spin 2.4s linear infinite;
+}
+@keyframes target-pulse { to { filter: brightness(1.25); } }
+@keyframes target-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .hex[data-highlight="target"], .hex[data-highlight="target"] .token::after { animation: none; }
+}
