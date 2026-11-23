@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=015-especial">
+  <link rel="stylesheet" href="styles.css?v=016-timer">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
-  <script defer src="fx.js?v=015-especial"></script>
-  <script defer src="app.js?v=015-especial"></script>
+  <script defer src="fx.js?v=016-timer"></script>
+  <script defer src="app.js?v=016-timer"></script>
 </head>
 <body>
   <header class="masthead">
@@ -72,12 +72,17 @@
       </div>
     </section>
     <section class="field" aria-label="Campo de juego">
-      <div class="field-heading"><span id="round">Ronda 1 de 12</span><span id="active-side">Turno idealista</span></div>
+      <div class="field-heading"><span id="round">Ronda 1 de 12</span><span id="turn-timer" class="turn-timer" role="timer" aria-live="off" hidden><b id="turn-timer-value">40</b></span><span id="active-side">Turno idealista</span></div>
       <div id="phase-indicator" class="phase-indicator" role="status">Movimiento / ataque</div>
       <div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div>
 
       <p id="battle-result" class="battle-result" role="status" hidden></p>
       <div id="duel" class="duel" hidden></div>
+      <button id="special-fire" type="button" class="special-fire" hidden aria-pressed="false">
+        <svg class="special-flame" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="flame-outer" d="M32 4c4 10 14 16 14 30a14 14 0 0 1-28 0c0-8 4-12 7-16 1 5 3 8 6 9-1-9 0-16 1-23z"/><path class="flame-inner" d="M32 30c2 5 7 8 7 14a7 7 0 0 1-14 0c0-4 2-6 4-8 0 2 1 3 3 4-1-4-1-7 0-10z"/></svg>
+        <span class="special-fire-label">Especial</span>
+        <span id="special-fire-power" class="special-fire-power"></span>
+      </button>
       <div class="legend">
         <span><img src="assets/clay/emblemas/rescate.webp" alt="" width="18" height="18"> Rescate</span>
         <span><img src="assets/clay/emblemas/cannon.webp" alt="" width="18" height="18"> Cañón</span>
@@ -97,6 +102,7 @@
         <span id="drawer-hint">3 cartas · máximo 2 por batalla</span>
         <button id="drawer-close" type="button" class="drawer-close" aria-label="Cerrar reserva"></button>
       </div>
+      <div id="rival-played" class="rival-played" hidden></div>
       <div class="drawer-hands">
         <div id="hand-I" class="hand" aria-label="Reserva idealista, tres cartas"></div>
         <div id="hand-R" class="hand" aria-label="Reserva realista, tres cartas"></div>
@@ -110,6 +116,30 @@
     </div>
   </div>
   <div id="fx-layer" class="fx-layer" aria-hidden="true"></div>
+  <section id="end-screen" class="end-screen" role="dialog" aria-modal="true" aria-labelledby="end-title" hidden>
+    <div class="end-card">
+      <p id="end-kicker" class="end-kicker"></p>
+      <h2 id="end-title" class="end-title"></h2>
+      <p id="end-text" class="end-text"></p>
+      <button id="end-ok" type="button" class="primary end-ok">OK</button>
+    </div>
+  </section>
+  <section id="stats-screen" class="stats-screen" role="dialog" aria-modal="true" aria-labelledby="stats-title" hidden>
+    <div class="stats-card">
+      <h2 id="stats-title">Estadísticas de la partida</h2>
+      <p id="stats-summary" class="stats-summary"></p>
+      <div id="stats-mvp" class="stats-mvp"></div>
+      <table class="stats-table">
+        <thead><tr><th scope="col"></th><th scope="col" class="col-I">Idealistas</th><th scope="col" class="col-R">Realistas</th></tr></thead>
+        <tbody id="stats-rows"></tbody>
+      </table>
+      <div class="stats-actions">
+        <button id="stats-export" type="button" class="secondary">Exportar JSON</button>
+        <button id="stats-menu" type="button" class="secondary">Menú</button>
+        <button id="stats-again" type="button" class="primary">Jugar otra vez</button>
+      </div>
+    </div>
+  </section>
   <dialog id="search-choice" aria-labelledby="search-title" aria-describedby="search-info">
     <h2 id="search-title">Elige una carta de tu mazo</h2>
     <p id="search-info">La carta seleccionada ocupará el espacio de Exploración después del combate, no durante él.</p>

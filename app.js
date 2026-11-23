@@ -114,7 +114,7 @@ function bannerFromEvent(event) {
     case 'summon': return { kind: 'summon', title: '¡CAÑÓN INVOCADO!', subtitle: event.piece + ' es cañón: +2 en este combate y al atacar' };
     case 'rescue': return { kind: 'rescue', title: '¡FICHA RESCATADA!', subtitle: 'Regresa al campo de batalla' };
     case 'draw': return { kind: 'draw', title: 'ROBO DE CARTAS', subtitle: rules.SIDE[event.side] + ': ' + event.count + ' carta(s)' };
-    case 'end': return { kind: 'end', title: 'FIN DE PARTIDA', subtitle: event.text };
+    case 'end': return null;
     default: return null;
   }
 }
@@ -123,6 +123,8 @@ function showNextBanner() {
   if (!game || !bannerQueue.length) {
     byId('phase-banner').hidden = true;
     bannerShowing = false;
+    document.body.classList.remove('banner-on');
+    if (game) maybeShowEnd();
     scheduleAI();
     return;
   }
@@ -133,6 +135,7 @@ function showNextBanner() {
   byId('banner-subtitle').textContent = next.subtitle;
   node.hidden = false;
   bannerShowing = true;
+  document.body.classList.add('banner-on');
   bannerTimer = setTimeout(() => {
     node.hidden = true;
     bannerShowing = false;
@@ -161,6 +164,7 @@ function releaseEffects() {
   document.body.classList.remove('fx-busy');
   if (!game) return;
   syncCounters();
+  maybeShowEnd();
   if (duelHold) {
     duelHold = false;
     renderDuel();
@@ -316,15 +320,45 @@ function explodeAt(cell, big = false) {
   }
 }
 const SHOT_DELAY = 650, SHOT_FLIGHT = 720;
-// Ataque especial: aura de poder sobre la ficha y su nombre en grande.
-const SPECIAL_MS = 1500;
+// Ataque especial: la pantalla se oscurece, la ficha queda destacada,
+// las partículas del poder se concentran en ella y aparece el nombre y lo que hace.
+const SPECIAL_MS = 2300;
+const powerStyles = {
+  tigrillo: { color: '#ffe066', glow: '#5ac8ff', shape: 'spark' },
+  llama: { color: '#d8b48a', glow: '#ffdca0', shape: 'rock' },
+  guacamayo: { color: '#ff8a2a', glow: '#ffd34d', shape: 'ember' },
+  rana: { color: '#8dffb8', glow: '#36e0ff', shape: 'spark' },
+  gallo: { color: '#ff5a2a', glow: '#ffd34d', shape: 'ember' },
+  mono: { color: '#ffd34d', glow: '#ff8a2a', shape: 'ember' },
+  cuy: { color: '#c08aff', glow: '#5ac8ff', shape: 'ring' },
+  gato: { color: '#a07ad8', glow: '#2c1a3a', shape: 'smoke' },
+};
 function specialCall(event) {
   const point = cellPoint(pieceCell(event.piece));
+  const piece = rules.piece(game, event.piece);
+  const power = rules.SPECIALS[event.animal];
+  const style = powerStyles[event.animal] ?? powerStyles.tigrillo;
   fx.play('special');
-  spawn('fx-power-aura side-' + event.side, point, {}, SPECIAL_MS);
-  const title = spawn('fx-power-name side-' + event.side, { x: window.innerWidth / 2, y: window.innerHeight * .3, size: 0 }, {}, SPECIAL_MS);
-  if (title) title.textContent = event.power;
-  if (!reducedMotion()) shake();
+  if (point) {
+    spawn('fx-spotlight', { x: 0, y: 0, size: 0 }, { x: point.x + 'px', y: point.y + 'px', r: point.size * .7 + 'px' }, SPECIAL_MS);
+    spawn('fx-power-aura side-' + event.side, point, { color: style.color, glow: style.glow }, SPECIAL_MS);
+    if (piece) tokenClone(piece, point, { width: point.size * .95, height: point.size * .95 }, 'fx-hero', SPECIAL_MS);
+    if (!reducedMotion()) for (let i = 0; i < 26; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const reach = point.size * (1.2 + Math.random() * 1.6);
+      spawn('fx-particle shape-' + style.shape, point, {
+        dx: Math.cos(angle) * reach + 'px', dy: Math.sin(angle) * reach + 'px',
+        delay: Math.round(Math.random() * 700) + 'ms', color: style.color, glow: style.glow,
+      }, SPECIAL_MS);
+    }
+  }
+  const title = spawn('fx-power-name side-' + event.side, { x: window.innerWidth / 2, y: window.innerHeight * .26, size: 0 },
+    { color: style.color, glow: style.glow }, SPECIAL_MS);
+  if (title) {
+    span(title, 'fx-power-title', event.power);
+    span(title, 'fx-power-desc', animals[event.animal] + ': ' + power.description);
+  }
+  later(SPECIAL_MS * .55, () => { if (!reducedMotion()) shake(); });
 }
 function attackSequence(event) {
   const fromCell = pieceCell(event.piece), toCell = pieceCell(event.target);
@@ -415,6 +449,7 @@ function applyCardForce(side, card) {
   duelPlayed[side] = [...duelPlayed[side], card];
   renderDuel();
   renderForceHint();
+  renderRivalPlayed();
   const after = [forceOf(0).total, forceOf(1).total];
   const own = after[index] - before[index], rival = after[1 - index] - before[1 - index];
   if (card === 'decisive') floatNumber(side, 'Decisivo', 'decisive');
@@ -501,7 +536,6 @@ function effectFor(event) {
       fx.play('turn', event.side);
       return;
     case 'end':
-      fx.play('victory');
       flash('#f0b52e', '#fff7e6');
       spawn('fx-rays', centerPoint(), {}, 1600);
   }
@@ -510,7 +544,7 @@ function effectFor(event) {
 const fxDurations = { move: DRIVE_MS + 800, bonus: DRIVE_MS + 800, advance: DRIVE_MS + 800,
   attack: SHOT_DELAY + SHOT_FLIGHT + 500, reveal: SHOWCASE_MS, pass: 900, 'combo-card': 700,
   'combo-ready': 700, battle: 1100, combo: 1000, double: 1000, 'double-ready': 700, summon: 1100, rescue: 1100,
-  end: 1200, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
+  end: 1400, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
 function playEffects(events) {
   // Instantánea de casillas: las fichas eliminadas conservan su posición previa.
   const cells = new Map(lastCells);
@@ -868,8 +902,65 @@ function syncHandDrawer() {
     ? (actor === game.battle.defender ? 'Defensa' : 'Ataque') + ' · ' + rules.SIDE[actor]
     : 'Reserva · ' + rules.SIDE[actor];
   renderForceHint(revealing, actor);
+  renderRivalPlayed(revealing, actor);
   byId('hand-I').hidden = actor !== 'I';
   byId('hand-R').hidden = actor !== 'R';
+}
+// Botón redondo de fuego: visible con la barra llena en el turno de un jugador humano.
+const specialFire = byId('special-fire');
+function renderSpecialFire() {
+  const side = game.turn;
+  const show = game.phase === 'turn' && !isAITurn() && !game.attacked && game.actions < 2
+    && game.players[side].charge >= rules.CHARGE_MAX;
+  specialFire.hidden = !show;
+  if (!show) return;
+  const options = selection ? rules.specialOptions(game, selection) : [];
+  const power = options.length ? rules.SPECIALS[rules.piece(game, selection).animal] : null;
+  specialFire.dataset.side = side;
+  specialFire.classList.toggle('armed', Boolean(power));
+  specialFire.classList.toggle('active', specialMode);
+  specialFire.setAttribute('aria-pressed', String(specialMode));
+  byId('special-fire-power').textContent = specialMode ? 'Cancelar' : power ? power.name : 'Elige ficha';
+  specialFire.setAttribute('aria-label', specialMode ? 'Cancelar ' + power?.name
+    : power ? 'Ataque especial: ' + power.name : 'Ataque especial listo: elige una ficha junto a un enemigo');
+}
+specialFire.addEventListener('click', () => {
+  if (!game || busy() || isAITurn()) return;
+  const options = selection ? rules.specialOptions(game, selection) : [];
+  if (!options.length) {
+    fx.play('pass');
+    say('Ataque especial listo', 'Toca una ficha tuya que tenga un enemigo a su alcance y luego este botón.');
+    return;
+  }
+  specialMode = !specialMode;
+  specialAt = null;
+  fx.play(specialMode ? 'charge' : 'pass');
+  render();
+});
+// Cartas activadas por el rival: siempre visibles durante el combate.
+function miniCards(parent, cards, empty) {
+  if (!cards.length) {
+    span(parent, 'mini-empty', empty);
+    return;
+  }
+  for (const card of cards) {
+    const mini = span(parent, 'mini-card card front', '');
+    renderCardFace(mini, card);
+    mini.setAttribute('role', 'img');
+    mini.setAttribute('aria-label', rules.CARDS[card].name + ': ' + rules.CARDS[card].description);
+    mini.title = rules.CARDS[card].name + ': ' + rules.CARDS[card].description;
+  }
+}
+function renderRivalPlayed(revealing = game.phase === 'reveal', actor = revealing ? rules.actor(game) : game.turn) {
+  const strip = byId('rival-played');
+  strip.hidden = !revealing || !duel;
+  strip.replaceChildren();
+  if (strip.hidden) return;
+  const rival = actor === 'I' ? 'R' : 'I';
+  strip.dataset.side = rival;
+  span(strip, 'rival-played-label', 'Cartas de ' + rules.SIDE[rival]);
+  const row = span(strip, 'rival-played-cards', '');
+  miniCards(row, duelPlayed[rival], 'Todavía ninguna');
 }
 function renderForceHint(revealing = game.phase === 'reveal', actor = revealing ? rules.actor(game) : game.turn) {
   const hint = byId('drawer-hint');
@@ -1050,15 +1141,9 @@ function renderControls() {
       button(actions, 'Terminar turno', nextTurn, 'primary end-turn');
       createDrawerButton(drawerOpen ? 'Cerrar cartas' : 'Mis 3 cartas',
         !drawerOpen, !drawerOpen, 'secondary');
-      if (selection && rules.specialOptions(game, selection).length) {
+      if (specialMode && selection) {
         const power = rules.SPECIALS[rules.piece(game, selection).animal];
-        const toggle = button(actions, specialMode ? 'Cancelar ' + power.name : 'Ataque especial: ' + power.name, () => {
-          specialMode = !specialMode;
-          specialAt = null;
-          render();
-        }, (specialMode ? 'secondary' : 'primary') + ' special-toggle');
-        toggle.setAttribute('aria-pressed', String(specialMode));
-        if (specialMode) say(power.name, power.description + ' ' + (specialView().destinations.length && !specialAt
+        say(power.name, power.description + ' ' + (specialView().destinations.length && !specialAt
           ? 'Elige una casilla de destino o un objetivo marcado.' : 'Elige el objetivo marcado.'));
       }
       break;
@@ -1158,6 +1243,8 @@ function renderDuel() {
       chip.title = part.label;
     }
     if (force.decisive) span(chips, 'force-chip decisive', 'Golpe decisivo' + (force.decisive > 1 ? ' ×2' : ''));
+    const played = span(portrait, 'duel-cards', '');
+    miniCards(played, duelPlayed[piece.side], 'Sin cartas');
     if (battleResult?.removed.includes(piece.id)) portrait.dataset.defeated = 'true';
     view.append(portrait);
   }
@@ -1166,6 +1253,204 @@ function renderDuel() {
   view.dataset.lead = lead === -1 ? 'tie' : duel[lead].side;
   view.setAttribute('aria-label', pieceName(attacker) + ' contra ' + pieceName(defender));
 }
+// === Temporizador de decisión ===
+// Cuenta solo en las decisiones humanas y se detiene durante animaciones y banners.
+const TIMER_SECONDS = { turn: 40, reveal: 20, bonus: 15, combo: 15, rescue: 20 };
+let timerKey = null;
+let timerLeft = 0;
+let timerLast = 0;
+let timerTick = -1;
+function timerContext() {
+  if (!game || !(game.phase in TIMER_SECONDS) || isAITurn()) return null;
+  const slot = game.phase === 'reveal' ? game.battle.slot : '';
+  return [game.phase, game.turn, game.round, slot].join('|');
+}
+function syncTimer() {
+  const key = timerContext();
+  const node = byId('turn-timer');
+  node.hidden = !key;
+  if (!key) {
+    timerKey = null;
+    return;
+  }
+  if (key !== timerKey) {
+    timerKey = key;
+    timerLeft = TIMER_SECONDS[game.phase];
+    timerLast = performance.now();
+    timerTick = -1;
+  }
+  drawTimer();
+}
+function drawTimer() {
+  const total = TIMER_SECONDS[game.phase] ?? 1;
+  const node = byId('turn-timer');
+  const seconds = Math.max(0, Math.ceil(timerLeft));
+  byId('turn-timer-value').textContent = String(seconds);
+  node.style.setProperty('--progress', String(Math.max(0, timerLeft / total)));
+  node.classList.toggle('warning', seconds <= 5);
+  node.classList.toggle('paused', busy());
+  node.setAttribute('aria-label', 'Quedan ' + seconds + ' segundos');
+}
+function timeOut() {
+  timerKey = null;
+  if (dialog.open) {
+    pending = null;
+    dialog.close();
+  }
+  if (searchDialog.open) searchDialog.close();
+  cardMenu = null;
+  cardMenuNode.hidden = true;
+  fx.play('pass');
+  bannerQueue.push({ kind: 'endturn', title: '¡TIEMPO!', subtitle: 'Se acabó el tiempo de ' + rules.SIDE[game.phase === 'reveal' ? rules.actor(game) : game.turn] });
+  switch (game.phase) {
+    case 'turn': nextTurn(); return;
+    case 'reveal': play(); return;
+    case 'bonus': selection = null; rules.skipBonus(game); break;
+    case 'combo': rules.comboEliminate(game, null); break;
+    case 'rescue': selection = null; rules.rescue(game, null); break;
+  }
+  render();
+}
+setInterval(() => {
+  const now = performance.now();
+  const elapsed = (now - timerLast) / 1000;
+  timerLast = now;
+  if (!game || !timerKey || timerKey !== timerContext()) return;
+  if (busy() || document.hidden) {
+    drawTimer();
+    return;
+  }
+  timerLeft -= elapsed;
+  const seconds = Math.ceil(timerLeft);
+  if (seconds <= 5 && seconds > 0 && seconds !== timerTick) {
+    timerTick = seconds;
+    fx.play('tick');
+  }
+  drawTimer();
+  if (timerLeft <= 0) timeOut();
+}, 200);
+
+// === Pantallas de victoria o derrota y estadísticas ===
+let endShown = false;
+function maybeShowEnd() {
+  if (!game || game.phase !== 'end' || endShown || fxBusy || bannerShowing || bannerQueue.length) return;
+  endShown = true;
+  const winner = game.winner;
+  const screen = byId('end-screen');
+  let kind, title;
+  if (!winner) { kind = 'draw'; title = 'EMPATE'; }
+  else if (mode === 'ai') { kind = winner === 'I' ? 'win' : 'lose'; title = winner === 'I' ? '¡VICTORIA!' : 'DERROTA'; }
+  else { kind = 'win'; title = '¡VICTORIA!'; }
+  screen.dataset.kind = kind;
+  screen.dataset.side = winner ?? '';
+  byId('end-kicker').textContent = winner ? 'Ganan los ' + rules.SIDE[winner] : 'Nadie gana';
+  byId('end-title').textContent = title;
+  byId('end-text').textContent = game.reason === 'eliminación'
+    ? 'La partida se decidió por eliminación en la ronda ' + game.round + '.'
+    : 'Se completaron las 12 rondas: ' + rules.remaining(game, 'I') + ' fichas idealistas contra ' + rules.remaining(game, 'R') + ' realistas.';
+  screen.hidden = false;
+  fx.play(kind === 'lose' ? 'defeat' : 'victory');
+  byId('end-ok').focus();
+}
+function gameStats() {
+  const stats = {};
+  for (const side of ['I', 'R']) stats[side] = { remaining: rules.remaining(game, side), kills: 0, won: 0, ties: 0,
+    specials: 0, cards: 0, combos: 0, rescues: 0, cannons: 0, favorite: {} };
+  const heroes = {};
+  let lastAttack = null, lastWinner = null;
+  for (const event of game.events) {
+    switch (event.type) {
+      case 'attack': lastAttack = event; break;
+      case 'special': stats[event.side].specials++; break;
+      case 'reveal':
+        stats[event.side].cards++;
+        stats[event.side].favorite[event.card] = (stats[event.side].favorite[event.card] ?? 0) + 1;
+        break;
+      case 'combo-card': stats[event.side].combos++; break;
+      case 'rescue': stats[event.side].rescues++; break;
+      case 'summon': stats[event.side].cannons++; break;
+      case 'battle': {
+        if (!event.winner) {
+          stats.I.ties++;
+          stats.R.ties++;
+          lastWinner = null;
+          break;
+        }
+        stats[event.winner].won++;
+        stats[event.winner].kills += event.removed.length;
+        lastWinner = lastAttack && (event.winner === event.attacker ? lastAttack.piece : lastAttack.target);
+        if (lastWinner) heroes[lastWinner] = (heroes[lastWinner] ?? 0) + event.removed.length;
+        break;
+      }
+      case 'combo':
+      case 'double':
+        stats[event.side].kills++;
+        if (lastWinner) heroes[lastWinner] = (heroes[lastWinner] ?? 0) + 1;
+        break;
+    }
+  }
+  const [mvp, mvpKills] = Object.entries(heroes).sort((a, b) => b[1] - a[1])[0] ?? [null, 0];
+  return { stats, mvp, mvpKills };
+}
+function showStats() {
+  byId('end-screen').hidden = true;
+  const { stats, mvp, mvpKills } = gameStats();
+  const seconds = started === null ? 0 : Math.floor(((ended ?? Date.now()) - started) / 1000);
+  byId('stats-summary').textContent = 'Rondas: ' + game.round + ' · Duración: ' + Math.floor(seconds / 60) + ' min '
+    + String(seconds % 60).padStart(2, '0') + ' s · ' + (game.winner ? 'Ganan los ' + rules.SIDE[game.winner] : 'Empate');
+  const hero = byId('stats-mvp');
+  hero.replaceChildren();
+  const piece = mvp && rules.piece(game, mvp);
+  if (piece) {
+    hero.dataset.side = piece.side;
+    hero.append(makeToken({ ...piece, cannon: false }));
+    const text = span(hero, 'stats-mvp-text', '');
+    span(text, 'stats-mvp-label', 'Ficha más valiosa');
+    span(text, 'stats-mvp-name', animals[character(piece)] + ' ' + piece.id + ' · ' + rules.SIDE[piece.side]);
+    span(text, 'stats-mvp-detail', mvpKills + (mvpKills === 1 ? ' baja causada' : ' bajas causadas'));
+  } else span(hero, 'stats-mvp-label', 'Sin bajas en esta partida');
+  const favorite = side => {
+    const [card] = Object.entries(stats[side].favorite).sort((a, b) => b[1] - a[1])[0] ?? [];
+    return card ? rules.CARDS[card].name : '—';
+  };
+  const rows = [
+    ['Fichas en pie', s => stats[s].remaining],
+    ['Bajas causadas', s => stats[s].kills],
+    ['Batallas ganadas', s => stats[s].won],
+    ['Empates (doble baja)', s => stats[s].ties],
+    ['Ataques especiales', s => stats[s].specials],
+    ['Cartas activadas', s => stats[s].cards],
+    ['Combos', s => stats[s].combos],
+    ['Cañones invocados', s => stats[s].cannons],
+    ['Rescates', s => stats[s].rescues],
+    ['Carta favorita', favorite],
+  ];
+  byId('stats-rows').replaceChildren(...rows.map(([label, value]) => {
+    const row = document.createElement('tr');
+    const head = document.createElement('th');
+    head.scope = 'row';
+    head.textContent = label;
+    row.append(head);
+    for (const side of ['I', 'R']) {
+      const cell = document.createElement('td');
+      cell.className = 'col-' + side;
+      cell.textContent = String(value(side));
+      row.append(cell);
+    }
+    return row;
+  }));
+  byId('stats-screen').hidden = false;
+  byId('stats-again').focus();
+}
+function hideEndScreens() {
+  byId('end-screen').hidden = true;
+  byId('stats-screen').hidden = true;
+}
+byId('end-ok').addEventListener('click', showStats);
+byId('stats-again').addEventListener('click', () => startGame(mode));
+byId('stats-menu').addEventListener('click', returnToMenu);
+byId('stats-export').addEventListener('click', () => byId('export').click());
+
 function render() {
   if (game.phase === 'end' && ended === null) ended = Date.now();
   byId('round').textContent = 'Ronda ' + game.round + ' de 12';
@@ -1201,6 +1486,8 @@ function render() {
   renderBoard();
   renderHands();
   renderControls();
+  renderSpecialFire();
+  syncTimer();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
     const item = document.createElement('li');
     item.textContent = event.text;
@@ -1276,6 +1563,9 @@ function resetPresentation() {
   duelSpecial = null;
   duelHold = false;
   clearSpecial();
+  endShown = false;
+  hideEndScreens();
+  timerKey = null;
   started = null;
   ended = null;
 }
