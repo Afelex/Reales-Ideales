@@ -3,14 +3,30 @@
 
   const SIDE = { I: 'Idealistas', R: 'Realistas' };
   const HAND_SIZE = 3;
-  // Fichas originalmente situadas en la punta central; la ventaja viaja con ellas.
-  const VANGUARD = { I: 'I5', R: 'R4' };
+  // Reglas v0.15: todas las fichas tienen fuerza base 0. La personalidad
+  // llega con el ataque especial de cada animal.
+  const ROSTER = {
+    I: ['mono', 'llama', 'guacamayo', 'rana', 'tigrillo', 'gallo', 'cuy', 'gato'],
+    R: ['rana', 'tigrillo', 'guacamayo', 'gallo', 'cuy', 'llama', 'mono', 'gato'],
+  };
+  // Barra por bando: +1 al empezar cada turno propio; con 3 se puede lanzar un ataque especial.
+  const CHARGE_MAX = 3;
+  const SPECIALS = {
+    tigrillo: { name: 'Garra de Trueno', bonus: 3, reach: 'adjacent', description: '+3 de fuerza.' },
+    llama: { name: 'Carga Andina', bonus: 2, reach: 'line', description: 'Ataca hasta 2 casillas en línea recta, con +2.' },
+    guacamayo: { name: 'Bombardeo en Picada', bonus: 2, reach: 'range', description: 'Ataca a una ficha a 1 o 2 casillas, incluso por encima de otra, con +2.' },
+    rana: { name: 'Salto Relámpago', bonus: 2, reach: 'leap', description: 'Se mueve hasta 2 casillas libres y ataca, con +2.' },
+    gallo: { name: 'Estandarte de Guerra', bonus: 1, rivalLimit: 1, reach: 'adjacent', description: '+1 y el rival solo puede activar 1 carta.' },
+    mono: { name: 'Doble Impacto', bonus: 1, double: true, reach: 'adjacent', description: '+1 y, si gana, elimina además a otra ficha enemiga vecina.' },
+    cuy: { name: 'Túnel Relámpago', bonus: 2, reach: 'tunnel', description: 'Aparece en una casilla libre junto a cualquier enemigo y ataca, con +2.' },
+    gato: { name: 'Sombra Letal', bonus: 0, rivalLimit: 0, reach: 'adjacent', description: 'El rival no puede activar cartas en este combate.' },
+  };
   const CARDS = {
     boost: { name: 'Refuerzo', count: 8, own: 1, description: 'Suma 1 a tu fuerza.' },
     weaken: { name: 'Debilitar', count: 8, rival: -1, description: 'Resta 1 a la fuerza rival.' },
     major: { name: 'Refuerzo mayor', count: 4, own: 2, description: 'Suma 2 a tu fuerza.' },
     decisive: { name: 'Golpe decisivo', count: 2, description: 'Gana. Si ambos lo juegan, se anulan.' },
-    cannon: { name: 'Invocar cañón', count: 2, own: 1, description: '+1 durante el combate. Después, transforma una ficha propia en cañón.' },
+    cannon: { name: 'Invocar cañón', count: 2, own: 2, description: 'Tu ficha en combate se convierte en cañón al instante y suma +2.' },
     search: { name: 'Exploración', count: 4, own: 1, description: '+1 y busca una carta de tu mazo que sustituye a Exploración al acabar el combate.' },
   };
   const CELLS = {};
@@ -27,6 +43,17 @@
   }
 
   const opponent = side => side === 'I' ? 'R' : 'I';
+  const cellAt = (col, row) => {
+    const id = 'ABCDE'[col] + row;
+    return col >= 0 && col < 5 && CELLS[id] ? id : null;
+  };
+  // Distancia en hexágonos (columnas contiguas avanzan una fila; la misma columna, dos).
+  function distance(a, b) {
+    const x = CELLS[a], y = CELLS[b];
+    const cols = Math.abs(x.col - y.col);
+    return cols + Math.max(0, (Math.abs(x.row - y.row) - cols) / 2);
+  }
+  const DIRECTIONS = [[0, 2], [0, -2], [1, 1], [1, -1], [-1, 1], [-1, -1]];
   function adjacent(a, b) {
     const x = CELLS[a], y = CELLS[b];
     if (!x || !y) return false;
@@ -52,7 +79,7 @@
     return drawn;
   }
   function makePlayer(deck) {
-    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, ownTurns: 0 };
+    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, ownTurns: 0, charge: 0 };
     draw(player);
     return player;
   }
@@ -61,11 +88,12 @@
     const state = {
       players: { I: makePlayer(decks.I ?? deck()), R: makePlayer(decks.R ?? deck()) },
       pieces: Object.entries(ZONES).flatMap(([side, cells]) =>
-        cells.map((cell, i) => ({ id: side + (i + 1), side, cell, cannon: false, ready: 0 }))),
+        cells.map((cell, i) => ({ id: side + (i + 1), side, animal: ROSTER[side][i], cell, cannon: false, ready: 0 }))),
       turn: 'I', round: 1, actions: 0, attacked: false, moved: [],
-      phase: 'turn', battle: null, rescue: null, summons: [], winner: null, reason: null, events: [],
+      phase: 'turn', battle: null, rescue: null, winner: null, reason: null, events: [],
     };
     state.players.I.ownTurns = 1;
+    state.players.I.charge = 1;
     record(state, 'turn', { side: 'I', text: 'Turno idealista.' });
     return state;
   }
@@ -98,7 +126,7 @@
     } else continueAfterEntry(s, after);
   }
   function continueAfterEntry(s, after) {
-    if (after === 'battle') startSummons(s);
+    if (after === 'battle') replenish(s);
     else s.phase = 'turn';
   }
   function move(s, id, cell) {
@@ -129,16 +157,81 @@
   }
   function attack(s, id, target) {
     if (!attacks(s, id).includes(target)) return false;
-    const a = piece(s, id), d = piece(s, target);
+    startBattle(s, piece(s, id), piece(s, target), null);
+    return true;
+  }
+  function startBattle(s, a, d, special) {
     s.actions++;
     s.attacked = true;
-    s.battle = { a: id, d: target, attacker: a.side, defender: d.side, nearby: adjacent(a.cell, d.cell),
-      slot: 0, played: { I: [], R: [] }, search: { I: [], R: [] }, startedWithCannon: {
+    s.battle = { a: a.id, d: d.id, attacker: a.side, defender: d.side, nearby: adjacent(a.cell, d.cell),
+      attackerCannon: a.cannon, special, slot: 0, played: { I: [], R: [] }, search: { I: [], R: [] }, startedWithCannon: {
         I: s.pieces.some(p => p.side === 'I' && p.cell && p.cannon),
         R: s.pieces.some(p => p.side === 'R' && p.cell && p.cannon),
       } };
     s.phase = 'reveal';
-    record(s, 'attack', { side: a.side, piece: id, target, nearby: s.battle.nearby, text: id + ' ataca a ' + target + '.' });
+    record(s, 'attack', { side: a.side, piece: a.id, target: d.id, nearby: s.battle.nearby, special,
+      text: a.id + ' ataca a ' + d.id + '.' });
+  }
+  // === Ataques especiales ===
+  const enemyAt = (s, cell, side) => {
+    const q = occupant(s, cell);
+    return q && q.side !== side ? q : null;
+  };
+  // Opciones { target, at }: "at" es la casilla desde la que ataca (cambia en Salto y Túnel).
+  function specialOptions(s, id) {
+    const p = piece(s, id);
+    if (s.phase !== 'turn' || !p?.cell || p.side !== s.turn || s.actions >= 2 || s.attacked || p.cannon) return [];
+    if (s.players[p.side].charge < CHARGE_MAX) return [];
+    const power = SPECIALS[p.animal];
+    const enemies = s.pieces.filter(q => q.cell && q.side !== p.side);
+    const options = [];
+    const add = (target, at) => {
+      if (!options.some(o => o.target === target && o.at === at)) options.push({ target, at });
+    };
+    const near = at => enemies.filter(q => adjacent(at, q.cell)).forEach(q => add(q.id, at));
+    if (power.reach === 'adjacent') near(p.cell);
+    if (power.reach === 'line') {
+      near(p.cell);
+      const { col, row } = CELLS[p.cell];
+      for (const [dc, dr] of DIRECTIONS) {
+        const mid = cellAt(col + dc, row + dr), far = cellAt(col + 2 * dc, row + 2 * dr);
+        if (mid && far && !occupant(s, mid) && enemyAt(s, far, p.side)) add(occupant(s, far).id, p.cell);
+      }
+    }
+    if (power.reach === 'range') enemies.filter(q => distance(p.cell, q.cell) <= 2).forEach(q => add(q.id, p.cell));
+    if (power.reach === 'leap') {
+      // Hasta dos pasos por casillas libres; también puede atacar sin moverse.
+      const reach = new Set([p.cell]);
+      let frontier = [p.cell];
+      for (let step = 0; step < 2; step++) {
+        frontier = frontier.flatMap(from => Object.keys(CELLS).filter(c => adjacent(from, c) && !occupant(s, c) && !reach.has(c)));
+        frontier.forEach(c => reach.add(c));
+      }
+      reach.forEach(near);
+    }
+    if (power.reach === 'tunnel') {
+      near(p.cell);
+      for (const q of enemies) for (const c of Object.keys(CELLS))
+        if (adjacent(c, q.cell) && !occupant(s, c)) add(q.id, c);
+    }
+    return options;
+  }
+  function specialAttack(s, id, target, at = null) {
+    const p = piece(s, id);
+    const cell = at ?? p?.cell;
+    if (!specialOptions(s, id).some(o => o.target === target && o.at === cell)) return false;
+    const power = SPECIALS[p.animal];
+    s.players[p.side].charge = 0;
+    record(s, 'special', { side: p.side, piece: id, animal: p.animal, power: power.name, target,
+      text: id + ' lanza ' + power.name + '.' });
+    if (cell !== p.cell) {
+      const from = p.cell;
+      p.cell = cell;
+      // El desplazamiento del ataque especial no activa rescates ni gasta el movimiento normal.
+      record(s, 'leap', { side: p.side, piece: id, from, to: cell, animal: p.animal,
+        text: id + ' salta de ' + from + ' a ' + cell + '.' });
+    }
+    startBattle(s, p, piece(s, target), p.animal);
     return true;
   }
   const actor = s => s.battle.slot % 2 ? s.battle.attacker : s.battle.defender;
@@ -151,8 +244,13 @@
     }
     return Object.keys(CARDS).filter(card => remaining.includes(card));
   }
+  // Cartas que un bando puede activar en el combate (Estandarte y Sombra las limitan).
+  function cardLimit(s, side) {
+    const power = s.battle?.special && SPECIALS[s.battle.special];
+    return power && side === s.battle.defender && power.rivalLimit !== undefined ? power.rivalLimit : 2;
+  }
   function playable(s, side, card) {
-    if (s.phase !== 'reveal' || !card || s.battle.played[side].length >= 2) return false;
+    if (s.phase !== 'reveal' || !card || s.battle.played[side].length >= cardLimit(s, side)) return false;
     return card !== 'cannon' || (!s.battle.startedWithCannon[side] && !s.battle.played[side].includes(card));
   }
   // El índice se mantiene como ranura estable (0, 1 o 2) durante el combate.
@@ -173,6 +271,13 @@
       s.battle.played[side].push(card);
       if (card === 'search' && searchedCard) s.battle.search[side].push({ slot: index, card: searchedCard });
       record(s, 'reveal', { side, card, text: SIDE[side] + ' activan ' + CARDS[card].name + '.' });
+      if (card === 'cannon') {
+        // La ficha que combate se convierte en cañón en el acto.
+        const fighter = piece(s, side === s.battle.attacker ? s.battle.a : s.battle.d);
+        fighter.cannon = true;
+        fighter.ready = s.players[side].ownTurns + 1;
+        record(s, 'summon', { side, piece: fighter.id, cell: fighter.cell, text: fighter.id + ' se convierte en cañón.' });
+      }
       const cards = s.battle.played[side];
       if (cards.length === 2 && cards[0] === cards[1])
         record(s, 'combo-card', { side, card, text: '¡COMBO! ' + SIDE[side] + ' reciben +1 de fuerza.' });
@@ -182,8 +287,20 @@
     return true;
   }
   const comboBonus = cards => cards.length === 2 && cards[0] === cards[1] ? 1 : 0;
-  function baseAttack(s, p) {
-    return 1 + (p.cannon ? 2 : VANGUARD[p.side] === p.id ? 2 : 0);
+  // Fuerza inicial del atacante: 0, +2 si ya era cañón y el bono de su ataque especial.
+  function baseAttack(s) {
+    const b = s.battle;
+    return (b.attackerCannon ? 2 : 0) + (b.special ? SPECIALS[b.special].bonus : 0);
+  }
+  // Fuerza de ambos bandos con un conjunto de cartas (por defecto, las activadas).
+  function projected(s, played = s.battle.played) {
+    const b = s.battle;
+    const ac = played[b.attacker], dc = played[b.defender];
+    return {
+      attacker: strength(ac, dc, baseAttack(s) + comboBonus(ac)),
+      defender: strength(dc, ac, comboBonus(dc)),
+      decisive: ac.filter(c => c === 'decisive').length - dc.filter(c => c === 'decisive').length,
+    };
   }
   function strength(own, rival, base) {
     return Math.max(0, own.reduce((sum, id) => sum + (CARDS[id].own ?? 0), base)
@@ -192,16 +309,13 @@
   function continueBattle(s, winner, cleared, nearby) {
     if (winner && nearby) entry(s, winner, cleared, 'battle', 'advance');
     else if (winner) s.phase = 'bonus';
-    else startSummons(s);
+    else replenish(s);
   }
   function resolveBattle(s) {
     const b = s.battle;
     const a = piece(s, b.a), d = piece(s, b.d);
-    const ac = b.played[a.side], dc = b.played[d.side];
-    const af = strength(ac, dc, baseAttack(s, a) + comboBonus(ac));
-    const df = strength(dc, ac, comboBonus(dc));
     // Dos golpes decisivos superan a uno; uno por cada bando se anula.
-    const decisive = ac.filter(c => c === 'decisive').length - dc.filter(c => c === 'decisive').length;
+    const { attacker: af, defender: df, decisive } = projected(s);
     const difference = decisive || af - df;
     const winner = difference > 0 ? a : difference < 0 ? d : null;
     const loser = winner === a ? d : a;
@@ -223,28 +337,39 @@
       return;
     }
     if (decisiveCombo) {
-      b.combo = { side: winner.side, winner: winner.id, cleared, nearby: b.nearby };
+      b.combo = { kind: 'decisive', side: winner.side, winner: winner.id, cleared, nearby: b.nearby };
       s.phase = 'combo';
       record(s, 'combo-ready', { side: winner.side, text: '¡COMBO DECISIVO! Elige una segunda ficha enemiga para eliminar.' });
+      return;
+    }
+    // Doble Impacto del mono: si gana atacando, elimina también a un enemigo vecino.
+    if (winner === a && b.special && SPECIALS[b.special].double
+        && s.pieces.some(p => p.cell && p.side !== a.side && adjacent(p.cell, a.cell))) {
+      b.combo = { kind: 'double', side: a.side, winner: a.id, cleared, nearby: b.nearby };
+      s.phase = 'combo';
+      record(s, 'double-ready', { side: a.side, text: '¡DOBLE IMPACTO! Elige otra ficha enemiga vecina.' });
       return;
     }
     continueBattle(s, winner, cleared, b.nearby);
   }
   function comboTargets(s) {
     if (s.phase !== 'combo') return [];
-    return s.pieces.filter(p => p.side !== s.battle.combo.side && p.cell).map(p => p.id);
+    const { side, kind, winner } = s.battle.combo;
+    const from = piece(s, winner).cell;
+    return s.pieces.filter(p => p.side !== side && p.cell && (kind !== 'double' || adjacent(p.cell, from))).map(p => p.id);
   }
   function comboEliminate(s, targetId) {
     if (s.phase !== 'combo') return false;
     const options = comboTargets(s);
     if (targetId !== null && !options.includes(targetId)) return false;
-    const { winner: winnerId, cleared, nearby, side } = s.battle.combo;
+    const { winner: winnerId, cleared, nearby, side, kind } = s.battle.combo;
     if (targetId !== null) {
       const victim = piece(s, targetId);
       victim.cell = null;
       victim.cannon = false;
       victim.ready = 0;
-      record(s, 'combo', { side, target: targetId, text: '¡COMBO DECISIVO! ' + targetId + ' es eliminada como segunda ficha.' });
+      record(s, kind === 'double' ? 'double' : 'combo', { side, target: targetId, text: (kind === 'double'
+        ? '¡DOBLE IMPACTO! ' : '¡COMBO DECISIVO! ') + targetId + ' es eliminada como segunda ficha.' });
     } else record(s, 'combo-skip', { side, text: SIDE[side] + ' omiten la segunda eliminación.' });
     s.battle.combo = null;
     if (!remaining(s, 'I') || !remaining(s, 'R')) {
@@ -254,24 +379,7 @@
   }
   function skipBonus(s) {
     if (s.phase !== 'bonus') return false;
-    startSummons(s);
-    return true;
-  }
-  function startSummons(s) {
-    s.summons = [s.battle.defender, s.battle.attacker].filter(side => s.battle.played[side].includes('cannon'));
-    if (s.summons.length) s.phase = 'summon';
-    else replenish(s);
-  }
-  function summon(s, id) {
-    if (s.phase !== 'summon') return false;
-    const p = piece(s, id);
-    const side = s.summons[0];
-    if (!p?.cell || p.side !== side || p.cannon) return false;
-    p.cannon = true;
-    p.ready = s.players[side].ownTurns + 1;
-    s.summons.shift();
-    record(s, 'summon', { side, piece: id, cell: p.cell, text: p.id + ' se convierte en cañón.' });
-    if (!s.summons.length) replenish(s);
+    replenish(s);
     return true;
   }
   function replenish(s) {
@@ -310,6 +418,7 @@
     if (s.turn === 'R') s.round++;
     s.turn = opponent(s.turn);
     s.players[s.turn].ownTurns++;
+    s.players[s.turn].charge = Math.min(CHARGE_MAX, s.players[s.turn].charge + 1);
     s.actions = 0;
     s.attacked = false;
     s.moved = [];
@@ -317,9 +426,9 @@
     return true;
   }
 
-  const game = { SIDE, HAND_SIZE, VANGUARD, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, piece, occupant, remaining,
-    moves, attacks, move, attack, actor, playable, searchOptions, reveal, comboTargets, comboEliminate,
-    rescue, summon, skipBonus, nextTurn };
+  const game = { SIDE, HAND_SIZE, ROSTER, SPECIALS, CHARGE_MAX, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
+    piece, occupant, remaining, moves, attacks, move, attack, specialOptions, specialAttack, actor, cardLimit, playable,
+    searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, skipBonus, nextTurn };
   if (typeof module === 'object') module.exports = game;
   else window.RealesIdeales = game;
 })();

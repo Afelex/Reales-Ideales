@@ -9,7 +9,7 @@ Lee [el reglamento y la guía de ejecución](README.md) antes de editar. Este re
 - Abre `index.html` en un navegador y compara PC y móvil. Comprueba el cambio de jugador durante las cuatro oportunidades para revelar cartas, el avance tras una victoria y la exportación JSON.
 - Ejecuta `node --test` desde la raíz. En el pull request incluye capturas o un vídeo breve y el resultado de las pruebas.
 
-## Reglas tácticas v0.12
+## Reglas tácticas v0.12 (la propuesta v0.15 está en el README: base 0, barra de ataque especial por bando y poderes por animal; la vanguardia desaparece)
 - Un movimiento normal y un ataque máximo por turno; los avances posteriores al combate son extraordinarios.
 - Tres cartas en reserva por facción; cada batalla permite dos activaciones por jugador. Cuatro Exploraciones (+1) por baraja reemplazan su ranura con una elección válida del mazo al terminar el combate.
 - Combo de dos cartas idénticas: +1 de fuerza. Dos Golpes decisivos vencedores permiten elegir y eliminar una segunda ficha enemiga en fase `combo` (o pasar).

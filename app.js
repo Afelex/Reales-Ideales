@@ -7,10 +7,6 @@ const board = byId('board');
 const actions = byId('actions');
 const dialog = byId('decision');
 const hexButtons = new Map();
-const roster = {
-  I: ['mono', 'llama', 'guacamayo', 'rana', 'tigrillo', 'gallo', 'cuy', 'gato'],
-  R: ['rana', 'tigrillo', 'guacamayo', 'gallo', 'cuy', 'llama', 'mono', 'gato'],
-};
 const animals = {
   mono: 'Mono', llama: 'Llama', gallo: 'Gallo', guacamayo: 'Guacamayo',
   tigrillo: 'Tigrillo', cuy: 'Cuy', rana: 'Rana', gato: 'Gato',
@@ -104,14 +100,18 @@ function bannerFromEvent(event) {
   switch (event.type) {
     case 'turn': return { kind: event.side, title: 'TURNO DE ' + rules.SIDE[event.side].toUpperCase(), subtitle: 'Prepara tu movimiento o ataque' };
     case 'move': return { kind: 'move', title: 'FASE DE MOVIMIENTO', subtitle: event.piece + ' avanza en el tablero' };
-    case 'attack': return {
+    case 'special': return { kind: 'special', title: event.power.toUpperCase(),
+      subtitle: animals[event.animal] + ' ' + event.piece + ': ' + rules.SPECIALS[event.animal].description };
+    case 'attack': return event.special ? null : {
       kind: 'attack', title: mode === 'ai' && event.side === 'R' ? '¡TE DECLARAN ATAQUE!' : '¡ATAQUE DECLARADO!',
       subtitle: 'Fase de ataque: prepara tus cartas'
     };
     case 'combo-card': return { kind: 'combo', title: '¡COMBO! +1', subtitle: 'Dos cartas iguales activadas' };
     case 'combo-ready': return { kind: 'combo', title: '¡COMBO DECISIVO!', subtitle: 'Selecciona una segunda ficha enemiga' };
     case 'combo': return { kind: 'combo', title: '¡DOBLE ELIMINACIÓN!', subtitle: 'Una segunda ficha cae ante el combo decisivo' };
-    case 'summon': return { kind: 'summon', title: '¡CAÑÓN INVOCADO!', subtitle: 'Disponible desde el siguiente turno propio' };
+    case 'double-ready': return { kind: 'combo', title: '¡DOBLE IMPACTO!', subtitle: 'Elige otra ficha enemiga vecina' };
+    case 'double': return { kind: 'combo', title: '¡DOBLE IMPACTO!', subtitle: 'Una segunda ficha cae' };
+    case 'summon': return { kind: 'summon', title: '¡CAÑÓN INVOCADO!', subtitle: event.piece + ' es cañón: +2 en este combate y al atacar' };
     case 'rescue': return { kind: 'rescue', title: '¡FICHA RESCATADA!', subtitle: 'Regresa al campo de batalla' };
     case 'draw': return { kind: 'draw', title: 'ROBO DE CARTAS', subtitle: rules.SIDE[event.side] + ': ' + event.count + ' carta(s)' };
     case 'end': return { kind: 'end', title: 'FIN DE PARTIDA', subtitle: event.text };
@@ -316,9 +316,19 @@ function explodeAt(cell, big = false) {
   }
 }
 const SHOT_DELAY = 650, SHOT_FLIGHT = 720;
+// Ataque especial: aura de poder sobre la ficha y su nombre en grande.
+const SPECIAL_MS = 1500;
+function specialCall(event) {
+  const point = cellPoint(pieceCell(event.piece));
+  fx.play('special');
+  spawn('fx-power-aura side-' + event.side, point, {}, SPECIAL_MS);
+  const title = spawn('fx-power-name side-' + event.side, { x: window.innerWidth / 2, y: window.innerHeight * .3, size: 0 }, {}, SPECIAL_MS);
+  if (title) title.textContent = event.power;
+  if (!reducedMotion()) shake();
+}
 function attackSequence(event) {
   const fromCell = pieceCell(event.piece), toCell = pieceCell(event.target);
-  speech(fromCell, '¡Al ataque!', event.side, 1200);
+  speech(fromCell, event.special ? '¡' + rules.SPECIALS[event.special].name + '!' : '¡Al ataque!', event.side, 1200);
   fx.play('charge');
   later(SHOT_DELAY, () => fireShell(fromCell, toCell, event.side));
 }
@@ -432,6 +442,12 @@ function effectFor(event) {
     case 'advance':
       drive(event);
       return;
+    case 'leap':
+      drive(event);
+      return;
+    case 'special':
+      specialCall(event);
+      return;
     case 'attack':
       attackSequence(event);
       return;
@@ -457,6 +473,11 @@ function effectFor(event) {
       shake(big || event.removed.length > 1);
       return;
     }
+    case 'double-ready':
+      fx.play('combo');
+      flash('#9d312f', '#ffe3a3');
+      return;
+    case 'double':
     case 'combo':
       fx.play('explosion', true);
       explodeAt(pieceCell(event.target), true);
@@ -488,7 +509,8 @@ function effectFor(event) {
 // Duración de cada animación: el siguiente evento y los banners esperan a que termine.
 const fxDurations = { move: DRIVE_MS + 800, bonus: DRIVE_MS + 800, advance: DRIVE_MS + 800,
   attack: SHOT_DELAY + SHOT_FLIGHT + 500, reveal: SHOWCASE_MS, pass: 900, 'combo-card': 700,
-  'combo-ready': 700, battle: 1100, combo: 1000, summon: 1100, rescue: 1100, end: 1200 };
+  'combo-ready': 700, battle: 1100, combo: 1000, double: 1000, 'double-ready': 700, summon: 1100, rescue: 1100,
+  end: 1200, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
 function playEffects(events) {
   // Instantánea de casillas: las fichas eliminadas conservan su posición previa.
   const cells = new Map(lastCells);
@@ -498,7 +520,15 @@ function playEffects(events) {
   for (const event of events) {
     if (['move', 'bonus', 'advance'].includes(event.type)) hideToken(event.piece);
     if (event.type === 'battle') event.removed.forEach(id => keepUntilExplosion(id, delay));
-    if (event.type === 'combo') keepUntilExplosion(event.target, delay);
+    if (event.type === 'combo' || event.type === 'double') keepUntilExplosion(event.target, delay);
+    if (event.type === 'leap') {
+      hideToken(event.piece);
+      // Mientras se anuncia el poder, la ficha sigue en su casilla de origen.
+      const point = cellPoint(event.from);
+      const piece = rules.piece(game, event.piece);
+      if (delay > 0 && point && piece)
+        tokenClone(piece, point, { width: point.size * .78, height: point.size * .78 }, 'fx-remnant still', delay + 40);
+    }
     if (delay) later(delay, () => { if (game) { fxCells = cells; effectFor(event); } });
     else effectFor(event);
     delay += fxDurations[event.type] ?? 0;
@@ -522,7 +552,7 @@ function currentPhase() {
   if (game.phase === 'turn') return 'Movimiento / ataque';
   if (game.phase === 'reveal') return 'Fase de batalla';
   return { combo: 'Combo decisivo', bonus: 'Avance adicional', rescue: 'Rescate',
-    summon: 'Invocación', end: 'Partida terminada' }[game.phase] ?? 'Preparación';
+    end: 'Partida terminada' }[game.phase] ?? 'Preparación';
 }
 
 function renderCardFace(parent, card, preview = false) {
@@ -539,7 +569,7 @@ function renderCardFace(parent, card, preview = false) {
   return title.textContent;
 }
 function character(piece) {
-  return roster[piece.side][Number(piece.id.slice(1)) - 1];
+  return piece.animal ?? rules.ROSTER[piece.side][Number(piece.id.slice(1)) - 1];
 }
 function pieceName(piece) {
   return (piece.cannon ? 'Cañón' : animals[character(piece)]) + ' ' + piece.id;
@@ -585,7 +615,40 @@ function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
 }
 function selectable(id) {
-  return rules.moves(game, id).length > 0 || rules.attacks(game, id).length > 0;
+  return rules.moves(game, id).length > 0 || rules.attacks(game, id).length > 0 || rules.specialOptions(game, id).length > 0;
+}
+// Modo de ataque especial: se elige el poder y luego el objetivo (y la casilla, si el poder desplaza).
+let specialMode = false;
+let specialAt = null;
+function specialView() {
+  if (!specialMode || !selection) return null;
+  const piece = rules.piece(game, selection);
+  const options = rules.specialOptions(game, selection);
+  const at = specialAt ?? piece.cell;
+  return {
+    targets: options.filter(o => o.at === at).map(o => o.target),
+    destinations: specialAt ? [] : [...new Set(options.filter(o => o.at !== piece.cell).map(o => o.at))],
+    at,
+  };
+}
+function clearSpecial() {
+  specialMode = false;
+  specialAt = null;
+}
+function startSpecial(attacker, defender, at) {
+  if (!rules.specialAttack(game, attacker.id, defender.id, at)) return;
+  started ??= Date.now();
+  clearRevealed();
+  battleResult = null;
+  // El duelo muestra la ficha tal como empieza el combate (ya en su casilla de ataque).
+  duel = [{ ...attacker }, { ...rules.piece(game, defender.id) }];
+  duelPlayed = { I: [], R: [] };
+  duelSpecial = game.battle.special;
+  duelHold = false;
+  selection = null;
+  clearSpecial();
+  privateHand = false;
+  render();
 }
 function proposeDestination(id, cell) {
   const actor = rules.piece(game, id);
@@ -616,8 +679,10 @@ function startAttack(attacker, defender) {
   battleResult = null;
   duel = [{ ...attacker }, { ...defender }];
   duelPlayed = { I: [], R: [] };
+  duelSpecial = null;
   duelHold = false;
   selection = null;
+  clearSpecial();
   privateHand = false;
   render();
 }
@@ -625,33 +690,56 @@ function clickCell(cell) {
   if (!game || isAITurn() || busy()) return;
   const piece = rules.occupant(game, cell);
   if (game.phase === 'combo' && piece && rules.comboTargets(game).includes(piece.id)) {
-    confirmAction('¡Combo decisivo!', '¿Eliminar también a ' + pieceName(piece) + '?', 'Eliminar', () => {
+    const title = game.battle.combo.kind === 'double' ? '¡Doble Impacto!' : '¡Combo decisivo!';
+    confirmAction(title, '¿Eliminar también a ' + pieceName(piece) + '?', 'Eliminar', () => {
       rules.comboEliminate(game, piece.id);
       render();
     });
     return;
   }
-  if (game.phase === 'summon' && piece) {
-    rules.summon(game, piece.id);
-  } else if (game.phase === 'rescue' && selection && !piece) {
+  const special = specialView();
+  if (special) {
+    const attacker = rules.piece(game, selection);
+    const power = rules.SPECIALS[attacker.animal];
+    if (special.destinations.includes(cell)) {
+      specialAt = cell;
+    } else if (piece && special.targets.includes(piece.id)) {
+      const at = special.at;
+      confirmAction('¿Lanzar ' + power.name + '?', pieceName(attacker) + ' usará ' + power.name + ' contra ' + pieceName(piece)
+        + (at !== attacker.cell ? ' desde ' + at : '') + '. ' + power.description, 'Lanzar', () => startSpecial(attacker, piece, at));
+      return;
+    } else if (specialAt) {
+      specialAt = null;
+    } else {
+      clearSpecial();
+      selection = null;
+    }
+    render();
+    return;
+  }
+  if (game.phase === 'rescue' && selection && !piece) {
     if (rules.rescue(game, selection, cell)) selection = null;
   } else if (game.phase === 'turn' || game.phase === 'bonus') {
     privateHand = false;
     if (selection && proposeDestination(selection, cell)) return;
     if (piece && selectable(piece.id)) selection = selection === piece.id ? null : piece.id;
     else selection = null;
+    clearSpecial();
   }
   render();
 }
 function renderBoard() {
-  const moves = selection ? rules.moves(game, selection) : [];
-  const targets = selection ? rules.attacks(game, selection) : [];
+  const special = specialView();
+  const moves = special ? special.destinations : selection ? rules.moves(game, selection) : [];
+  const targets = special ? special.targets : selection ? rules.attacks(game, selection) : [];
   for (const [cell, hex] of hexButtons) {
     const piece = rules.occupant(game, cell);
     const star = rescueCells.has(cell);
     let target = moves.includes(cell) ? 'move' : targets.includes(piece?.id) ? 'target' : '';
     if (game.phase === 'rescue' && selection && !piece && rules.ZONES[game.rescue.side].includes(cell)) target = 'move';
-    if (game.phase === 'summon' && piece?.side === game.summons[0]) target = 'move';
+    if (special && cell === special.at && specialAt) target = 'origin';
+    if (special && piece?.id === selection) hex.dataset.power = 'true';
+    else delete hex.dataset.power;
     if (game.phase === 'combo' && piece && rules.comboTargets(game).includes(piece.id)) target = 'target';
     hex.dataset.highlight = target;
     hex.setAttribute('aria-pressed', String(Boolean(piece && piece.id === selection)));
@@ -797,7 +885,8 @@ function renderForceHint(revealing = game.phase === 'reveal', actor = revealing 
       : mine.total > theirs.total ? 'up' : mine.total < theirs.total ? 'down' : 'tie';
     span(hint, 'hint-status ' + tone, decisive > 0 ? 'Tu golpe decisivo gana'
       : decisive < 0 ? 'Golpe decisivo rival: solo otro lo anula' : status);
-    span(hint, 'hint-rule', 'Hasta 2 cartas');
+    const limit = rules.cardLimit(game, actor);
+    span(hint, 'hint-rule', limit === 0 ? 'No puedes activar cartas' : 'Hasta ' + limit + (limit === 1 ? ' carta' : ' cartas'));
   } else hint.textContent = revealing ? 'Puedes activar hasta 2 cartas en este combate' : '3 cartas de reserva';
 }
 byId('drawer-close').addEventListener('click', () => {
@@ -928,6 +1017,7 @@ function renderHands() {
 }
 function nextTurn() {
   selection = null;
+  clearSpecial();
   peeked = new Set();
   cardMenu = null;
   cardMenuNode.hidden = true;
@@ -960,6 +1050,17 @@ function renderControls() {
       button(actions, 'Terminar turno', nextTurn, 'primary end-turn');
       createDrawerButton(drawerOpen ? 'Cerrar cartas' : 'Mis 3 cartas',
         !drawerOpen, !drawerOpen, 'secondary');
+      if (selection && rules.specialOptions(game, selection).length) {
+        const power = rules.SPECIALS[rules.piece(game, selection).animal];
+        const toggle = button(actions, specialMode ? 'Cancelar ' + power.name : 'Ataque especial: ' + power.name, () => {
+          specialMode = !specialMode;
+          specialAt = null;
+          render();
+        }, (specialMode ? 'secondary' : 'primary') + ' special-toggle');
+        toggle.setAttribute('aria-pressed', String(specialMode));
+        if (specialMode) say(power.name, power.description + ' ' + (specialView().destinations.length && !specialAt
+          ? 'Elige una casilla de destino o un objetivo marcado.' : 'Elige el objetivo marcado.'));
+      }
       break;
     case 'reveal': {
       const side = rules.actor(game);
@@ -974,7 +1075,8 @@ function renderControls() {
       break;
     }
     case 'combo':
-      say('¡Combo decisivo!', 'Selecciona en el tablero otra ficha enemiga para eliminarla.');
+      if (game.battle.combo.kind === 'double') say('¡Doble Impacto!', 'Selecciona una ficha enemiga vecina para eliminarla.');
+      else say('¡Combo decisivo!', 'Selecciona en el tablero otra ficha enemiga para eliminarla.');
       button(actions, 'Omitir segunda eliminación', () => {
         rules.comboEliminate(game, null);
         render();
@@ -992,9 +1094,6 @@ function renderControls() {
         button(actions, 'Rescatar a ' + animals[character(piece)] + ' ' + piece.id, () => { selection = piece.id; render(); }, 'primary'));
       button(actions, 'Guardar marcador', () => { rules.rescue(game, null); selection = null; render(); }, 'secondary');
       break;
-    case 'summon':
-      say('Cañón de ' + rules.SIDE[game.summons[0]], 'Toca la ficha propia que quieres convertir en cañón. Podrá atacar en tu próximo turno.');
-      break;
     case 'end':
       say(game.winner ? 'Ganan los ' + rules.SIDE[game.winner].toLowerCase() : 'Empate',
         game.reason === 'eliminación' ? 'Partida decidida por las últimas fichas.' : 'Se completaron las 12 rondas.');
@@ -1006,15 +1105,17 @@ function renderControls() {
 // para que cada jugador vea cuánto suma o le restan antes de decidir.
 let duelHold = false;
 let duelPlayed = { I: [], R: [] };
+let duelSpecial = null;
 function forceOf(index) {
   const piece = duel[index], rival = duel[1 - index];
   const own = duelPlayed[piece.side], other = duelPlayed[rival.side];
   const parts = [];
+  parts.push({ label: 'Base', value: 0 });
   if (index === 0) {
-    parts.push({ label: 'Base', value: 1 });
     if (piece.cannon) parts.push({ label: 'Cañón', value: 2 });
-    else if (rules.VANGUARD[piece.side] === piece.id) parts.push({ label: 'Vanguardia', value: 2 });
-  } else parts.push({ label: 'Base', value: 0 });
+    if (duelSpecial && rules.SPECIALS[duelSpecial].bonus)
+      parts.push({ label: rules.SPECIALS[duelSpecial].name, value: rules.SPECIALS[duelSpecial].bonus });
+  }
   for (const card of own) if (rules.CARDS[card].own) parts.push({ label: rules.CARDS[card].name, value: rules.CARDS[card].own });
   if (own.length === 2 && own[0] === own[1]) parts.push({ label: 'Combo', value: 1 });
   for (const card of other) if (rules.CARDS[card].rival) parts.push({ label: rules.CARDS[card].name + ' rival', value: rules.CARDS[card].rival });
@@ -1051,7 +1152,7 @@ function renderDuel() {
     span(meter, 'duel-force-value', String(force.total));
     const chips = span(portrait, 'force-chips', '');
     for (const part of force.parts) {
-      if (part.label === 'Base' && part.value === 0) continue;
+      if (part.label === 'Base') continue;
       const chip = span(chips, 'force-chip ' + (part.label === 'Base' ? 'base' : part.value > 0 ? 'up' : 'down'),
         (part.label === 'Base' ? part.value : signed(part.value)) + ' ' + part.label);
       chip.title = part.label;
@@ -1073,6 +1174,15 @@ function render() {
   byId('red-rescues').textContent = 'Rescates: ' + game.players.R.rescues;
   byId('deck-I').textContent = game.players.I.deck.length;
   byId('deck-R').textContent = game.players.R.deck.length;
+  // Barra de ataque especial: 3 segmentos que se llenan uno por turno propio.
+  for (const side of ['I', 'R']) {
+    const charge = game.players[side].charge;
+    const bar = byId('charge-' + side);
+    [...bar.children].forEach((segment, i) => segment.classList.toggle('full', i < charge));
+    bar.classList.toggle('ready', charge >= rules.CHARGE_MAX);
+    bar.setAttribute('aria-label', charge >= rules.CHARGE_MAX ? 'Ataque especial listo'
+      : 'Ataque especial: ' + charge + ' de ' + rules.CHARGE_MAX);
+  }
   const phase = byId('phase-indicator');
   phase.textContent = currentPhase();
   phase.dataset.phase = game.phase;
@@ -1135,7 +1245,9 @@ function scheduleAI() {
       case 'nextTurn': nextTurn(); return;
       case 'move': rules.move(game, action.piece, action.cell); break;
       case 'rescue': rules.rescue(game, action.piece, action.cell); break;
-      case 'summon': rules.summon(game, action.piece); break;
+      case 'special':
+        startSpecial(rules.piece(game, action.piece), rules.piece(game, action.target), action.at);
+        return;
       case 'skipBonus': rules.skipBonus(game); break;
     }
     render();
@@ -1161,7 +1273,9 @@ function resetPresentation() {
   battleResult = null;
   duel = null;
   duelPlayed = { I: [], R: [] };
+  duelSpecial = null;
   duelHold = false;
+  clearSpecial();
   started = null;
   ended = null;
 }
@@ -1206,7 +1320,7 @@ byId('menu-link').addEventListener('click', event => {
 byId('restart').addEventListener('click', () =>
   confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => startGame(mode)));
 byId('export').addEventListener('click', () => {
-  const data = { version: '0.14', mode, complete: game.phase === 'end', round: game.round,
+  const data = { version: '0.15', mode, complete: game.phase === 'end', round: game.round,
     durationSeconds: started === null ? 0 : Math.floor(((ended ?? Date.now()) - started) / 1000),
     winner: game.winner, reason: game.reason, events: game.events };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));

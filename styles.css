@@ -1142,3 +1142,49 @@ body.playing .duelist .duel-force-value { font-size: 1.3rem; }
   .fx-number { animation: fx-fade 1.2s ease-out forwards !important; transform: none !important; }
   .duel-force-value.bump-up, .duel-force-value.bump-down, .count-drop { animation: none; }
 }
+
+/* === v0.15: barra y ataques especiales === */
+.charge { display: inline-flex; gap: 2px; align-items: center; padding: 2px; border-radius: 4px; background: #2c1a12; }
+.charge i { width: .8rem; height: .42rem; border-radius: 2px; background: #5b4334; }
+.seat.blue .charge i.full { background: linear-gradient(#9fe2ff, #2c8cc4); }
+.seat.red .charge i.full { background: linear-gradient(#ffb59f, #c4412c); }
+.charge.ready { box-shadow: 0 0 0 2px #f0b52e, 0 0 10px #f0b52e; animation: charge-ready 1.2s ease-in-out infinite; }
+.charge.ready i { background: linear-gradient(#fff4b0, #f0b52e) !important; }
+@keyframes charge-ready { 50% { box-shadow: 0 0 0 2px #fff4b0, 0 0 18px #f0b52e; } }
+.special-toggle.primary { background: linear-gradient(#ffe08a, #f0a52e); border-color: #8a5a10; font-weight: 900; }
+.hex[data-highlight="origin"] { background: radial-gradient(ellipse, #f0b52e33 34%, #ffd34df0 88%); }
+.hex[data-power="true"] .token { filter: drop-shadow(0 0 8px #ffd34d) drop-shadow(0 0 3px #fff4b0); }
+
+.fx-power-aura { border-radius: 50%;
+  background: radial-gradient(circle, transparent 35%, #fff4b0aa 45%, #f0b52e66 60%, transparent 72%);
+  box-shadow: 0 0 30px 10px #f0b52e88; animation: fx-aura 1.5s ease-out forwards; }
+.fx-power-aura.side-I { box-shadow: 0 0 30px 10px #5ac8ff88; }
+.fx-power-aura.side-R { box-shadow: 0 0 30px 10px #ff6a4a88; }
+@keyframes fx-aura {
+  0% { transform: scale(2.4); opacity: 0; }
+  30% { transform: scale(1); opacity: 1; }
+  70% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.fx-power-name {
+  width: max-content; max-width: 92vw; height: auto; margin: 0; border-radius: 0; translate: -50% -50%;
+  padding: .25rem 1rem; text-align: center; white-space: nowrap;
+  font: 900 clamp(1.6rem, 6vw, 3.2rem)/1.05 Georgia, serif; letter-spacing: .03em; text-transform: uppercase;
+  color: #fff7e6; -webkit-text-stroke: 2px #2c1a12; paint-order: stroke fill;
+  text-shadow: 0 4px 0 #2c1a12, 0 0 22px #f0b52e;
+  animation: fx-power-name 1.5s cubic-bezier(.2, 1.3, .4, 1) forwards;
+}
+.fx-power-name.side-I { text-shadow: 0 4px 0 #12364c, 0 0 22px #5ac8ff; }
+.fx-power-name.side-R { text-shadow: 0 4px 0 #4c1612, 0 0 22px #ff6a4a; }
+@keyframes fx-power-name {
+  0% { transform: scale(3) skewX(-12deg); opacity: 0; }
+  18% { transform: scale(.95) skewX(0); opacity: 1; }
+  26% { transform: scale(1.05); }
+  80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .charge.ready { animation: none; }
+  .fx-power-name { animation: fx-fade 1.4s ease-out forwards !important; transform: none !important; }
+}
+.fx-remnant.still > .token { animation: none; }

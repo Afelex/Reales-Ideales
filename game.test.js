@@ -28,66 +28,21 @@ test('27 hexágonos, 8 piezas por bando, 28 cartas y reserva de tres', () => {
 });
 
 test('un solo movimiento normal por turno y un ataque permitido', () => {
-  const s = setup();
+  const s = setup(['boost']);
   stage(s);
   assert.equal(G.move(s, 'I1', 'A4'), false);
-  reveal(s);
+  reveal(s, null, 0);
   assert.equal(G.piece(s, 'I5').cell, 'C8');
   assert.equal(G.nextTurn(s), true);
   assert.equal(G.nextTurn(s), true);
   assert.equal(G.move(s, 'I1', 'A4'), true);
 });
 
-test('vanguardia idealista I5 suma +2 de ataque al desplazarse', () => {
-  const s = setup();
-  stage(s);
-  reveal(s);
-  assert.deepEqual(result(s).force, [3, 0]);
-  assert.equal(G.VANGUARD.I, 'I5');
-});
-
-test('vanguardia realista R4 suma +2 si ataca', () => {
-  const s = setup();
-  s.turn = 'R';
-  G.piece(s, 'R4').cell = 'C6';
-  assert.equal(G.attack(s, 'R4', 'I5'), true);
-  reveal(s);
-  assert.deepEqual(result(s).force, [3, 0]);
-});
-
-test('el cañón suma +2 de ataque a cualquier distancia', () => {
-  const s = setup();
-  G.piece(s, 'I1').cannon = true;
-  assert.equal(G.attack(s, 'I1', 'R8'), true);
-  reveal(s);
-  assert.deepEqual(result(s).force, [3, 0]);
-  assert.equal(s.phase, 'bonus');
-});
-
-test('el cañón reemplaza, no acumula, el bono de vanguardia', () => {
-  const s = setup();
-  G.piece(s, 'I5').cannon = true;
-  stage(s, false);
-  reveal(s);
-  assert.deepEqual(result(s).force, [3, 0]);
-});
-
-test('invocación proporciona +1 durante el combate y crea cañón después', () => {
-  const s = setup(['cannon']);
-  stage(s);
-  reveal(s, null, 0);
-  assert.deepEqual(result(s).force, [4, 0]);
-  assert.equal(s.phase, 'summon');
-  assert.equal(G.summon(s, 'I5'), true);
-  assert.equal(G.piece(s, 'I5').cannon, true);
-  assert.deepEqual(s.players.I.removed, ['cannon']);
-});
-
 test('Combo de dos Refuerzos añade un +1 extraordinario', () => {
   const s = setup(['boost', 'boost']);
   stage(s);
   reveal(s, null, 0, null, 1);
-  assert.deepEqual(result(s).force, [6, 0]);
+  assert.deepEqual(result(s).force, [3, 0]);
   assert.equal(result(s).combos.I, 1);
   assert.equal(s.events.some(e => e.type === 'combo-card'), true);
 });
@@ -96,10 +51,10 @@ test('Combo del defensor también aporta +1, incluso con Debilitar', () => {
   const s = setup([], ['weaken', 'weaken']);
   stage(s, false);
   reveal(s, 0, null, 1);
-  assert.deepEqual(result(s).force, [1, 1]);
+  assert.deepEqual(result(s).force, [0, 1]);
   assert.equal(result(s).combos.R, 1);
   assert.equal(G.piece(s, 'I5').cell, null);
-  assert.equal(G.piece(s, 'R4').cell, null);
+  assert.equal(G.piece(s, 'R4').cell, 'C6');
 });
 
 test('un Golpe decisivo por bando se neutraliza', () => {
@@ -178,7 +133,7 @@ test('Exploración exige una selección válida y ocupa su ranura tras la batall
   assert.equal(G.reveal(s, 1), true);
   assert.equal(s.players.I.hand[0], 'decisive');
   assert.equal(s.players.I.deck.includes('decisive'), false);
-  assert.equal(result(s).force[0], 5);
+  assert.equal(result(s).force[0], 2);
 });
 
 test('dos Exploraciones reservan dos cartas distintas disponibles en el mazo', () => {
@@ -216,23 +171,198 @@ test('se rellena la reserva sin reemplazar la carta no utilizada', () => {
   assert.equal(s.events.some(e => e.type === 'draw' && e.side === 'I'), true);
 });
 
-test('rescate y transformación en cañón se resuelven ordenadamente', () => {
-  const s = setup(['cannon']);
-  G.piece(s, 'I5').cell = 'B9';
-  G.piece(s, 'I1').cell = null;
-  assert.equal(G.attack(s, 'I5', 'R3'), true);
-  reveal(s, null, 0);
-  assert.equal(s.phase, 'rescue');
-  assert.equal(G.rescue(s, 'I1', 'A2'), true);
-  assert.equal(s.phase, 'summon');
-  assert.equal(G.summon(s, 'I1'), true);
-  assert.equal(G.piece(s, 'I1').cannon, true);
-});
-
 test('ganador al finalizar la ronda 12 según fichas supervivientes', () => {
   const s = setup();
   G.piece(s, 'R8').cell = null;
   for (let n = 0; n < 24; n++) assert.equal(G.nextTurn(s), true);
   assert.equal(s.round, 12);
   assert.equal(s.winner, 'I');
+});
+
+// === Reglas v0.15: base 0, cañón inmediato y ataques especiales ===
+const ready = (s, side = 'I') => { s.players[side].charge = G.CHARGE_MAX; };
+
+test('todas las fichas tienen fuerza base 0: sin cartas, el empate elimina a ambas', () => {
+  const s = setup();
+  stage(s, false);
+  reveal(s);
+  assert.deepEqual(result(s).force, [0, 0]);
+  assert.equal(G.piece(s, 'I5').cell, null);
+  assert.equal(G.piece(s, 'R4').cell, null);
+  assert.equal(G.VANGUARD, undefined);
+});
+
+test('cada ficha conoce su animal', () => {
+  const s = setup();
+  assert.equal(G.piece(s, 'I5').animal, 'tigrillo');
+  assert.equal(G.piece(s, 'R4').animal, 'gallo');
+  assert.equal(Object.keys(G.SPECIALS).length, 8);
+});
+
+test('un cañón ya formado ataca a cualquier distancia con +2', () => {
+  const s = setup();
+  G.piece(s, 'I1').cannon = true;
+  assert.equal(G.attack(s, 'I1', 'R8'), true);
+  reveal(s);
+  assert.deepEqual(result(s).force, [2, 0]);
+  assert.equal(s.phase, 'bonus');
+});
+
+test('Invocar cañón transforma al instante la ficha que combate y suma +2', () => {
+  const s = setup(['cannon']);
+  stage(s);
+  assert.equal(G.reveal(s, null), true);
+  assert.equal(G.reveal(s, 0), true);
+  assert.equal(G.piece(s, 'I5').cannon, true);
+  assert.equal(s.events.some(e => e.type === 'summon' && e.piece === 'I5'), true);
+  assert.equal(G.reveal(s, null), true);
+  assert.equal(G.reveal(s, null), true);
+  assert.deepEqual(result(s).force, [2, 0]);
+  assert.equal(s.phase, 'turn');
+  assert.deepEqual(s.players.I.removed, ['cannon']);
+  assert.equal(G.piece(s, 'I5').ready, s.players.I.ownTurns + 1);
+});
+
+test('el defensor también puede convertirse en cañón con Invocar cañón', () => {
+  const s = setup([], ['cannon']);
+  stage(s, false);
+  reveal(s, 0);
+  assert.equal(G.piece(s, 'R4').cannon, true);
+  assert.deepEqual(result(s).force, [0, 2]);
+  assert.equal(G.piece(s, 'R4').cell, 'C6');
+});
+
+test('la barra se llena 1/3 por turno propio: el ataque especial llega en el turno 3', () => {
+  const s = setup();
+  G.piece(s, 'I5').cell = 'C6';
+  assert.equal(s.players.I.charge, 1);
+  assert.deepEqual(G.specialOptions(s, 'I5'), []);
+  G.nextTurn(s); G.nextTurn(s);
+  assert.equal(s.players.I.charge, 2);
+  assert.equal(s.players.R.charge, 1);
+  assert.deepEqual(G.specialOptions(s, 'I5'), []);
+  G.nextTurn(s); G.nextTurn(s);
+  assert.equal(s.players.I.charge, 3);
+  assert.deepEqual(G.specialOptions(s, 'I5'), [{ target: 'R4', at: 'C6' }]);
+  G.nextTurn(s); G.nextTurn(s);
+  assert.equal(s.players.I.charge, 3);
+});
+
+test('Garra de Trueno: +3 y la barra vuelve a 0', () => {
+  const s = setup();
+  ready(s);
+  G.piece(s, 'I5').cell = 'C6';
+  assert.equal(G.specialAttack(s, 'I5', 'R4'), true);
+  assert.equal(s.players.I.charge, 0);
+  assert.equal(s.events.some(e => e.type === 'special' && e.power === 'Garra de Trueno'), true);
+  reveal(s);
+  assert.deepEqual(result(s).force, [3, 0]);
+  G.nextTurn(s);
+  G.nextTurn(s);
+  assert.equal(s.players.I.charge, 1);
+});
+
+test('el ataque especial exige barra llena, solo al atacar y nunca desde un cañón', () => {
+  const s = setup();
+  G.piece(s, 'I5').cell = 'C6';
+  assert.equal(G.specialAttack(s, 'I5', 'R4'), false);
+  ready(s);
+  G.piece(s, 'I5').cannon = true;
+  assert.deepEqual(G.specialOptions(s, 'I5'), []);
+  G.piece(s, 'I5').cannon = false;
+  assert.equal(G.attack(s, 'I5', 'R4'), true);
+  assert.deepEqual(G.specialOptions(s, 'I5'), []);
+});
+
+test('Carga Andina: la llama ataca a 2 casillas en línea recta con +2', () => {
+  const s = setup();
+  ready(s);
+  G.piece(s, 'I5').cell = null;
+  G.piece(s, 'I2').cell = 'C4';
+  assert.equal(G.specialOptions(s, 'I2').some(o => o.target === 'R4'), true);
+  G.piece(s, 'I1').cell = 'C6';
+  assert.equal(G.specialOptions(s, 'I2').some(o => o.target === 'R4'), false);
+  G.piece(s, 'I1').cell = 'A2';
+  assert.equal(G.specialAttack(s, 'I2', 'R4'), true);
+  reveal(s);
+  assert.deepEqual(result(s).force, [2, 0]);
+  assert.equal(s.phase, 'bonus');
+});
+
+test('Bombardeo en Picada: el guacamayo ataca a 2 casillas por encima de otra ficha', () => {
+  const s = setup();
+  ready(s);
+  G.piece(s, 'I5').cell = 'C6';
+  G.piece(s, 'I3').cell = 'C4';
+  assert.equal(G.specialAttack(s, 'I3', 'R4'), true);
+  reveal(s);
+  assert.deepEqual(result(s).force, [2, 0]);
+});
+
+test('Salto Relámpago: la rana se mueve hasta 2 casillas y ataca con +2', () => {
+  const s = setup();
+  ready(s);
+  G.piece(s, 'I5').cell = null;
+  G.piece(s, 'I4').cell = 'C4';
+  assert.equal(G.specialAttack(s, 'I4', 'R4', 'A8'), false);
+  assert.equal(G.specialAttack(s, 'I4', 'R4', 'C6'), true);
+  assert.equal(G.piece(s, 'I4').cell, 'C6');
+  assert.equal(s.events.some(e => e.type === 'leap' && e.to === 'C6'), true);
+  assert.equal(s.moved.length, 0);
+  reveal(s);
+  assert.deepEqual(result(s).force, [2, 0]);
+  assert.equal(G.piece(s, 'I4').cell, 'C8');
+});
+
+test('Estandarte de Guerra: el rival solo activa 1 carta', () => {
+  const s = setup(['boost', 'boost'], []);
+  s.turn = 'R';
+  ready(s, 'R');
+  G.piece(s, 'R4').cell = 'C6';
+  assert.equal(G.specialAttack(s, 'R4', 'I5'), true);
+  assert.equal(G.cardLimit(s, 'I'), 1);
+  assert.equal(G.reveal(s, 0), true);
+  assert.equal(G.reveal(s, null), true);
+  assert.equal(G.playable(s, 'I', s.players.I.hand[1]), false);
+  assert.equal(G.reveal(s, 1), false);
+  assert.equal(G.reveal(s, null), true);
+  assert.equal(G.reveal(s, null), true);
+  assert.deepEqual(result(s).force, [1, 1]);
+});
+
+test('Doble Impacto: si el mono gana, elimina a otra ficha enemiga vecina', () => {
+  const s = setup(['boost']);
+  ready(s);
+  G.piece(s, 'I1').cell = 'C6';
+  G.piece(s, 'I5').cell = 'A2';
+  G.piece(s, 'R2').cell = 'D7';
+  assert.equal(G.specialAttack(s, 'I1', 'R4'), true);
+  reveal(s, null, 0);
+  assert.deepEqual(result(s).force, [2, 0]);
+  assert.equal(s.phase, 'combo');
+  assert.equal(s.battle.combo.kind, 'double');
+  assert.deepEqual(G.comboTargets(s), ['R2']);
+  assert.equal(G.comboEliminate(s, 'R2'), true);
+  assert.equal(G.piece(s, 'R2').cell, null);
+  assert.equal(s.events.some(e => e.type === 'double'), true);
+  assert.equal(G.piece(s, 'I1').cell, 'C8');
+});
+
+test('Túnel Relámpago: el cuy aparece junto a cualquier enemigo y ataca con +2', () => {
+  const s = setup();
+  ready(s);
+  assert.equal(G.specialAttack(s, 'I7', 'R4', 'C6'), true);
+  assert.equal(G.piece(s, 'I7').cell, 'C6');
+  reveal(s);
+  assert.deepEqual(result(s).force, [2, 0]);
+});
+
+test('Sombra Letal: el rival no puede activar cartas', () => {
+  const s = setup([], ['boost', 'major']);
+  ready(s);
+  G.piece(s, 'I8').cell = 'C6';
+  assert.equal(G.specialAttack(s, 'I8', 'R4'), true);
+  assert.equal(G.cardLimit(s, 'R'), 0);
+  assert.equal(G.reveal(s, 0), false);
+  assert.equal(G.reveal(s, null), true);
 });

@@ -7,7 +7,6 @@
       case 'reveal': return rules.actor(game);
       case 'bonus': return game.battle.winner;
       case 'rescue': return game.rescue.side;
-      case 'summon': return game.summons[0];
       case 'combo': return game.battle.combo.side;
       default: return null;
     }
@@ -48,21 +47,12 @@
     const opponent = side === 'I' ? 'R' : 'I';
     const ownCards = battle.played[side];
     const seenCards = battle.played[opponent];
-    const attacker = rules.piece(game, battle.a);
-    const starting = side === battle.attacker
-      ? 1 + (attacker.cannon ? 2 : rules.VANGUARD[side] === attacker.id ? 2 : 0)
-      : 0;
-    const rivalStarting = side === battle.defender
-      ? 1 + (attacker.cannon ? 2 : rules.VANGUARD[opponent] === attacker.id ? 2 : 0)
-      : 0;
-    const bonus = (cards, key) => cards.reduce((sum, id) => sum + (rules.CARDS[id][key] ?? 0), 0);
-    const combo = cards => cards.length === 2 && cards[0] === cards[1] ? 1 : 0;
+    // Usa el mismo cálculo de fuerza que el motor (base 0, cañón y ataque especial).
     function outcome(cards) {
-      const decisive = cards.filter(card => card === 'decisive').length
-        - seenCards.filter(card => card === 'decisive').length;
-      const mine = Math.max(0, starting + combo(cards) + bonus(cards, 'own') + bonus(seenCards, 'rival'));
-      const theirs = Math.max(0, rivalStarting + combo(seenCards) + bonus(seenCards, 'own') + bonus(cards, 'rival'));
-      return Math.sign(decisive || mine - theirs);
+      const force = rules.projected(game, { [side]: cards, [opponent]: seenCards });
+      const attacking = side === battle.attacker;
+      const margin = force.decisive || force.attacker - force.defender;
+      return Math.sign(attacking ? margin : -margin);
     }
     const costs = { boost: 1, weaken: 1, major: 2, decisive: 3, cannon: 1, search: 0 };
     const current = outcome(ownCards);
@@ -83,6 +73,30 @@
     return best;
   }
 
+  // Elige el mejor ataque especial disponible: más fuerza, objetivos valiosos y efectos extra.
+  function specialChoice(rules, game, allies, side) {
+    if (game.players[side].charge < rules.CHARGE_MAX) return null;
+    const rival = side === 'I' ? 'R' : 'I';
+    const rivalCards = game.players[rival].hand.filter(Boolean).length;
+    let best = null;
+    let bestScore = -Infinity;
+    for (const piece of allies) {
+      const power = rules.SPECIALS[piece.animal];
+      for (const option of rules.specialOptions(game, piece.id)) {
+        const target = rules.piece(game, option.target);
+        let score = power.bonus + (target.cannon ? 3 : 0);
+        if (power.rivalLimit !== undefined) score += Math.min(rivalCards, 2 - power.rivalLimit) * 1.2;
+        if (power.double) score += 1.5;
+        if (option.at !== piece.cell) score -= .2;
+        if (score > bestScore) {
+          best = { type: 'special', piece: piece.id, target: option.target, at: option.at };
+          bestScore = score;
+        }
+      }
+    }
+    return best;
+  }
+
   function choose(rules, game, side) {
     if (decisionSide(game, rules) !== side) return null;
     if (game.phase === 'reveal') return cardChoice(rules, game, side);
@@ -90,14 +104,9 @@
     const enemies = game.pieces.filter(piece => piece.side !== side && piece.cell);
     if (game.phase === 'combo') {
       const targets = rules.comboTargets(game).map(id => rules.piece(game, id));
-      const priority = p => (p.cannon ? 10 : rules.VANGUARD[p.side] === p.id ? 6 : 0);
+      const priority = p => (p.cannon ? 10 : 0);
       targets.sort((a, b) => priority(b) - priority(a));
       return { type: 'combo', target: targets[0]?.id ?? null };
-    }
-    if (game.phase === 'summon') {
-      const distanceFromFront = piece => Math.min(...enemies.map(enemy => distance(rules, piece.cell, enemy.cell)));
-      const safest = allies.reduce((best, piece) => distanceFromFront(piece) > distanceFromFront(best) ? piece : best);
-      return { type: 'summon', piece: safest.id };
     }
     if (game.phase === 'rescue') {
       const captured = game.pieces.find(piece => piece.side === side && !piece.cell);
@@ -105,9 +114,16 @@
       return { type: 'rescue', piece: captured?.id ?? null, cell };
     }
     if (game.phase === 'turn') {
+      const special = specialChoice(rules, game, allies, side);
+      if (special) return special;
+      // Con fuerza base 0, atacar sin cartas útiles suele acabar en empate y doble baja.
+      const hand = game.players[side].hand.filter(Boolean);
+      const useful = hand.some(card => (rules.CARDS[card].own ?? 0) > 0 || card === 'decisive');
       const attacks = allies.flatMap(piece => rules.attacks(game, piece.id)
         .map(target => ({ type: 'attack', piece: piece.id, target })));
-      if (attacks.length) return attacks.find(attack => rules.piece(game, attack.target).cannon) ?? attacks[0];
+      const cannonTarget = attacks.find(attack => rules.piece(game, attack.target).cannon);
+      const armed = attacks.find(attack => rules.piece(game, attack.piece).cannon);
+      if (attacks.length && (useful || cannonTarget || armed)) return armed ?? cannonTarget ?? attacks[0];
     }
     return movement(rules, game, allies, enemies, side)
       ?? { type: game.phase === 'bonus' ? 'skipBonus' : 'nextTurn' };
