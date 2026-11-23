@@ -160,6 +160,11 @@ function releaseEffects() {
   fxBusyTimer = null;
   document.body.classList.remove('fx-busy');
   if (!game) return;
+  syncCounters();
+  if (duelHold) {
+    duelHold = false;
+    renderDuel();
+  }
   if (!bannerShowing && bannerQueue.length) showNextBanner();
   else scheduleAI();
 }
@@ -365,6 +370,7 @@ function showcase(event) {
   span(node, 'fx-showcase-effect', rules.CARDS[card].description);
   fx.play('deal');
   later(380, () => {
+    applyCardForce(event.side, card);
     fx.play(card);
     const burst = spawn('fx-card-burst', { x: window.innerWidth / 2, y: window.innerHeight * .42, size: 0 }, { color, glow }, 1100);
     if (burst && fxEmblems.has(card)) {
@@ -374,6 +380,41 @@ function showcase(event) {
       burst.append(emblem);
     } else if (burst) burst.textContent = fxSymbols[card];
   });
+}
+// Suma la carta al marcador del duelo y hace volar el número ganado o perdido.
+function floatNumber(side, text, kind) {
+  let target = byId('duel').querySelector('[data-force="' + side + '"]');
+  let rect = target?.getBoundingClientRect();
+  // En móvil el cajón de cartas tapa el duelo: el número vuela al resumen de fuerza.
+  const covered = !rect?.width || !document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('#duel');
+  const hint = byId('drawer-hint').querySelector('.hint-force');
+  if (covered && hint && !byId('hand-drawer').hidden) {
+    target = hint;
+    rect = hint.getBoundingClientRect();
+  }
+  const point = rect?.width ? { x: rect.left + rect.width / 2, y: rect.top, size: 0 }
+    : { x: window.innerWidth / 2, y: window.innerHeight * .6, size: 0 };
+  const node = spawn('fx-number ' + kind, point, {}, 1400);
+  if (node) node.textContent = text;
+}
+function applyCardForce(side, card) {
+  if (!duel) return;
+  const index = duel[0].side === side ? 0 : 1;
+  const rivalSide = duel[1 - index].side;
+  const before = [forceOf(0).total, forceOf(1).total];
+  duelPlayed[side] = [...duelPlayed[side], card];
+  renderDuel();
+  renderForceHint();
+  const after = [forceOf(0).total, forceOf(1).total];
+  const own = after[index] - before[index], rival = after[1 - index] - before[1 - index];
+  if (card === 'decisive') floatNumber(side, 'Decisivo', 'decisive');
+  else if (own) floatNumber(side, signed(own), 'up');
+  if (rival) later(160, () => floatNumber(rivalSide, signed(rival), 'down'));
+  for (const [i, delta] of [[index, own], [1 - index, rival]]) {
+    if (!delta) continue;
+    const value = byId('duel').querySelector('[data-force="' + duel[i].side + '"] .duel-force-value');
+    value?.classList.add(delta > 0 ? 'bump-up' : 'bump-down');
+  }
 }
 // Las fichas vencidas siguen a la vista hasta que estalla su casilla.
 function keepUntilExplosion(id, delay) {
@@ -407,7 +448,11 @@ function effectFor(event) {
     case 'battle': {
       const big = event.decisiveCombo || Math.abs(event.force[0] - event.force[1]) >= 3;
       event.removed.length > 1 ? fx.play('draw') : fx.play('explosion', big);
+      // El duelo se retira justo antes de la explosión para no tapar las fichas.
+      duelHold = false;
+      renderDuel();
       event.removed.forEach((id, i) => later(i * 170, () => explodeAt(pieceCell(id), big)));
+      later(event.removed.length * 170 + 250, () => syncCounters(true));
       if (event.winner) flash(event.winner === 'I' ? '#235f82' : '#9d312f', '#ffe3a3');
       shake(big || event.removed.length > 1);
       return;
@@ -415,6 +460,7 @@ function effectFor(event) {
     case 'combo':
       fx.play('explosion', true);
       explodeAt(pieceCell(event.target), true);
+      later(300, () => syncCounters(true));
       shake(true);
       return;
     case 'summon':
@@ -569,6 +615,8 @@ function startAttack(attacker, defender) {
   clearRevealed();
   battleResult = null;
   duel = [{ ...attacker }, { ...defender }];
+  duelPlayed = { I: [], R: [] };
+  duelHold = false;
   selection = null;
   privateHand = false;
   render();
@@ -731,11 +779,26 @@ function syncHandDrawer() {
   byId('drawer-title').textContent = revealing
     ? (actor === game.battle.defender ? 'Defensa' : 'Ataque') + ' · ' + rules.SIDE[actor]
     : 'Reserva · ' + rules.SIDE[actor];
-  byId('drawer-hint').textContent = revealing
-    ? 'Puedes activar hasta 2 cartas en este combate'
-    : '3 cartas de reserva';
+  renderForceHint(revealing, actor);
   byId('hand-I').hidden = actor !== 'I';
   byId('hand-R').hidden = actor !== 'R';
+}
+function renderForceHint(revealing = game.phase === 'reveal', actor = revealing ? rules.actor(game) : game.turn) {
+  const hint = byId('drawer-hint');
+  hint.replaceChildren();
+  const summary = revealing ? forceSummary() : null;
+  if (summary) {
+    const mine = duel[0].side === actor ? summary.a : summary.d;
+    const theirs = duel[0].side === actor ? summary.d : summary.a;
+    const status = mine.total > theirs.total ? 'Vas ganando' : mine.total < theirs.total ? 'Vas perdiendo' : 'Empate';
+    span(hint, 'hint-force', 'Tu fuerza ' + mine.total + ' · Rival ' + theirs.total);
+    const decisive = (duel[0].side === actor ? 1 : -1) * summary.decisive;
+    const tone = decisive ? (decisive > 0 ? 'up' : 'down')
+      : mine.total > theirs.total ? 'up' : mine.total < theirs.total ? 'down' : 'tie';
+    span(hint, 'hint-status ' + tone, decisive > 0 ? 'Tu golpe decisivo gana'
+      : decisive < 0 ? 'Golpe decisivo rival: solo otro lo anula' : status);
+    span(hint, 'hint-rule', 'Hasta 2 cartas');
+  } else hint.textContent = revealing ? 'Puedes activar hasta 2 cartas en este combate' : '3 cartas de reserva';
 }
 byId('drawer-close').addEventListener('click', () => {
   drawerOpen = false;
@@ -938,11 +1001,40 @@ function renderControls() {
       break;
   }
 }
+// === Fuerza de combate visible ===
+// Replica el cálculo de game.js con las cartas ya mostradas en pantalla,
+// para que cada jugador vea cuánto suma o le restan antes de decidir.
+let duelHold = false;
+let duelPlayed = { I: [], R: [] };
+function forceOf(index) {
+  const piece = duel[index], rival = duel[1 - index];
+  const own = duelPlayed[piece.side], other = duelPlayed[rival.side];
+  const parts = [];
+  if (index === 0) {
+    parts.push({ label: 'Base', value: 1 });
+    if (piece.cannon) parts.push({ label: 'Cañón', value: 2 });
+    else if (rules.VANGUARD[piece.side] === piece.id) parts.push({ label: 'Vanguardia', value: 2 });
+  } else parts.push({ label: 'Base', value: 0 });
+  for (const card of own) if (rules.CARDS[card].own) parts.push({ label: rules.CARDS[card].name, value: rules.CARDS[card].own });
+  if (own.length === 2 && own[0] === own[1]) parts.push({ label: 'Combo', value: 1 });
+  for (const card of other) if (rules.CARDS[card].rival) parts.push({ label: rules.CARDS[card].name + ' rival', value: rules.CARDS[card].rival });
+  const total = Math.max(0, parts.reduce((sum, part) => sum + part.value, 0));
+  const decisive = own.filter(card => card === 'decisive').length;
+  return { total, parts, decisive };
+}
+const signed = value => (value > 0 ? '+' : value < 0 ? '−' : '') + Math.abs(value);
+function forceSummary() {
+  if (!duel) return null;
+  const [a, d] = [forceOf(0), forceOf(1)];
+  const decisive = a.decisive - d.decisive;
+  return { a, d, decisive };
+}
 function renderDuel() {
   const view = byId('duel');
-  view.hidden = !duel || game.phase !== 'reveal';
+  view.hidden = !duel || (game.phase !== 'reveal' && !duelHold);
   view.replaceChildren();
   if (view.hidden) return;
+  const summary = forceSummary();
   const [attacker, defender] = duel;
   for (const [index, piece] of duel.entries()) {
     if (index === 1) span(view, 'duel-versus', 'VS');
@@ -952,17 +1044,31 @@ function renderDuel() {
     portrait.append(makeToken(piece));
     span(portrait, 'duelist-name', piece.cannon ? 'Cañón' : animals[character(piece)]);
     span(portrait, 'duelist-role', index === 0 ? 'Ataca' : 'Defiende');
+    const force = index === 0 ? summary.a : summary.d;
+    const meter = span(portrait, 'duel-force', '');
+    meter.dataset.force = piece.side;
+    span(meter, 'duel-force-label', 'Fuerza');
+    span(meter, 'duel-force-value', String(force.total));
+    const chips = span(portrait, 'force-chips', '');
+    for (const part of force.parts) {
+      if (part.label === 'Base' && part.value === 0) continue;
+      const chip = span(chips, 'force-chip ' + (part.label === 'Base' ? 'base' : part.value > 0 ? 'up' : 'down'),
+        (part.label === 'Base' ? part.value : signed(part.value)) + ' ' + part.label);
+      chip.title = part.label;
+    }
+    if (force.decisive) span(chips, 'force-chip decisive', 'Golpe decisivo' + (force.decisive > 1 ? ' ×2' : ''));
     if (battleResult?.removed.includes(piece.id)) portrait.dataset.defeated = 'true';
     view.append(portrait);
   }
+  const lead = summary.decisive ? (summary.decisive > 0 ? 0 : 1)
+    : summary.a.total === summary.d.total ? -1 : summary.a.total > summary.d.total ? 0 : 1;
+  view.dataset.lead = lead === -1 ? 'tie' : duel[lead].side;
   view.setAttribute('aria-label', pieceName(attacker) + ' contra ' + pieceName(defender));
 }
 function render() {
   if (game.phase === 'end' && ended === null) ended = Date.now();
   byId('round').textContent = 'Ronda ' + game.round + ' de 12';
   byId('active-side').textContent = game.phase === 'end' ? 'Partida terminada' : game.turn === 'I' ? 'Turno idealista' : mode === 'ai' ? 'Turno de la IA' : 'Turno realista';
-  byId('blue').textContent = rules.remaining(game, 'I');
-  byId('red').textContent = rules.remaining(game, 'R');
   byId('blue-rescues').textContent = 'Rescates: ' + game.players.I.rescues;
   byId('red-rescues').textContent = 'Rescates: ' + game.players.R.rescues;
   byId('deck-I').textContent = game.players.I.deck.length;
@@ -985,14 +1091,31 @@ function render() {
   renderBoard();
   renderHands();
   renderControls();
-  renderDuel();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
     const item = document.createElement('li');
     item.textContent = event.text;
     return item;
   }));
+  // El duelo sigue a la vista mientras se animan las cartas de una batalla recién resuelta.
+  duelHold = game.events.slice(announcedEvents).some(event => event.type === 'battle');
+  renderDuel();
   announceNewEvents();
+  // Los contadores de fichas cambian después de la explosión, no antes.
+  if (!fxBusy) syncCounters();
   scheduleAI();
+}
+function syncCounters(pulse = false) {
+  for (const [side, id] of [['I', 'blue'], ['R', 'red']]) {
+    const node = byId(id);
+    const value = String(rules.remaining(game, side));
+    if (node.textContent === value) continue;
+    node.textContent = value;
+    if (pulse && !reducedMotion()) {
+      node.classList.remove('count-drop');
+      void node.offsetWidth;
+      node.classList.add('count-drop');
+    }
+  }
 }
 function scheduleAI() {
   clearTimeout(aiTimer);
@@ -1037,6 +1160,8 @@ function resetPresentation() {
   clearRevealed();
   battleResult = null;
   duel = null;
+  duelPlayed = { I: [], R: [] };
+  duelHold = false;
   started = null;
   ended = null;
 }
