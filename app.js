@@ -8,32 +8,21 @@ const actions = byId('actions');
 const dialog = byId('decision');
 const hexButtons = new Map();
 const roster = {
-  R: [
-    ['Anaconda', 'anaconda'], ['Puma', 'puma'], ['Cóndor', 'condor'],
-    ['Gallo de las rocas', 'gallo-de-las-rocas'], ['Cuy', 'cuy'], ['Vicuña', 'vicuna'],
-    ['Puma', 'puma'], ['Vicuña', 'vicuna'],
-  ],
-  I: [
-    ['Mono', 'mono'], ['Llama', 'llama'], ['Guacamayo', 'guacamayo'],
-    ['Tortuga gigante', 'tortuga-gigante'], ['Tigrillo', 'tigrillo'], ['Gallo', 'gallo'],
-    ['Llama', 'llama'], ['Gallo', 'gallo'],
-  ],
+  I: ['mono', 'llama', 'guacamayo', 'rana', 'tigrillo', 'gallo', 'cuy', 'gato'],
+  R: ['rana', 'tigrillo', 'guacamayo', 'gallo', 'cuy', 'llama', 'mono', 'gato'],
 };
-const symbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '+1', search: '⌕' };
-// Gráficos de cartas aprobados: una composición especial para cada carta.
-const cardLooks = {
-  boost: ['Táctica', 0],
-  weaken: ['Control', 1],
-  major: ['Táctica', 2],
-  decisive: ['Ataque', 3],
-  cannon: ['Invocación', 4],
-  search: ['Exploración', 5],
+const animals = {
+  mono: 'Mono', llama: 'Llama', gallo: 'Gallo', guacamayo: 'Guacamayo',
+  tigrillo: 'Tigrillo', cuy: 'Cuy', rana: 'Rana', gato: 'Gato',
 };
-// Solo se asignan nuevas ilustraciones a especies coincidentes.
-// No sustituimos una anaconda por un mono, ni un cóndor por un loro.
-const portraitArt = {
-  I: { mono: 0, llama: 1, guacamayo: 3, tigrillo: 4, gallo: 2 },
-  R: { cuy: 5 },
+const tokenFaction = { I: 'idealista', R: 'realista' };
+const cardTypes = {
+  boost: 'Táctica',
+  weaken: 'Control',
+  major: 'Táctica',
+  decisive: 'Ataque',
+  cannon: 'Invocación',
+  search: 'Exploración',
 };
 const newAsset = filename => 'assets/v014/' + filename;
 
@@ -84,7 +73,9 @@ function confirmAction(title, text, label, callback, card = null) {
   if (dialog.open) return;
   byId('decision-title').textContent = title;
   byId('decision-text').textContent = text;
-  byId('confirm').textContent = label;
+  const confirm = byId('confirm');
+  confirm.textContent = label;
+  confirm.dataset.action = label;
   const preview = byId('decision-card');
   preview.hidden = !card;
   preview.replaceChildren();
@@ -156,7 +147,203 @@ function announceNewEvents() {
     if (banner) bannerQueue.push(banner);
   }
   if (!bannerShowing && bannerQueue.length) showNextBanner();
+  playEffects(newEvents);
 }
+
+// === Efectos visuales y sonoros ===
+// Se derivan solo de los eventos del motor; la acción sigue explicada por
+// banners, registro y resultado aunque la animación esté desactivada.
+const fx = window.RealesIdealesFX;
+const fxLayer = byId('fx-layer');
+const cardColors = {
+  boost: ['#62c46a', '#f7ffd9'], weaken: ['#7b4bb0', '#e6d4ff'], major: ['#f0b52e', '#fff3c4'],
+  decisive: ['#d8312a', '#fff0e6'], cannon: ['#a0703c', '#ffd9a0'], search: ['#2c9fa4', '#d8fffb'],
+};
+// Emblemas de plastilina de Sites; Exploración usa su símbolo textual.
+const fxEmblems = new Set(['boost', 'weaken', 'major', 'decisive', 'cannon']);
+const fxSymbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', cannon: '+1', search: '⌕' };
+let fxTimers = [];
+let lastCells = new Map();
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function later(ms, callback) {
+  const timer = setTimeout(() => {
+    fxTimers = fxTimers.filter(value => value !== timer);
+    callback();
+  }, ms);
+  fxTimers.push(timer);
+}
+function clearEffects() {
+  fxTimers.forEach(clearTimeout);
+  fxTimers = [];
+  fxLayer.replaceChildren();
+  lastCells = new Map();
+  document.querySelector('.field')?.classList.remove('fx-shake', 'fx-shake-strong');
+}
+function cellPoint(cell) {
+  const rect = hexButtons.get(cell)?.getBoundingClientRect();
+  if (!rect?.width) return null;
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: rect.width };
+}
+let fxCells = new Map();
+function pieceCell(id) {
+  return fxCells.get(id) ?? null;
+}
+function centerPoint() {
+  const duelNode = byId('duel');
+  const rect = (duelNode.hidden ? board : duelNode).getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: Math.min(rect.width, 120) };
+}
+function spawn(className, point, vars = {}, life = 1300) {
+  if (!point) return null;
+  const node = document.createElement('span');
+  node.className = 'fx ' + className;
+  node.style.left = point.x + 'px';
+  node.style.top = point.y + 'px';
+  node.style.setProperty('--size', point.size + 'px');
+  for (const [key, value] of Object.entries(vars)) node.style.setProperty('--' + key, value);
+  fxLayer.append(node);
+  setTimeout(() => node.remove(), life);
+  return node;
+}
+function flash(color, glow) {
+  spawn('fx-flash', { x: 0, y: 0, size: 0 }, { color, glow }, 900);
+}
+function shake(strong = false) {
+  if (reducedMotion()) return;
+  const field = document.querySelector('.field');
+  field.classList.remove('fx-shake', 'fx-shake-strong');
+  void field.offsetWidth;
+  field.classList.add(strong ? 'fx-shake-strong' : 'fx-shake');
+  later(650, () => field.classList.remove('fx-shake', 'fx-shake-strong'));
+}
+function explodeAt(cell, big = false) {
+  const point = cellPoint(cell);
+  spawn('fx-explosion' + (big ? ' big' : ''), point, {}, 1200);
+  spawn('fx-shockwave', point, {}, 900);
+  if (!reducedMotion()) for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2 + Math.random() * .4;
+    const reach = (point?.size ?? 60) * (0.8 + Math.random() * 0.6);
+    spawn('fx-debris', point, { dx: Math.cos(angle) * reach + 'px', dy: Math.sin(angle) * reach + 'px' }, 900);
+  }
+}
+function fireShell(fromCell, toCell, side) {
+  const from = cellPoint(fromCell), to = cellPoint(toCell);
+  if (!from || !to) return;
+  fx.play('launch');
+  spawn('fx-muzzle', from, {}, 500);
+  if (reducedMotion()) {
+    spawn('fx-lock', to, {}, 1400);
+    return;
+  }
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const arc = Math.max(70, Math.hypot(dx, dy) * 0.55);
+  const shell = spawn('fx-shell-x', from, { dx: dx + 'px' }, 900);
+  const inner = document.createElement('span');
+  inner.className = 'fx-shell side-' + side;
+  inner.style.setProperty('--dy', dy + 'px');
+  inner.style.setProperty('--peak', (dy / 2 - arc) + 'px');
+  shell.append(inner);
+  later(720, () => {
+    spawn('fx-impact', to, {}, 700);
+    spawn('fx-lock', to, {}, 1400);
+    fx.play('explosion');
+    shake();
+  });
+}
+function effectFor(event) {
+  switch (event.type) {
+    case 'move': {
+      fx.play('move');
+      spawn('fx-dust', cellPoint(event.to), {}, 700);
+      return;
+    }
+    case 'attack':
+      fireShell(pieceCell(event.piece), pieceCell(event.target), event.side);
+      return;
+    case 'reveal': {
+      fx.play(event.card);
+      const [color, glow] = cardColors[event.card];
+      const burst = spawn('fx-card-burst', centerPoint(), { color, glow }, 1100);
+      if (burst && fxEmblems.has(event.card)) {
+        const emblem = document.createElement('img');
+        emblem.src = 'assets/clay/emblemas/' + event.card + '.webp';
+        emblem.alt = '';
+        burst.append(emblem);
+      } else if (burst) burst.textContent = fxSymbols[event.card];
+      return;
+    }
+    case 'pass':
+      fx.play('pass');
+      return;
+    case 'combo-card':
+    case 'combo-ready':
+      fx.play('combo');
+      flash('#673b97', '#fff0a0');
+      spawn('fx-rays', centerPoint(), {}, 1100);
+      return;
+    case 'battle': {
+      const big = event.decisiveCombo || Math.abs(event.force[0] - event.force[1]) >= 3;
+      event.removed.length > 1 ? fx.play('draw') : fx.play('explosion', big);
+      event.removed.forEach((id, i) => later(i * 170, () => explodeAt(pieceCell(id), big)));
+      if (event.winner) flash(event.winner === 'I' ? '#235f82' : '#9d312f', '#ffe3a3');
+      shake(big || event.removed.length > 1);
+      return;
+    }
+    case 'combo':
+      fx.play('explosion', true);
+      explodeAt(pieceCell(event.target), true);
+      shake(true);
+      return;
+    case 'summon':
+      fx.play('summon');
+      spawn('fx-summon', cellPoint(event.cell), {}, 1300);
+      return;
+    case 'rescue':
+      fx.play('rescue');
+      spawn('fx-rescue', cellPoint(event.to), {}, 1300);
+      return;
+    case 'draw':
+    case 'search':
+      fx.play('deal');
+      return;
+    case 'turn':
+      fx.play('turn', event.side);
+      return;
+    case 'end':
+      fx.play('victory');
+      flash('#f0b52e', '#fff7e6');
+      spawn('fx-rays', centerPoint(), {}, 1600);
+      return;
+    default:
+  }
+}
+const fxDurations = { move: 120, attack: 760, reveal: 420, pass: 100, 'combo-card': 520,
+  'combo-ready': 520, battle: 700, combo: 600, summon: 400, rescue: 400 };
+function playEffects(events) {
+  // Instantánea de casillas: las fichas eliminadas conservan su posición previa.
+  const cells = new Map(lastCells);
+  for (const p of game.pieces) if (p.cell) cells.set(p.id, p.cell);
+  fxCells = cells;
+  let delay = 0;
+  for (const event of events) {
+    if (delay) later(delay, () => { if (game) { fxCells = cells; effectFor(event); } });
+    else effectFor(event);
+    delay += fxDurations[event.type] ?? 0;
+  }
+  lastCells = new Map(game.pieces.filter(p => p.cell).map(p => [p.id, p.cell]));
+}
+function syncSoundToggle() {
+  const on = !fx.isMuted();
+  const toggle = byId('sound-toggle');
+  toggle.dataset.sound = on ? 'on' : 'off';
+  toggle.setAttribute('aria-pressed', String(on));
+  toggle.setAttribute('aria-label', on ? 'Sonido activado' : 'Sonido desactivado');
+}
+byId('sound-toggle').addEventListener('click', () => {
+  fx.setMuted(!fx.isMuted());
+  syncSoundToggle();
+});
+syncSoundToggle();
 function currentPhase() {
   if (game.phase === 'turn') return 'Movimiento / ataque';
   if (game.phase === 'reveal') return 'Fase de batalla';
@@ -164,21 +351,13 @@ function currentPhase() {
     summon: 'Invocación', end: 'Partida terminada' }[game.phase] ?? 'Preparación';
 }
 
-function artwork(name) {
-  return 'assets/' + name + '.webp';
-}
 function renderCardFace(parent, card, preview = false) {
-  const [type, artIndex] = cardLooks[card];
   parent.classList.add('illustrated');
   parent.dataset.card = card;
   const title = span(parent, 'card-title', rules.CARDS[card].name);
-  // El pliego ilustrado incluye los títulos y símbolos. La capa textual
-  // permanece disponible para accesibilidad, sin duplicarse visualmente.
   const art = span(parent, 'card-art', '');
-  art.dataset.artIndex = String(artIndex);
   art.setAttribute('aria-hidden', 'true');
-  span(parent, 'card-emblem', symbols[card]);
-  span(parent, 'card-type', type);
+  span(parent, 'card-type', cardTypes[card]);
   if (preview) {
     parent.setAttribute('aria-label', rules.CARDS[card].name + ': ' + rules.CARDS[card].description);
     span(parent, 'card-effect', rules.CARDS[card].description);
@@ -189,43 +368,20 @@ function character(piece) {
   return roster[piece.side][Number(piece.id.slice(1)) - 1];
 }
 function pieceName(piece) {
-  return piece.cannon ? 'Cañón ' + piece.id : character(piece)[0] + ' ' + piece.id;
+  return (piece.cannon ? 'Cañón' : animals[character(piece)]) + ' ' + piece.id;
 }
 function makeToken(piece) {
   const node = document.createElement('span');
   node.className = 'token ' + piece.side + (piece.cannon ? ' cannon' : '');
   node.dataset.piece = piece.id;
   node.setAttribute('aria-hidden', 'true');
-  if (piece.cannon) {
-    const image = document.createElement('img');
-    image.className = 'cannon-art';
-    image.src = newAsset('canon.png');
-    image.alt = '';
-    image.draggable = false;
-    node.append(image);
-  } else {
-    const animal = character(piece)[1];
-    node.dataset.character = animal;
-    const portrait = document.createElement('span');
-    portrait.className = 'token-portrait';
-    const sprite = portraitArt[piece.side][animal];
-    if (Number.isInteger(sprite)) {
-      node.dataset.sprite = String(sprite);
-      const art = document.createElement('span');
-      art.className = 'token-sprite';
-      art.dataset.sprite = String(sprite);
-      art.dataset.side = piece.side;
-      portrait.append(art);
-    } else {
-      // Conserva el retrato original cuando el pliego no contiene la especie.
-      const image = document.createElement('img');
-      image.src = artwork(animal);
-      image.alt = '';
-      image.draggable = false;
-      portrait.append(image);
-    }
-    node.append(portrait);
-  }
+  const image = document.createElement('img');
+  image.className = 'token-art';
+  image.src = piece.cannon ? newAsset('canon.png')
+    : `assets/clay/fichas/${tokenFaction[piece.side]}-${character(piece)}.webp`;
+  image.alt = '';
+  image.draggable = false;
+  node.append(image);
   return node;
 }
 // Coordinates measured against the 1116 × 1410 board illustration.
@@ -407,10 +563,14 @@ function chooseSearch(index) {
   for (const card of options) {
     const copies = game.players[side].deck.filter(value => value === card).length
       - game.battle.search[side].filter(value => value.card === card).length;
-    button(choices, rules.CARDS[card].name + ' · ' + copies + ' en el mazo', () => {
+    const option = button(choices, rules.CARDS[card].name + ' · ' + copies + ' en el mazo', () => {
       searchDialog.close();
       play(index, index, card);
-    }, 'secondary search-option');
+    }, 'secondary search-option illustrated');
+    option.dataset.card = card;
+    const thumbnail = span(option, 'card-art', '');
+    thumbnail.setAttribute('aria-hidden', 'true');
+    option.prepend(thumbnail);
   }
   searchDialog.showModal();
 }
@@ -486,8 +646,7 @@ function renderHands() {
           confirmAction(rules.CARDS[card].name, '¿Deseas activar esta carta?', 'Activar',
             () => card === 'search' ? chooseSearch(slot) : play(slot, slot), card));
       } else {
-        if (card) span(node, 'card-sigil', '✦');
-        else node.textContent = '—';
+        if (!card) node.textContent = '—';
         node.setAttribute('aria-label', card ? 'Carta boca abajo ' + (slot + 1) : 'Sin carta');
       }
       hand.append(node);
@@ -554,7 +713,7 @@ function renderControls() {
         ? 'Coloca a ' + selection + ' en una de tus casillas de despliegue libres.'
         : 'Elige la ficha que volverá al tablero como ficha normal.');
       game.pieces.filter(piece => !piece.cell && piece.side === game.rescue.side).forEach(piece =>
-        button(actions, 'Rescatar a ' + character(piece)[0] + ' ' + piece.id, () => { selection = piece.id; render(); }, 'primary'));
+        button(actions, 'Rescatar a ' + animals[character(piece)] + ' ' + piece.id, () => { selection = piece.id; render(); }, 'primary'));
       button(actions, 'Guardar marcador', () => { rules.rescue(game, null); selection = null; render(); }, 'secondary');
       break;
     case 'summon':
@@ -578,7 +737,7 @@ function renderDuel() {
     portrait.className = 'duelist';
     portrait.dataset.side = piece.side;
     portrait.append(makeToken(piece));
-    span(portrait, 'duelist-name', piece.cannon ? 'Cañón' : character(piece)[0]);
+    span(portrait, 'duelist-name', piece.cannon ? 'Cañón' : animals[character(piece)]);
     span(portrait, 'duelist-role', index === 0 ? 'Ataca' : 'Defiende');
     if (battleResult?.removed.includes(piece.id)) portrait.dataset.defeated = 'true';
     view.append(portrait);
@@ -595,7 +754,9 @@ function render() {
   byId('red-rescues').textContent = 'Rescates: ' + game.players.R.rescues;
   byId('deck-I').textContent = game.players.I.deck.length;
   byId('deck-R').textContent = game.players.R.deck.length;
-  byId('phase-indicator').textContent = currentPhase();
+  const phase = byId('phase-indicator');
+  phase.textContent = currentPhase();
+  phase.dataset.phase = game.phase;
   byId('turn-info').textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4'
     : game.phase === 'turn' ? 'Acciones: ' + game.actions + ' de 2' : '';
   const result = byId('battle-result');
@@ -650,6 +811,7 @@ function resetPresentation() {
   bannerQueue = [];
   bannerShowing = false;
   announcedEvents = 0;
+  clearEffects();
   byId('phase-banner').hidden = true;
   if (searchDialog.open) searchDialog.close();
   drag?.ghost?.remove();
