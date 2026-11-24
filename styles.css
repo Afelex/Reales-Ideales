@@ -1625,7 +1625,8 @@ body.scene-full.revealing .hand-drawer, body.scene-full.revealing .field .duel:n
   max-height: none;
 }
 body.scene-full.revealing .field .duel:not([hidden]) { height: auto; max-height: calc(var(--grid-top, 18rem) - var(--game-header) - .5rem); }
-body.scene-full .hand-drawer .drawer-toolbar { padding-right: 2.6rem; }
+body.scene-full.revealing .hand-drawer .drawer-toolbar { padding-right: 0; }
+body.scene-full.revealing #drawer-hint { margin-right: 2.4rem; }
 body.scene-full.revealing #turn-timer { position: fixed; z-index: 6; top: calc(var(--game-header) + .45rem); right: 2.9rem; width: 2.1rem; height: 2.1rem; }
 body.scene-full.revealing #turn-timer b { font-size: .85rem; }
 /* Cajón compacto en pantalla completa: una línea de título y fuerza, una de cartas del rival. */
@@ -1638,3 +1639,6 @@ body.scene-full .hint-status { font-size: .58rem; padding: 0 .3rem; }
 body.scene-full .drawer-close { width: 26px; height: 26px; }
 body.scene-full .rival-played { gap: .3rem; }
 body.scene-full .rival-played-label { max-width: none; white-space: nowrap; font-size: .55rem; }
+body.scene-full #drawer-hint { min-width: 0; }
+body.scene-full .drawer-toolbar strong { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 400px) { body.scene-full .hint-status { display: none; } }

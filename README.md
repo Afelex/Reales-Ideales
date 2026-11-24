@@ -115,9 +115,9 @@ La interfaz muestra banners de pantalla completa para los cambios principales: c
 - **Tablero SVG integrado** con la plaza.
 - **Recursos más ligeros:** WebP para cartas y cañón; arte sin uso movido a `assets/reserva/`.
 
-## Escenario «Campo andino» (v0.20)
+## Escenario «Campo andino» (v0.21)
 
-El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.mp4`, 9 s, sin audio, 1 MB) cuya grilla hexagonal, inclinada en perspectiva, **es** el tablero: no se dibuja ninguna grilla encima.
+El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.mp4`, 9 s, sin audio, 1,2 MB) con exactamente 27 casillas en relieve (azules para los Idealistas, verdes neutrales y rojas para los Realistas), cuya grilla hexagonal, inclinada en perspectiva, **es** el tablero: no se dibuja ninguna grilla encima.
 
 - **Un solo sistema de referencia:** casillas, fichas y animaciones usan las coordenadas del fotograma del video (720×1280). Cada casilla tiene su centro y su contorno en perspectiva, medidos en `assets/escenario/campo-andino-casillas.js`.
   - las zonas táctiles son polígonos con la forma real de cada hexágono;
@@ -127,13 +127,17 @@ El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.
 - **Bucle sin salto:** el último segundo se funde con el inicio. Con animaciones reducidas se muestra la imagen fija.
 - **Ajustes → Escenario:** permite volver a la **Plaza** (tablero SVG). Cada escenario se define en `BOARD_THEMES`.
 
-**Medición y cambio de video.** `tools/medir_escenario.py` detecta las celdas del video, ajusta una homografía (transformación de perspectiva) entre una grilla hexagonal ideal y los centros medidos, y escribe el archivo de casillas. En el video actual el error medio es de 2,4 px. Requiere `opencv-python-headless` y `numpy` solo para medir.
+**Medición y cambio de video.** `tools/medir_escenario.py` mide la grilla del video y escribe `campo-andino-casillas.js`. El video actual (27 casillas en relieve) se mide con `--metodo bordes`:
+1. localiza las cuatro estrellas doradas (B1, D1, B11, D11) fotograma a fotograma para obtener una perspectiva inicial;
+2. la afina ajustando la grilla hexagonal ideal a los surcos entre casillas, sobre la mediana de varios fotogramas, con un margen de ±30 px por esquina para que no se deforme.
+
+Requiere `opencv-python-headless`, `numpy` y `scipy`, solo para medir.
 
 ```
-python3 tools/medir_escenario.py VIDEO.mp4 assets/escenario/campo-andino-casillas.js andes [--omitir A:2,...] [--verificacion revision.png]
+python3 tools/medir_escenario.py assets/escenario/campo-andino.mp4 assets/escenario/campo-andino-casillas.js andes --metodo bordes --verificacion revision.png
 ```
 
-> **Pendiente:** el video actual tiene 33 hexágonos (columnas de 6-7-7-7-6) y el juego 27 (5-6-5-6-5). Mientras llega el video regenerado, se omite la fila central sobrante (`--omitir A:2,B:3,C:2,C:6,D:3,E:2`). `tools/guia-escenario-27.png` (generada con `tools/guia_escenario.py`) es la referencia de la grilla de 27 casillas para generar el nuevo escenario; al recibirlo basta con optimizarlo y volver a medirlo sin `--omitir`.
+Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.png` (`tools/guia_escenario.py`): 27 casillas, columnas de 5-6-5-6-5 y estrellas en B1, D1, B11 y D11. Anímala con la cámara fija y en bucle, optimízala con `ffmpeg` (sin audio, fundido de 1 s entre el final y el inicio) y mídela. Revisa siempre la imagen de verificación antes de publicar.
 
 ## Pruebas automatizadas
 
