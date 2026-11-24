@@ -201,7 +201,7 @@ summary { cursor: pointer; }
 .board {
   margin: auto; position: relative; width: min(100%, 31rem); aspect-ratio: 1116 / 1410;
   touch-action: none; user-select: none; isolation: isolate;
-  background: transparent url('assets/tablero.webp') center / 100% 100% no-repeat;
+  background: none;
 }
 .hex {
   position: absolute; display: grid; place-items: center; width: 22%;
@@ -770,7 +770,7 @@ body.playing .field .battle-result:not([hidden]) {
 }
 .card.illustrated { aspect-ratio: 482 / 543; min-height: 0; }
 .illustrated .card-art {
-  background-image: url('assets/v014/cartas-aprobadas.png');
+  background-image: url('assets/v014/cartas-aprobadas.webp');
   background-repeat: no-repeat;
   background-size: 300% 200%;
 }
@@ -1477,3 +1477,168 @@ body.playing .masthead .help-content .help-art { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .hex[data-highlight="target"], .hex[data-highlight="target"] .token::after { animation: none; }
 }
+
+/* === v0.18: tablero SVG integrado (sin imagen ni códigos pintados) === */
+.board, body.playing .board { background: none; }
+.board-art { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 0; }
+.board .hex { z-index: 1; }
+.board-shadow polygon { fill: #2a140a; opacity: .28; filter: blur(10px); }
+.board-rim-dark polygon { fill: #6b4a2e; stroke: #5a3a22; stroke-width: 46; stroke-linejoin: round; }
+.board-rim-light polygon { fill: none; stroke: url(#rim); stroke-width: 30; stroke-linejoin: round; }
+.board-tiles .tile { stroke: #5c3b22; stroke-width: 7; stroke-linejoin: round; }
+.board-tiles .tile-N { opacity: .9; }
+.board-grain { opacity: .32; mix-blend-mode: multiply; }
+.board-star { fill: #ffd24d; stroke: #8a5a10; stroke-width: 4; stroke-linejoin: round; opacity: .85; }
+.board-garlands image { filter: drop-shadow(0 4px 3px #2a140a66); }
+/* Botón y ventana de ajustes. */
+.settings-button { display: inline-grid; place-items: center; min-width: 2.4rem; padding-inline: .45rem; line-height: 1; }
+.settings-button svg { display: block; }
+body.playing .settings-button { min-height: 0; height: 34px; padding: 0 .4rem; }
+#settings { width: min(26rem, calc(100vw - 1.2rem)); }
+.settings-form { display: grid; gap: .55rem; margin-top: .6rem; }
+.settings-form fieldset { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0; padding: 0; border: 0; }
+.settings-form legend { width: 100%; margin-bottom: .2rem; font: 800 .9rem/1.2 Georgia, serif; }
+.settings-form label { position: relative; flex: 1 1 0; }
+.settings-form input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.settings-form label { display: grid; place-items: center; min-height: 2.5rem; padding: .3rem .5rem; border-radius: .6rem;
+  border: 2px solid #c9995f; background: #fff7e6; font: 750 .88rem/1.1 system-ui, sans-serif; cursor: pointer; text-align: center; }
+.settings-form label:has(input:checked) { background: linear-gradient(#ffe08a, #f0b52e); border-color: #8a5a10; color: #2c1a12; }
+.settings-form label:has(input:focus-visible) { outline: 3px solid #25475a; outline-offset: 2px; }
+.settings-form .dialog-actions { margin-top: .3rem; }
+@media (max-width: 420px) {
+  body.playing .masthead .header-actions { gap: .2rem; }
+  body.playing .settings-button { min-width: 2.1rem; padding: 0 .3rem; }
+  body.playing #restart { padding-inline: .45rem; }
+}
+
+/* === v0.19: escenario "Campo andino" (video en bucle como tablero) === */
+body.playing[data-theme="andes"] {
+  background: radial-gradient(ellipse at 50% 55%, transparent 35%, #0d1a0a80 100%),
+    url('assets/escenario/campo-andino-fondo.webp') center 35% / cover no-repeat #3d6a2e;
+}
+.board[data-theme="andes"], body.playing .board[data-theme="andes"] {
+  aspect-ratio: 720 / 1080; transform: none; filter: drop-shadow(0 10px 18px #0d1a0a99);
+}
+body.playing .board[data-theme="andes"] { width: min(100cqw, calc(100cqh * .6667), 34rem); }
+.board-video {
+  position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 100%; border-radius: 1.1rem; pointer-events: none;
+  box-shadow: 0 0 0 3px #f4d58d, 0 0 0 6px #6b4a2e;
+}
+.board[data-theme="andes"] .hex { width: 24.5%; }
+.board[data-theme="andes"] .hex .token { width: 66%; }
+/* Sobre el pasto verde, los destinos se marcan en dorado y blanco. */
+.board[data-theme="andes"] .hex[data-highlight="move"] { background: radial-gradient(ellipse, #fff8d040 30%, #ffe066e6 80%); }
+.board[data-theme="andes"] .hex[data-highlight="origin"] { background: radial-gradient(ellipse, #ffffff40 30%, #ffffffd9 80%); }
+.board[data-theme="andes"] .hex[aria-pressed="true"] { background: radial-gradient(ellipse, #fff7 30%, #ffffffee 85%); }
+
+/* === v0.20: escenario con perspectiva, fichas sobre el terreno y pantalla completa === */
+/* Visor: muestra el fotograma del escenario (recortando el cielo en escritorio). */
+.board-viewport {
+  position: relative; overflow: hidden; border-radius: 1.1rem; flex: none;
+  width: min(100cqw, calc(100cqh * var(--scene-aspect, .6667)), 34rem); aspect-ratio: var(--scene-aspect, .6667);
+}
+body[data-theme="andes"] .board-viewport { box-shadow: 0 0 0 3px #f4d58d, 0 0 0 6px #6b4a2e, 0 12px 24px #0d1a0a99; }
+#board.board[data-geometry] {
+  position: absolute; margin: 0; width: 100%; aspect-ratio: auto; max-height: none;
+  transform: none; filter: none; background: none; overflow: visible;
+}
+#board[data-geometry] .hex { transform: none; z-index: 1; }
+#board[data-geometry] .board-video { border-radius: 0; box-shadow: none; object-fit: cover; object-position: 50% 50%; }
+
+/* Fichas: una capa propia en el mismo sistema de coordenadas del escenario. */
+.token-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.token-layer > .token { position: absolute; display: block; aspect-ratio: 1; height: auto; filter: drop-shadow(0 3px 2px #1d0f0a80); }
+.token-layer > .token .token-art { width: 100%; height: 100%; }
+/* Sombra de contacto achatada: la ficha queda apoyada en el suelo. */
+.token-layer > .token::before {
+  content: ''; position: absolute; z-index: -1; left: 12%; right: 12%; bottom: -3%; height: 20%;
+  border-radius: 50%; background: radial-gradient(ellipse, #1d0f0acc 0 35%, #1d0f0a00 70%);
+}
+.token-layer > .token[data-selected="true"] { translate: 0 -7%; filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 2px #fff3a0); }
+.token-layer > .token[data-power="true"] { filter: drop-shadow(0 0 8px #ffd34d) drop-shadow(0 0 3px #fff4b0); }
+.token-layer > .token.ss-glow { filter: drop-shadow(0 0 6px #ff7a2a) drop-shadow(0 0 2px #fff3a0); animation: ss-pulse 1s ease-in-out infinite; }
+.token-layer > .token.ss-glow::after, .token-layer > .token[data-highlight="target"]::after {
+  content: ''; position: absolute; inset: 2% 2% 8%; border-radius: 50%;
+}
+.token-layer > .token.ss-glow::after { border: 3px solid #ffb02e; box-shadow: 0 0 10px 3px #ff7a2acc, inset 0 0 8px #ff7a2a99; animation: ss-ring 1s ease-in-out infinite; }
+.token-layer > .token[data-highlight="target"]::after {
+  border: 3px dashed #fff; box-shadow: 0 0 0 2px #c8160e, 0 0 10px #ff3b1f; animation: target-spin 2.4s linear infinite;
+}
+.token-layer > .token .token-star {
+  position: absolute; top: 2%; right: 2%; width: 26%; aspect-ratio: 1; border-radius: 50%;
+  background: #38251f url('assets/clay/emblemas/rescate.webp') center / 78% no-repeat; box-shadow: 0 0 0 1px #ffe2a2;
+}
+.token-layer > .token.fx-pending { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .token-layer > .token.ss-glow, .token-layer > .token::after { animation: none; }
+}
+
+/* Pantalla completa en móvil vertical: el video es el escenario y la interfaz flota encima. */
+body.scene-full { background: #2d4a22; }
+body.scene-full .board-viewport {
+  position: fixed; inset: 0; z-index: 0; width: auto; aspect-ratio: auto; border-radius: 0; box-shadow: none;
+}
+body.scene-full .masthead { position: relative; z-index: 3; background: linear-gradient(#2a140ae6, #2a140a99); }
+body.scene-full .play-layout { position: relative; z-index: 2; pointer-events: none; background: none; }
+body.scene-full .seat, body.scene-full .controls, body.scene-full .hand-drawer, body.scene-full .field-heading > *,
+body.scene-full .phase-indicator, body.scene-full .duel, body.scene-full .battle-result { pointer-events: auto; }
+body.scene-full .field { background: none; }
+body.scene-full .board-stage { container-type: normal; }
+body.scene-full .legend { display: none; }
+body.scene-full .seat { opacity: .94; }
+/* Dock compacto: solo los botones, en la franja libre bajo el terreno. */
+body.scene-full .controls { background: linear-gradient(#fff5dfe6, #f5d8b0e6); padding-block: .3rem; }
+body.scene-full .controls .control-heading, body.scene-full .controls .instructions { display: none; }
+/* Cartas y duelo en la franja del cielo, entre los marcadores y el terreno. */
+body.scene-full .hand-drawer, body.scene-full .field .duel:not([hidden]) {
+  position: fixed; z-index: 4; left: .4rem; right: .4rem; width: auto; max-width: none; margin: 0;
+  top: calc(var(--game-header) + 4.5rem); transform: none;
+  max-height: max(9rem, calc(var(--grid-top, 18rem) - var(--game-header) - 4.8rem));
+}
+body.scene-full .hand-drawer { display: grid; grid-template-rows: auto auto minmax(0, 1fr); padding: .3rem .4rem; gap: .2rem; }
+body.scene-full .hand-drawer .drawer-hands { min-height: 0; container-type: size; }
+body.scene-full .hand-drawer .hand {
+  height: 100%; width: min(100%, calc(100cqh * .888 * 3 + .6rem)); max-width: none; margin: 0 auto;
+}
+body.scene-full .rival-played { padding: .1rem .4rem; }
+body.scene-full .rival-played .mini-card.card { width: 1.9rem; }
+body.scene-full.drawer-visible .field .duel { display: none; }
+body.scene-full .field .duel:not([hidden]) { padding: .2rem; }
+body.scene-full .duel .force-chips, body.scene-full .duel .duel-cards { display: none; }
+body.scene-full .duelist .token { width: 2.6rem; }
+/* Las casillas del escenario siguen siendo táctiles bajo la capa de interfaz. */
+body.scene-full #board .hex { pointer-events: auto; }
+@media (max-width: 380px) {
+  body.playing .brand img { width: 4.4rem; }
+  body.playing .masthead .header-actions { gap: .15rem; }
+  body.playing .masthead .help summary, body.playing .masthead .activity summary, body.playing #restart { padding-inline: .32rem; font-size: .66rem; }
+}
+body.scene-full > .board-viewport { z-index: 0; }
+body.scene-full > .play-layout, body.scene-full > main { position: relative; z-index: 2; }
+/* Combate en pantalla completa: los marcadores se apartan y las cartas o el duelo
+   ocupan la franja entre la cabecera y las fichas, sin taparlas. */
+body.scene-full.revealing .seat { visibility: hidden; }
+body.scene-full.revealing .hand-drawer, body.scene-full.revealing .field .duel:not([hidden]) {
+  top: calc(var(--game-header) + .25rem);
+  height: max(7.5rem, min(16rem, calc(var(--grid-top, 18rem) - var(--game-header) - .5rem)));
+  max-height: none;
+}
+body.scene-full.revealing .field .duel:not([hidden]) { height: auto; max-height: calc(var(--grid-top, 18rem) - var(--game-header) - .5rem); }
+body.scene-full.revealing .hand-drawer .drawer-toolbar { padding-right: 0; }
+body.scene-full.revealing #drawer-hint { margin-right: 2.4rem; }
+body.scene-full.revealing #turn-timer { position: fixed; z-index: 6; top: calc(var(--game-header) + .45rem); right: 2.9rem; width: 2.1rem; height: 2.1rem; }
+body.scene-full.revealing #turn-timer b { font-size: .85rem; }
+/* Cajón compacto en pantalla completa: una línea de título y fuerza, una de cartas del rival. */
+body.scene-full .drawer-toolbar { flex-wrap: nowrap; gap: .3rem; min-height: 0; font-size: .7rem; }
+body.scene-full .drawer-toolbar strong { font-size: .72rem; white-space: nowrap; }
+body.scene-full #drawer-hint { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: .25rem; overflow: hidden; white-space: nowrap; }
+body.scene-full .hint-rule { display: none; }
+body.scene-full .hint-force { font-size: .68rem; }
+body.scene-full .hint-status { font-size: .58rem; padding: 0 .3rem; }
+body.scene-full .drawer-close { width: 26px; height: 26px; }
+body.scene-full .rival-played { gap: .3rem; }
+body.scene-full .rival-played-label { max-width: none; white-space: nowrap; font-size: .55rem; }
+body.scene-full #drawer-hint { min-width: 0; }
+body.scene-full .drawer-toolbar strong { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 400px) { body.scene-full .hint-status { display: none; } }

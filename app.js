@@ -44,6 +44,14 @@ let bannerQueue = [];
 let bannerShowing = false;
 let announcedEvents = 0;
 const searchDialog = byId('search-choice');
+// === Ajustes del jugador (se guardan en este navegador) ===
+const SETTINGS_KEY = 'reales-ideales-ajustes';
+const settings = { timer: 'normal', speed: 1, board: 'andes' };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch { /* sin almacenamiento */ }
+settings.speed = Number(settings.speed) || 1;
+const saveSettings = () => {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* sin almacenamiento */ }
+};
 
 function span(parent, className, text) {
   const node = document.createElement('span');
@@ -99,9 +107,9 @@ byId('search-cancel').addEventListener('click', () => searchDialog.close());
 function bannerFromEvent(event) {
   switch (event.type) {
     case 'turn': return { kind: event.side, title: 'TURNO DE ' + rules.SIDE[event.side].toUpperCase(), subtitle: 'Prepara tu movimiento o ataque' };
-    case 'move': return { kind: 'move', title: 'FASE DE MOVIMIENTO', subtitle: event.piece + ' avanza en el tablero' };
+    case 'move': return { kind: 'move', title: 'FASE DE MOVIMIENTO', subtitle: nameOf(event.piece) + ' avanza en el tablero' };
     case 'special': return { kind: 'special', title: event.power.toUpperCase(),
-      subtitle: animals[event.animal] + ' ' + event.piece + ': ' + rules.SPECIALS[event.animal].description };
+      subtitle: nameOf(event.piece) + ': ' + rules.SPECIALS[event.animal].description };
     case 'attack': return event.special ? null : {
       kind: 'attack', title: mode === 'ai' && event.side === 'R' ? '¡TE DECLARAN ATAQUE!' : '¡ATAQUE DECLARADO!',
       subtitle: 'Fase de ataque: prepara tus cartas'
@@ -140,7 +148,7 @@ function showNextBanner() {
     node.hidden = true;
     bannerShowing = false;
     showNextBanner();
-  }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 500 : 1350);
+  }, (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 500 : 1350) / settings.speed);
 }
 function announceNewEvents() {
   const newEvents = game.events.slice(announcedEvents);
@@ -159,7 +167,7 @@ function announceNewEvents() {
     fxBusy = true;
     document.body.classList.add('fx-busy');
     clearTimeout(fxBusyTimer);
-    fxBusyTimer = setTimeout(releaseEffects, duration);
+    fxBusyTimer = setTimeout(releaseEffects, duration / settings.speed);
   } else if (!fxBusy && !bannerShowing && bannerQueue.length) showNextBanner();
 }
 function releaseEffects() {
@@ -178,7 +186,7 @@ function releaseEffects() {
 }
 // Ocupado mientras hay animación o banner: se bloquean clics y la IA.
 function busy() {
-  return fxBusy || bannerShowing;
+  return fxBusy || bannerShowing || byId('settings').open;
 }
 
 // === Efectos visuales y sonoros ===
@@ -204,9 +212,15 @@ function later(ms, callback) {
   const timer = setTimeout(() => {
     fxTimers = fxTimers.filter(value => value !== timer);
     callback();
-  }, ms);
+  }, ms / settings.speed);
   fxTimers.push(timer);
 }
+// Velocidad rápida: todas las animaciones CSS de la capa de efectos se aceleran.
+new MutationObserver(records => {
+  if (settings.speed === 1) return;
+  for (const record of records) for (const node of record.addedNodes)
+    node.getAnimations?.({ subtree: true }).forEach(animation => { animation.playbackRate = settings.speed; });
+}).observe(fxLayer, { childList: true, subtree: true });
 function clearEffects() {
   fxTimers.forEach(clearTimeout);
   fxTimers = [];
@@ -219,10 +233,13 @@ function clearEffects() {
   lastCells = new Map();
   document.querySelector('.field')?.classList.remove('fx-shake', 'fx-shake-strong');
 }
+// Centro de una casilla en pantalla: mismo sistema de referencia que el video del escenario.
 function cellPoint(cell) {
-  const rect = hexButtons.get(cell)?.getBoundingClientRect();
-  if (!rect?.width) return null;
-  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: rect.width };
+  const geometry = sceneGeometry?.cells[cell];
+  const rect = board.getBoundingClientRect();
+  if (!geometry || !rect.width) return null;
+  const scale = rect.width / sceneGeometry.width;
+  return { x: rect.left + geometry.x * scale, y: rect.top + geometry.y * scale, size: geometry.w * scale };
 }
 let fxCells = new Map();
 function pieceCell(id) {
@@ -242,7 +259,7 @@ function spawn(className, point, vars = {}, life = 1300) {
   node.style.setProperty('--size', point.size + 'px');
   for (const [key, value] of Object.entries(vars)) node.style.setProperty('--' + key, value);
   fxLayer.append(node);
-  setTimeout(() => node.remove(), life);
+  setTimeout(() => node.remove(), life / settings.speed);
   return node;
 }
 function flash(color, glow) {
@@ -269,7 +286,7 @@ function tokenRect(id, cell) {
   const rect = board.querySelector('[data-piece="' + id + '"]')?.getBoundingClientRect();
   if (rect?.width) return rect;
   const point = cellPoint(cell);
-  return point && { width: point.size * .78, height: point.size * .78 };
+  return point && { width: point.size * TOKEN_SCALE, height: point.size * TOKEN_SCALE };
 }
 function hideToken(id) {
   fxHidden.add(id);
@@ -574,18 +591,35 @@ function playEffects(events) {
   lastCells = new Map(game.pieces.filter(p => p.cell).map(p => [p.id, p.cell]));
   return delay;
 }
-function syncSoundToggle() {
-  const on = !fx.isMuted();
-  const toggle = byId('sound-toggle');
-  toggle.dataset.sound = on ? 'on' : 'off';
-  toggle.setAttribute('aria-pressed', String(on));
-  toggle.setAttribute('aria-label', on ? 'Sonido activado' : 'Sonido desactivado');
+const settingsDialog = byId('settings');
+const settingsForm = settingsDialog.querySelector('form');
+function syncSettingsForm() {
+  const values = { music: fx.musicOn() ? 'on' : 'off', effects: fx.effectsOn() ? 'on' : 'off',
+    timer: settings.timer, speed: String(settings.speed), board: settings.board };
+  for (const [name, value] of Object.entries(values))
+    settingsForm.querySelector('input[name="' + name + '"][value="' + value + '"]').checked = true;
 }
-byId('sound-toggle').addEventListener('click', () => {
-  fx.setMuted(!fx.isMuted());
-  syncSoundToggle();
+byId('settings-button').addEventListener('click', () => {
+  syncSettingsForm();
+  settingsDialog.showModal();
 });
-syncSoundToggle();
+settingsForm.addEventListener('change', event => {
+  const { name, value } = event.target;
+  if (name === 'music') fx.setMusic(value === 'on');
+  if (name === 'effects') fx.setEffects(value === 'on');
+  if (name === 'timer') {
+    settings.timer = value;
+    timerKey = null;
+    if (game) syncTimer();
+  }
+  if (name === 'speed') settings.speed = Number(value);
+  if (name === 'board') {
+    settings.board = value;
+    applyBoardTheme();
+  }
+  saveSettings();
+});
+settingsDialog.addEventListener('close', () => { if (game) scheduleAI(); });
 // Música del menú principal; empieza con el primer gesto si el navegador bloquea el audio automático.
 fx.music('menu');
 function currentPhase() {
@@ -611,8 +645,40 @@ function renderCardFace(parent, card, preview = false) {
 function character(piece) {
   return piece.animal ?? rules.ROSTER[piece.side][Number(piece.id.slice(1)) - 1];
 }
+// Nombres para el jugador: cada bando tiene un animal de cada especie, así que
+// "Tigrillo idealista" identifica a la ficha sin códigos como I5 o C6.
+const SIDE_ADJECTIVE = { I: 'idealista', R: 'realista' };
 function pieceName(piece) {
-  return (piece.cannon ? 'Cañón' : animals[character(piece)]) + ' ' + piece.id;
+  const name = animals[character(piece)] + ' ' + SIDE_ADJECTIVE[piece.side];
+  return piece.cannon ? 'Cañón (' + name + ')' : name;
+}
+function nameOf(id) {
+  const piece = rules.piece(game, id);
+  return piece ? pieceName(piece) : id;
+}
+// Texto del registro y del resultado sin códigos técnicos; el JSON exportado conserva los originales.
+function describe(event, index = game.events.indexOf(event)) {
+  switch (event.type) {
+    case 'move': return nameOf(event.piece) + ' avanza.';
+    case 'bonus':
+    case 'advance': return nameOf(event.piece) + ' avanza tras la victoria.';
+    case 'leap': return nameOf(event.piece) + ' salta al frente.';
+    case 'rescue': return rules.SIDE[event.side] + ' rescatan a ' + nameOf(event.piece) + '.';
+    case 'attack': return nameOf(event.piece) + ' ataca a ' + nameOf(event.target) + '.';
+    case 'special': return nameOf(event.piece) + ' lanza ' + event.power + '.';
+    case 'summon': return nameOf(event.piece) + ' se convierte en cañón.';
+    case 'combo':
+    case 'double': return nameOf(event.target) + ' cae como segunda ficha.';
+    case 'battle': {
+      const attack = game.events.slice(0, index).findLast(e => e.type === 'attack');
+      if (!attack) return event.text;
+      const score = event.force[0] + ' a ' + event.force[1];
+      if (!event.winner) return 'Empate ' + score + ': salen ' + nameOf(attack.piece) + ' y ' + nameOf(attack.target) + '.';
+      const [winner, loser] = event.winner === event.attacker ? [attack.piece, attack.target] : [attack.target, attack.piece];
+      return nameOf(winner) + ' vence a ' + nameOf(loser) + ' (' + score + ').';
+    }
+    default: return event.text;
+  }
 }
 function makeToken(piece) {
   const node = document.createElement('span');
@@ -621,7 +687,7 @@ function makeToken(piece) {
   node.setAttribute('aria-hidden', 'true');
   const image = document.createElement('img');
   image.className = 'token-art';
-  image.src = piece.cannon ? newAsset('canon.png')
+  image.src = piece.cannon ? newAsset('canon.webp')
     : `assets/clay/fichas/${tokenFaction[piece.side]}-${character(piece)}.webp`;
   image.alt = '';
   image.draggable = false;
@@ -641,16 +707,218 @@ for (const cell of Object.values(rules.CELLS)) {
   const hex = button(board, '', () => { if (!suppressClick) clickCell(cell.id); }, 'hex');
   hex.dataset.cell = cell.id;
   hex.dataset.star = String(rescueCells.has(cell.id));
-
-  const { center, edges } = boardColumns[cell.col];
-  const rowIndex = Math.floor((cell.row - 1) / 2);
-  const top = edges[rowIndex];
-  const bottom = edges[rowIndex + 1];
-  hex.style.left = (center / 1116 * 100) + '%';
-  hex.style.top = ((top + bottom) / 2 / 1410 * 100) + '%';
-  hex.style.height = ((bottom - top) / 1410 * 100) + '%';
   hexButtons.set(cell.id, hex);
 }
+// === Tablero dibujado en SVG ===
+// Baldosas de piedra incrustadas en el empedrado de la plaza: sin imagen de fondo
+// ni códigos pintados. Usa las mismas medidas que los botones de casilla.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svg(tag, attributes = {}, parent = null) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+  parent?.append(node);
+  return node;
+}
+function hexPoints(cx, cy, w, h, scale = 1) {
+  const x = w / 2 * scale, q = w / 4 * scale, y = h / 2 * scale;
+  return [[cx - x, cy], [cx - q, cy - y], [cx + q, cy - y], [cx + x, cy], [cx + q, cy + y], [cx - q, cy + y]]
+    .map(point => point.map(n => n.toFixed(1)).join(',')).join(' ');
+}
+function starPoints(cx, cy, r) {
+  return Array.from({ length: 10 }, (_, i) => {
+    const angle = -Math.PI / 2 + i * Math.PI / 5, radius = i % 2 ? r * .45 : r;
+    return (cx + Math.cos(angle) * radius).toFixed(1) + ',' + (cy + Math.sin(angle) * radius).toFixed(1);
+  }).join(' ');
+}
+function buildBoardArt() {
+  const W = 1116, H = 1410, HEX_W = W * .22;
+  const art = svg('svg', { class: 'board-art', viewBox: '0 0 ' + W + ' ' + H, 'aria-hidden': 'true', focusable: 'false' });
+  const defs = svg('defs', {}, art);
+  const gradient = (id, top, bottom) => {
+    const g = svg('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    svg('stop', { offset: '0', 'stop-color': top }, g);
+    svg('stop', { offset: '1', 'stop-color': bottom }, g);
+  };
+  gradient('tile-I', '#5b9cc2', '#2a6489');
+  gradient('tile-R', '#d9705f', '#a23a2f');
+  gradient('tile-N', '#f6e0b5', '#d9b27a');
+  gradient('rim', '#e2c28f', '#a87a4a');
+  const glow = svg('radialGradient', { id: 'tile-light', cx: '.45', cy: '.35', r: '.7' }, defs);
+  svg('stop', { offset: '0', 'stop-color': '#fff', 'stop-opacity': '.35' }, glow);
+  svg('stop', { offset: '1', 'stop-color': '#fff', 'stop-opacity': '0' }, glow);
+  const grain = svg('pattern', { id: 'clay-grain', patternUnits: 'userSpaceOnUse', width: 260, height: 260 }, defs);
+  svg('image', { href: 'assets/clay/relieve.webp', width: 260, height: 260, preserveAspectRatio: 'xMidYMid slice' }, grain);
+  const clip = svg('clipPath', { id: 'tiles-clip' }, defs);
+
+  const cells = Object.values(rules.CELLS).map(cell => {
+    const { center, edges } = boardColumns[cell.col];
+    const rowIndex = Math.floor((cell.row - 1) / 2);
+    const top = edges[rowIndex], bottom = edges[rowIndex + 1];
+    return { ...cell, cx: center, cy: (top + bottom) / 2, h: bottom - top };
+  });
+  // Capas: sombra en el suelo, borde de piedra continuo, baldosas, textura, brillo y estrellas.
+  const shadow = svg('g', { class: 'board-shadow' }, art);
+  const rimDark = svg('g', { class: 'board-rim-dark' }, art);
+  const rimLight = svg('g', { class: 'board-rim-light' }, art);
+  const tiles = svg('g', { class: 'board-tiles' }, art);
+  for (const cell of cells) {
+    const points = hexPoints(cell.cx, cell.cy, HEX_W, cell.h);
+    svg('polygon', { points: hexPoints(cell.cx, cell.cy + 22, HEX_W, cell.h, 1.04) }, shadow);
+    svg('polygon', { points }, rimDark);
+    svg('polygon', { points }, rimLight);
+    svg('polygon', { points, fill: 'url(#tile-' + cell.zone + ')', class: 'tile tile-' + cell.zone }, tiles);
+    svg('polygon', { points }, clip);
+  }
+  svg('rect', { width: W, height: H, fill: 'url(#clay-grain)', 'clip-path': 'url(#tiles-clip)', class: 'board-grain' }, art);
+  const bevel = svg('g', { class: 'board-bevel' }, art);
+  for (const cell of cells) {
+    svg('polygon', { points: hexPoints(cell.cx, cell.cy, HEX_W, cell.h, .9), fill: 'url(#tile-light)' }, bevel);
+    if (rescueCells.has(cell.id))
+      svg('polygon', { points: starPoints(cell.cx, cell.cy, cell.h * .26), class: 'board-star' }, bevel);
+  }
+  // Guirnaldas de plastilina en el borde exterior, como las macetas de la plaza.
+  const garlands = svg('g', { class: 'board-garlands' }, art);
+  const flower = (x, y, size, rotate = 0) => svg('image', {
+    href: 'assets/clay/flor.webp', x: x - size / 2, y: y - size * .4, width: size, height: size * .8,
+    transform: 'rotate(' + rotate + ' ' + x + ' ' + y + ')' }, garlands);
+  for (const cell of cells) {
+    const column = boardColumns[cell.col].edges;
+    const rowIndex = Math.floor((cell.row - 1) / 2);
+    if (rowIndex === 0) flower(cell.cx, cell.cy - cell.h / 2 - 6, 120);
+    if (rowIndex === column.length - 2) flower(cell.cx, cell.cy + cell.h / 2 + 6, 120, 180);
+  }
+  for (const [x, y, r] of [[40, 520, -90], [40, 900, -90], [1076, 520, 90], [1076, 900, 90]]) flower(x, y, 110, r);
+  return art;
+}
+// === Escenarios del tablero ===
+// Cada escenario describe su fotograma (ancho × alto en píxeles) y, para cada casilla
+// lógica, el centro y el contorno visibles. En "andes" las medidas salen del video
+// con perspectiva (tools/medir_escenario.py); en "plaza", del tablero SVG regular.
+// Casillas, fichas y animaciones comparten ese único sistema de referencia.
+const TOKEN_SCALE = .66;
+const tokenLayer = document.createElement('div');
+tokenLayer.className = 'token-layer';
+board.append(tokenLayer);
+const boardViewport = board.parentElement;
+let sceneGeometry = null;
+function withBounds(cells) {
+  for (const cell of Object.values(cells)) {
+    const xs = cell.poly.map(p => p[0]), ys = cell.poly.map(p => p[1]);
+    Object.assign(cell, { left: Math.min(...xs), top: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs),
+      h: Math.max(...ys) - Math.min(...ys) });
+  }
+  return cells;
+}
+function plazaCells() {
+  const cells = {};
+  for (const cell of Object.values(rules.CELLS)) {
+    const { center, edges } = boardColumns[cell.col];
+    const rowIndex = Math.floor((cell.row - 1) / 2);
+    const top = edges[rowIndex], bottom = edges[rowIndex + 1], cy = (top + bottom) / 2;
+    const w = 1116 * .22, h = bottom - top;
+    cells[cell.id] = { x: center, y: cy, poly: [[center - w / 2, cy], [center - w / 4, top], [center + w / 4, top],
+      [center + w / 2, cy], [center + w / 4, bottom], [center - w / 4, bottom]] };
+  }
+  return cells;
+}
+const scenes = window.RealesIdealesEscenarios ?? {};
+const BOARD_THEMES = {
+  andes: {
+    geometry: () => ({ width: scenes.andes.width, height: scenes.andes.height, crop: 200, cells: withBounds(structuredClone(scenes.andes.cells)) }),
+    fullscreen: true,
+    art() {
+      const video = document.createElement('video');
+      video.className = 'board-video';
+      video.src = 'assets/escenario/campo-andino.mp4';
+      video.poster = 'assets/escenario/campo-andino-poster.webp';
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('aria-hidden', 'true');
+      video.preload = 'auto';
+      // Con animaciones reducidas queda la imagen fija del escenario.
+      if (!reducedMotion()) {
+        video.autoplay = true;
+        video.play?.().catch(() => {});
+      }
+      return video;
+    },
+  },
+  plaza: {
+    geometry: () => ({ width: 1116, height: 1410, crop: 0, cells: withBounds(plazaCells()) }),
+    fullscreen: false,
+    art: buildBoardArt,
+  },
+};
+// Posición de la ficha: base apoyada un poco por debajo del centro de la casilla,
+// tamaño proporcional al ancho visible (las casillas del fondo son más pequeñas).
+function placeToken(token, cellId) {
+  const g = sceneGeometry.cells[cellId];
+  const { width: W, height: H } = sceneGeometry;
+  const size = g.w * TOKEN_SCALE;
+  token.style.width = size / W * 100 + '%';
+  token.style.left = (g.x - size / 2) / W * 100 + '%';
+  token.style.top = (g.y + g.h * .2 - size) / H * 100 + '%';
+  token.style.zIndex = String(Math.round(g.y));
+}
+function applyBoardTheme() {
+  const name = BOARD_THEMES[settings.board] && (settings.board !== 'andes' || scenes.andes) ? settings.board : 'plaza';
+  const theme = BOARD_THEMES[name];
+  sceneGeometry = theme.geometry();
+  const { width: W, height: H, cells } = sceneGeometry;
+  board.dataset.theme = name;
+  board.dataset.geometry = 'true';
+  document.body.dataset.theme = name;
+  board.querySelector('.board-art, .board-video')?.remove();
+  board.prepend(theme.art());
+  for (const [id, hex] of hexButtons) {
+    const g = cells[id];
+    hex.style.left = g.left / W * 100 + '%';
+    hex.style.top = g.top / H * 100 + '%';
+    hex.style.width = g.w / W * 100 + '%';
+    hex.style.height = g.h / H * 100 + '%';
+    hex.style.clipPath = 'polygon(' + g.poly.map(([x, y]) =>
+      ((x - g.left) / g.w * 100).toFixed(2) + '% ' + ((y - g.top) / g.h * 100).toFixed(2) + '%').join(',') + ')';
+  }
+  layoutScene();
+  if (game) renderBoard();
+}
+// Encaje del escenario: en móvil vertical el video cubre toda la pantalla (como object-fit: cover,
+// pero calculado aquí para que la capa interactiva use exactamente la misma escala y recorte).
+// En el resto de pantallas, el tablero va en su columna recortando el cielo superior.
+const portraitPhone = window.matchMedia('(orientation: portrait) and (max-width: 849px)');
+function layoutScene() {
+  if (!sceneGeometry) return;
+  const { width: W, height: H, crop } = sceneGeometry;
+  const full = document.body.classList.contains('playing') && BOARD_THEMES[board.dataset.theme].fullscreen && portraitPhone.matches;
+  document.body.classList.toggle('scene-full', full);
+  // En pantalla completa el escenario cuelga de <body>, detrás de toda la interfaz;
+  // en las demás vistas vuelve a su columna.
+  const home = byId('partida').querySelector('.board-stage');
+  if (full && boardViewport.parentElement !== document.body) document.body.prepend(boardViewport);
+  if (!full && boardViewport.parentElement !== home) home.append(boardViewport);
+  if (full) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const scale = Math.max(vw / W, vh / H);
+    const width = W * scale, height = H * scale;
+    // Si sobra alto, se recorta el cielo (arriba) y nunca el terreno de juego.
+    Object.assign(board.style, { left: (vw - width) / 2 + 'px', top: Math.min(0, vh - height) + 'px',
+      width: width + 'px', height: height + 'px' });
+    boardViewport.style.removeProperty('--scene-aspect');
+    // Límites del terreno en pantalla para colocar la interfaz alrededor de las fichas.
+    const ys = Object.values(sceneGeometry.cells).flatMap(c => [c.y + c.h * .2 - c.w * TOKEN_SCALE, c.top + c.h]);
+    const offset = Math.min(0, vh - height);
+    document.body.style.setProperty('--grid-top', Math.min(...ys) * scale + offset + 'px');
+    document.body.style.setProperty('--grid-bottom', Math.max(...ys) * scale + offset + 'px');
+  } else {
+    boardViewport.style.setProperty('--scene-aspect', String(W / (H - crop)));
+    Object.assign(board.style, { left: '0', width: '100%', top: -crop / (H - crop) * 100 + '%', height: H / (H - crop) * 100 + '%' });
+  }
+}
+window.addEventListener('resize', layoutScene);
+portraitPhone.addEventListener?.('change', layoutScene);
+applyBoardTheme();
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
 }
@@ -693,7 +961,7 @@ function startSpecial(attacker, defender, at) {
 function proposeDestination(id, cell) {
   const actor = rules.piece(game, id);
   if (rules.moves(game, id).includes(cell)) {
-    confirmAction('¿Mover la ficha?', 'Mover a ' + pieceName(actor) + ' a la casilla ' + cell + '.', 'Mover', () => {
+    confirmAction('¿Mover la ficha?', 'Mover a ' + pieceName(actor) + ' a la casilla marcada.', 'Mover', () => {
       started ??= Date.now();
       rules.move(game, id, cell);
       drawerOpen = false;
@@ -705,12 +973,26 @@ function proposeDestination(id, cell) {
   }
   const target = rules.occupant(game, cell);
   if (target && rules.attacks(game, id).includes(target.id)) {
-    confirmAction('¿Atacar a esta ficha?', pieceName(actor) + ' atacará a ' + pieceName(target) + ' en ' + cell + '.', 'Atacar', () => {
+    confirmAction('¿Atacar a esta ficha?', pieceName(actor) + ' atacará a ' + pieceName(target) + '. ' + attackPreview(actor, null), 'Atacar', () => {
       startAttack(actor, target);
     });
     return true;
   }
   return false;
+}
+// Vista previa del combate: con fuerza base 0, conviene saber qué pasa sin cartas.
+function attackPreview(attacker, special) {
+  const power = special && rules.SPECIALS[special];
+  const start = (attacker.cannon ? 2 : 0) + (power?.bonus ?? 0);
+  const hand = game.players[attacker.side].hand.filter(Boolean);
+  const helpful = hand.filter(card => (rules.CARDS[card].own ?? 0) > 0 || card === 'decisive').length;
+  const cards = helpful === 0 ? 'No tienes cartas que sumen fuerza.'
+    : 'Tienes ' + helpful + (helpful === 1 ? ' carta que suma.' : ' cartas que suman.');
+  const rival = power?.rivalLimit === 0 ? ' El rival no podrá usar cartas.'
+    : power?.rivalLimit === 1 ? ' El rival solo podrá usar 1 carta.' : '';
+  return start > 0
+    ? 'Empiezas con fuerza ' + start + ' contra 0: sin cartas, ganas.' + rival + ' ' + cards
+    : 'Empiezas 0 contra 0: si nadie juega cartas, es empate y salen las dos fichas.' + rival + ' ' + cards;
 }
 function startAttack(attacker, defender) {
   if (!rules.attack(game, attacker.id, defender.id)) return;
@@ -746,7 +1028,8 @@ function clickCell(cell) {
     } else if (piece && special.targets.includes(piece.id)) {
       const at = special.at;
       confirmAction('¿Lanzar ' + power.name + '?', pieceName(attacker) + ' usará ' + power.name + ' contra ' + pieceName(piece)
-        + (at !== attacker.cell ? ' desde ' + at : '') + '. ' + power.description, 'Lanzar', () => startSpecial(attacker, piece, at));
+        + (at !== attacker.cell ? ', saltando a la casilla marcada' : '') + '. ' + power.description + ' ' + attackPreview(attacker, attacker.animal),
+        'Lanzar', () => startSpecial(attacker, piece, at));
       return;
     } else if (specialAt) {
       specialAt = null;
@@ -774,6 +1057,7 @@ function specialReadyPieces() {
   return new Set(game.pieces.filter(p => p.side === game.turn && p.cell && rules.specialOptions(game, p.id).length).map(p => p.id));
 }
 function renderBoard() {
+  const tokens = [];
   const ready = specialReadyPieces();
   const special = specialView();
   const moves = special ? special.destinations : selection ? rules.moves(game, selection) : [];
@@ -792,15 +1076,22 @@ function renderBoard() {
     hex.setAttribute('aria-label', [cell, star ? 'estrella de rescate' : '', piece
       ? rules.SIDE[piece.side] + ' · ' + pieceName(piece) : 'libre',
       target === 'target' ? 'objetivo de ataque' : target === 'move' ? 'movimiento disponible' : ''].filter(Boolean).join(', '));
-    hex.replaceChildren();
     if (piece) {
       const token = makeToken(piece);
       if (drag?.ghost && drag.id === piece.id) token.classList.add('origin');
       if (fxHidden.has(piece.id)) token.classList.add('fx-pending');
       if (ready.has(piece.id)) token.classList.add('ss-glow');
-      hex.append(token);
+      // La ficha refleja el estado de su casilla (selección, objetivo, estrella).
+      token.dataset.highlight = target;
+      token.dataset.selected = String(piece.id === selection);
+      token.dataset.star = String(star);
+      if (star) span(token, 'token-star', '');
+      if (hex.dataset.power) token.dataset.power = 'true';
+      placeToken(token, cell);
+      tokens.push(token);
     }
   }
+  tokenLayer.replaceChildren(...tokens);
 }
 board.addEventListener('pointerdown', event => {
   suppressClick = false;
@@ -1197,10 +1488,10 @@ function renderControls() {
       break;
     case 'rescue':
       say('Rescate de ' + rules.SIDE[game.rescue.side], selection
-        ? 'Coloca a ' + selection + ' en una de tus casillas de despliegue libres.'
+        ? 'Coloca a ' + nameOf(selection) + ' en una de tus casillas de despliegue libres.'
         : 'Elige la ficha que volverá al tablero como ficha normal.');
       game.pieces.filter(piece => !piece.cell && piece.side === game.rescue.side).forEach(piece =>
-        button(actions, 'Rescatar a ' + animals[character(piece)] + ' ' + piece.id, () => { selection = piece.id; render(); }, 'primary'));
+        button(actions, 'Rescatar a ' + animals[character(piece)], () => { selection = piece.id; render(); }, 'primary'));
       button(actions, 'Guardar marcador', () => { rules.rescue(game, null); selection = null; render(); }, 'secondary');
       break;
     case 'end':
@@ -1284,8 +1575,9 @@ let timerKey = null;
 let timerLeft = 0;
 let timerLast = 0;
 let timerTick = -1;
+const timerScale = () => settings.timer === 'relaxed' ? 2 : 1;
 function timerContext() {
-  if (!game || !(game.phase in TIMER_SECONDS) || isAITurn()) return null;
+  if (!game || settings.timer === 'off' || !(game.phase in TIMER_SECONDS) || isAITurn()) return null;
   const slot = game.phase === 'reveal' ? game.battle.slot : '';
   return [game.phase, game.turn, game.round, slot].join('|');
 }
@@ -1299,14 +1591,14 @@ function syncTimer() {
   }
   if (key !== timerKey) {
     timerKey = key;
-    timerLeft = TIMER_SECONDS[game.phase];
+    timerLeft = TIMER_SECONDS[game.phase] * timerScale();
     timerLast = performance.now();
     timerTick = -1;
   }
   drawTimer();
 }
 function drawTimer() {
-  const total = TIMER_SECONDS[game.phase] ?? 1;
+  const total = (TIMER_SECONDS[game.phase] ?? 1) * timerScale();
   const node = byId('turn-timer');
   const seconds = Math.max(0, Math.ceil(timerLeft));
   byId('turn-timer-value').textContent = String(seconds);
@@ -1431,7 +1723,7 @@ function showStats() {
     hero.append(makeToken({ ...piece, cannon: false }));
     const text = span(hero, 'stats-mvp-text', '');
     span(text, 'stats-mvp-label', 'Ficha más valiosa');
-    span(text, 'stats-mvp-name', animals[character(piece)] + ' ' + piece.id + ' · ' + rules.SIDE[piece.side]);
+    span(text, 'stats-mvp-name', pieceName({ ...piece, cannon: false }));
     span(text, 'stats-mvp-detail', mvpKills + (mvpKills === 1 ? ' baja causada' : ' bajas causadas'));
   } else span(hero, 'stats-mvp-label', 'Sin bajas en esta partida');
   const favorite = side => {
@@ -1505,8 +1797,9 @@ function render() {
     result.textContent = (battleResult.decisiveCombo ? '¡COMBO DECISIVO! · '
       : battleResult.combos?.I || battleResult.combos?.R ? '¡COMBO +1! · '
         : battleResult.advantage ? 'Golpe decisivo · ' : '')
-      + battleResult.force.join(' a ') + ' · ' + battleResult.text;
+      + describe(battleResult);
   }
+  document.body.classList.toggle('revealing', game.phase === 'reveal');
   syncHandDrawer();
   renderBoard();
   renderHands();
@@ -1515,7 +1808,7 @@ function render() {
   syncTimer();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
     const item = document.createElement('li');
-    item.textContent = event.text;
+    item.textContent = describe(event);
     return item;
   }));
   // El duelo sigue a la vista mientras se animan las cartas de una batalla recién resuelta.
@@ -1602,6 +1895,7 @@ function startGame(nextMode) {
   byId('inicio').hidden = true;
   byId('partida').hidden = false;
   document.body.classList.add('playing');
+  layoutScene();
   byId('history').hidden = false;
   byId('restart').hidden = false;
   byId('red-name').textContent = mode === 'ai' ? 'Realistas · IA' : 'Realistas';
@@ -1616,7 +1910,8 @@ function returnToMenu() {
   mode = null;
   byId('inicio').hidden = false;
   byId('partida').hidden = true;
-  document.body.classList.remove('playing');
+  document.body.classList.remove('playing', 'revealing');
+  layoutScene();
   byId('history').hidden = true;
   byId('history').open = false;
   byId('restart').hidden = true;

@@ -4,29 +4,23 @@ Prototipo v0.15 (propuesta de reglas v0.15) de un juego táctico de mesa para do
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** para jugar con los idealistas contra los realistas. La IA actúa con sus propias cartas y las jugadas visibles. El logotipo abre el menú principal. El juego funciona con archivos locales. Arrastra una ficha o toca primero la ficha y luego su destino. Confirma el movimiento o ataque en el diálogo. Durante el combate, las cartas están bajo el marcador de cada facción. Cada jugador tiene una reserva privada de tres cartas, pero solo puede activar dos en un combate; puede previsualizarlas y decidir si activa una o pasa. Un banner sobre toda la pantalla anuncia turnos, movimiento, ataque, combos, invocación y robo de cartas. El tablero incluye el contador del mazo de cada facción. El botón **Exportar JSON** conserva las jugadas públicas, bajas, invocaciones, rescates, duración y resultado. El tiempo se anota como dato de prueba.
+Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** (la IA juega con los realistas). Arrastra una ficha o tócala y luego su destino; el diálogo de confirmación anticipa el resultado del combate. Toca una carta para verla y otra vez para activarla. El botón de engranaje abre los **ajustes**: música, efectos, temporizador (sin tiempo, relajado o normal) y velocidad de animación; se guardan en el navegador. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
 
-`game.js` contiene las reglas. `ai.js` decide las jugadas de la IA. `app.js` conecta las reglas con la interfaz. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
+`game.js` contiene las reglas. `ai.js` decide las jugadas de la IA. `app.js` conecta las reglas con la interfaz y `fx.js` genera sonidos y música. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
 
-## Interfaz adaptable v0.13 F1 (GitHub Pages)
+## Interfaz adaptable (GitHub Pages)
 
-La interfaz de partida es ahora de **una sola pantalla** en móvil: cabecera compacta, HUD de las dos facciones con fichas/rescates/mazo, campo de juego central y dock de acciones inferior. El tablero completo permanece en la zona prioritaria sin colocar las tres cartas de cada bando por encima. El historial es un panel plegable del encabezado.
-
-Las **tres cartas** de la reserva se muestran en un cajón superpuesto que **no desplaza el tablero**. En el turno normal, se abre con **Mis 3 cartas**; cuando hay combate se abre automáticamente, pero las cartas permanecen **boca abajo** hasta que el jugador decide revelarlas. Al cambiar el actor en partidas locales, el cajón vuelve a ocultar las cartas antes de mostrar la reserva del siguiente jugador. La IA conserva ocultas sus cartas privadas.
-
-Se adapta a móvil vertical, orientación horizontal y escritorio. Utiliza `100dvh` y márgenes seguros del dispositivo. No requiere cambiar `game.js` o `ai.js` (las reglas siguen siendo v0.12).
+La partida ocupa **una sola pantalla** sin desplazamientos: cabecera compacta, marcadores de las dos facciones (fichas, rescates, mazo y barra de ataque especial), tablero, dock de acciones y cajón de cartas. El cajón nunca tapa el tablero (ver *Interfaz de partida v0.17*). Al cambiar de jugador en partidas locales, las cartas vuelven a ocultarse; la IA conserva ocultas sus cartas privadas.
 
 ### Verificación visual recomendada
 
-Después de desplegar en GitHub Pages, revisar las ventanas **360×740**, **390×844**, **412×915**, **850×384** y **1366×768**: cabecera, HUD, las 27 casillas y el dock deben resultar utilizables sin desplazamiento de toda la página. Probar el flujo de privacidad de las cartas en modo local, combates, búsqueda, Combo decisivo, cambios de turno y el historial. En pantallas muy pequeñas los botones múltiples pueden desplazarse **dentro** del dock, no en la página completa.
+Revisar **360×740**, **390×844**, **412×915**, **850×384**, **1024×768** y **1366×768**: las 27 casillas visibles, ningún panel con desplazamiento interno y el dock utilizable. Probar la privacidad de las cartas en modo local, combates, Exploración, combos, ataques especiales, cambios de turno, temporizador y el registro.
 
 ## Identidad visual
 
-Usa el arte propio de Reales Ideales para la portada, el tablero y el jardín de plastilina. Los controles, menús y avisos llevan etiquetas e iconos ilustrados. Evita los emojis en toda la interfaz.
+Usa el arte propio de Reales Ideales: portada, logotipo, jardín y fichas de plastilina. El **tablero se dibuja en SVG** (`buildBoardArt()` en `app.js`): baldosas de piedra incrustadas en el empedrado de la plaza, borde continuo, textura de arcilla, estrellas de rescate y guirnaldas de flores, sin códigos de casilla pintados. Cambiar colores o materiales del tablero es cuestión de CSS (`.board-tiles`, `.board-rim-*`) y abre la puerta a mapas temáticos.
 
-La portada, el logotipo y los doce animales proceden del arte de Reales Ideales. El tablero floral completo contiene 27 hexágonos, con los idealistas arriba y los realistas abajo. Las casillas interactivas siguen la ubicación de los códigos y las cuatro estrellas de la ilustración.
-
-Cada bando comienza con ocho fichas. Puma y vicuña se repiten entre los realistas, y llama y gallo entre los idealistas. Todos los animales siguen las reglas de la ficha normal. La pantalla de combate presenta las dos fichas participantes antes de revelar cartas.
+Cada bando tiene ocho animales distintos (mono, llama, guacamayo, rana, tigrillo, gallo, cuy y gato), por eso los textos los nombran como «Tigrillo idealista» en vez de usar códigos como I5 o C6. Los códigos solo se conservan en el JSON exportado y en las etiquetas de accesibilidad de las casillas. Evita los emojis en toda la interfaz.
 
 ## Preparación
 
@@ -113,6 +107,38 @@ La interfaz muestra banners de pantalla completa para los cambios principales: c
 - **Guía del ataque especial:** aviso "¡ATAQUE ESPECIAL LISTO!" al llenarse la barra, fichas con anillo de fuego, botón redondo ESPECIAL en el dock y un globo con flecha que indica cada paso. Paso 1: ficha con fuego. Paso 2: botón. Paso 3: objetivo con mira.
 - **Música:** *Clan Quest* en el menú principal y *Clan Charge* durante la partida, con transición suave. Se silencia con el botón de sonido. Los navegadores pueden esperar al primer toque para empezar a sonar. Pistas creadas por el autor con Suno, en `assets/audio/`.
 
+## Fase 1 y tablero SVG (v0.18)
+
+- **Sin códigos visibles:** registro, resultado, banners, diálogos y estadísticas usan el nombre del animal y su bando.
+- **Vista previa del combate** en el diálogo de ataque: fuerza inicial, qué pasa si nadie juega cartas y cuántas cartas útiles tienes.
+- **Ajustes:** música y efectos por separado, temporizador (sin tiempo, relajado ×2 o normal) y velocidad de animación (normal o rápida).
+- **Tablero SVG integrado** con la plaza.
+- **Recursos más ligeros:** WebP para cartas y cañón; arte sin uso movido a `assets/reserva/`.
+
+## Escenario «Campo andino» (v0.21)
+
+El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.mp4`, 9 s, sin audio, 1,2 MB) con exactamente 27 casillas en relieve (azules para los Idealistas, verdes neutrales y rojas para los Realistas), cuya grilla hexagonal, inclinada en perspectiva, **es** el tablero: no se dibuja ninguna grilla encima.
+
+- **Un solo sistema de referencia:** casillas, fichas y animaciones usan las coordenadas del fotograma del video (720×1280). Cada casilla tiene su centro y su contorno en perspectiva, medidos en `assets/escenario/campo-andino-casillas.js`.
+  - las zonas táctiles son polígonos con la forma real de cada hexágono;
+  - las fichas se apoyan con la base sobre el centro, con sombra en el suelo y un tamaño proporcional a la profundidad;
+  - las fichas de delante tapan a las de atrás.
+- **Pantalla completa en móvil vertical:** el video cubre el 100 % de la pantalla, sin bordes ni desplazamiento. `layoutScene()` calcula la misma escala y el mismo recorte para el video y para la capa interactiva; si sobra alto, recorta cielo y nunca terreno. La interfaz flota encima. Durante el combate, los marcadores se apartan y las cartas ocupan la franja del cielo, hasta justo encima de las fichas (`--grid-top`). En escritorio y en horizontal, el video va en su columna recortando el cielo.
+- **Bucle sin salto:** el último segundo se funde con el inicio. Con animaciones reducidas se muestra la imagen fija.
+- **Ajustes → Escenario:** permite volver a la **Plaza** (tablero SVG). Cada escenario se define en `BOARD_THEMES`.
+
+**Medición y cambio de video.** `tools/medir_escenario.py` mide la grilla del video y escribe `campo-andino-casillas.js`. El video actual (27 casillas en relieve) se mide con `--metodo bordes`:
+1. localiza las cuatro estrellas doradas (B1, D1, B11, D11) fotograma a fotograma para obtener una perspectiva inicial;
+2. la afina ajustando la grilla hexagonal ideal a los surcos entre casillas, sobre la mediana de varios fotogramas, con un margen de ±30 px por esquina para que no se deforme.
+
+Requiere `opencv-python-headless`, `numpy` y `scipy`, solo para medir.
+
+```
+python3 tools/medir_escenario.py assets/escenario/campo-andino.mp4 assets/escenario/campo-andino-casillas.js andes --metodo bordes --verificacion revision.png
+```
+
+Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.png` (`tools/guia_escenario.py`): 27 casillas, columnas de 5-6-5-6-5 y estrellas en B1, D1, B11 y D11. Anímala con la cámara fija y en bucle, optimízala con `ffmpeg` (sin audio, fundido de 1 s entre el final y el inicio) y mídela. Revisa siempre la imagen de verificación antes de publicar.
+
 ## Pruebas automatizadas
 
 El archivo `game.test.js` contempla 30 casos: fuerza base 0, cañón inmediato, barra de ataque especial, los ocho poderes, límite de movimiento, combos, búsqueda diferida, reserva de tres y eliminación doble. Ejecuta `node --test` para comprobar la regresión.
@@ -134,16 +160,9 @@ El archivo `game.test.js` contempla 30 casos: fuerza base 0, cañón inmediato, 
 
 Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique quién sale, quién se mueve y cómo se activa el rescate. Registra las ayudas en los tres primeros turnos, la duración total, la primera baja, rescates, victorias en defensa y ganas de revancha del 1 al 5. Para evaluar remontadas, identifica si un jugador que quedó dos fichas por debajo luego igualó o terminó ganando. Registra satisfacción por separado para cada persona. Una simulación permite contrastar reglas y jugadas legales. La comprensión y la diversión se observan en partidas de prueba con familias.
 
-## Integración gráfica v0.14
+## Recursos gráficos y de audio
 
-Los materiales visuales aprobados el 22/11/2026 están versionados en `assets/v014/`:
-
-- `cartas-aprobadas.png`: lámina 3×2 de cartas ilustradas (Refuerzo, Debilitar, Refuerzo mayor, Golpe decisivo, Invocar cañón y Exploración). Los nombres y efectos se conservan en HTML para accesibilidad, y la capa visual usa las ilustraciones completas con títulos originales.
-- `canon.png`: cañón esculpido sobre base circular, con luminosidad de facción en el tablero.
-- `fichas-idealistas.png` y `fichas-realistas.png`: láminas 4×2 con los bustos y peanas de arcilla aprobados. La última ficha azul (gato) **no lleva estrella**.
-
-Las nuevas fichas se asignan por especie y no solo por posición: Mono, Llama, Guacamayo, Tigrillo, Gallo y Cuy utilizan su retrato correspondiente. Cuando una de las láminas no incluye el animal específico (p. ej. anaconda, cóndor, tortuga gigante o vicuña), se conserva su ilustración original y su nombre; no se reemplaza por otro animal.
-
-**Interfaz:** el botón **Terminar turno** está en el extremo derecho del dock móvil; la reserva de tres cartas se abre a la izquierda y conserva las restricciones del motor. La versión es exclusivamente visual: no altera reglas ni mecánicas.
-
-**Rendimiento:** los archivos de láminas se conservan como imágenes PNG originales aprobadas para priorizar la calidad de la ilustración. Se recomienda convertirlas a WebP optimizado en una fase posterior si se detecta lentitud de descarga en redes móviles.
+- `assets/clay/`: escena de la plaza, fichas, dorsos, emblemas, adornos y texturas de plastilina.
+- `assets/v014/cartas-aprobadas.webp` (lámina 3×2 de cartas) y `canon.webp`: convertidos de PNG a WebP (de 5 MB a 0,8 MB).
+- `assets/audio/`: *Clan Quest* (menú) y *Clan Charge* (partida), creadas por el autor con Suno.
+- `assets/reserva/`: arte sin uso actual guardado para futuras opciones (tablero ilustrado anterior, plazas alternativas y animales candidatos: cóndor, puma, vicuña, anaconda, tortuga gigante y gallo de las rocas).
