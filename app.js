@@ -653,8 +653,7 @@ settingsForm.addEventListener('change', event => {
 for (const node of matchDialogs) {
   node.addEventListener('close', () => { if (game) scheduleProgress(); });
 }
-// Música del menú principal; empieza con el primer gesto si el navegador bloquea el audio automático.
-fx.music('menu');
+// La música del menú empieza únicamente con el botón Continuar.
 function currentPhase() {
   if (game.phase === 'turn') return 'Movimiento / ataque';
   if (game.phase === 'reveal') return 'Fase de batalla';
@@ -964,7 +963,7 @@ const sceneResize = new ResizeObserver(() => {
 });
 sceneResize.observe(controls);
 sceneResize.observe(phaseIndicator);
-applyBoardTheme();
+// El escenario se prepara durante la pantalla de carga inicial.
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
 }
@@ -1873,6 +1872,9 @@ function resetPresentation() {
 function startGame(nextMode) {
   resetPresentation();
   fx.music('battle');
+  if (!sceneGeometry) applyBoardTheme();
+  const video = board.querySelector('.board-video');
+  if (video && !reducedMotion()) video.play().catch(() => {});
   mode = nextMode;
   game = rules.makeGame();
   started = Date.now();
@@ -1932,3 +1934,112 @@ byId('export').addEventListener('click', () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 });
+
+
+// === Bienvenida y precarga: cinco segundos de presentación, sin bloquear por una red lenta. ===
+const STARTUP_MIN_MS = 5000;
+const STARTUP_MAX_MS = 8000;
+const startupImages = [
+  'assets/logo.webp', 'assets/clay/portada-jardin.webp',
+  'assets/clay/terracota.webp', 'assets/clay/campo-jardin.webp',
+  'assets/clay/flor.webp', 'assets/clay/relieve.webp', 'assets/clay/jardin-izquierdo.webp',
+  'assets/clay/jardin-derecho.webp', 'assets/clay/cordon.webp',
+  'assets/clay/dorso-idealista.webp', 'assets/clay/dorso-realista.webp',
+  'assets/v014/cartas-aprobadas.webp', 'assets/v014/canon.webp',
+  'assets/escenario/campo-andino-poster.webp', 'assets/escenario/campo-andino-fondo.webp',
+  ...['rescate', 'idealista', 'realista', 'turno', 'boost', 'decisive', 'cannon', 'weaken', 'major']
+    .map(name => 'assets/clay/emblemas/' + name + '.webp'),
+  ...Object.entries(rules.ROSTER).flatMap(([side, roster]) => roster.map(animal =>
+    'assets/clay/fichas/' + tokenFaction[side] + '-' + animal + '.webp')),
+];
+const startupImageCache = new Map();
+function preloadImage(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    startupImageCache.set(src, img);
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = src;
+    if (img.complete) resolve(img.naturalWidth > 0);
+  });
+}
+function waitForMedia(media) {
+  if (!media) return Promise.resolve(true);
+  if (media.readyState >= 2) return Promise.resolve(true);
+  if (media.error) return Promise.resolve(false);
+  return new Promise(resolve => {
+    const settle = ok => {
+      media.removeEventListener('loadeddata', ready);
+      media.removeEventListener('canplay', ready);
+      media.removeEventListener('error', failed);
+      resolve(ok);
+    };
+    const ready = () => settle(true);
+    const failed = () => settle(false);
+    media.addEventListener('loadeddata', ready, { once: true });
+    media.addEventListener('canplay', ready, { once: true });
+    media.addEventListener('error', failed, { once: true });
+  });
+}
+function startupTasks() {
+  const tasks = [...new Set(startupImages)].map(preloadImage);
+  applyBoardTheme();
+  const video = board.querySelector('.board-video');
+  if (video) tasks.push(waitForMedia(video));
+  if (fx.musicOn()) {
+    tasks.push(waitForMedia(fx.preloadMusic('menu')));
+    tasks.push(waitForMedia(fx.preloadMusic('battle')));
+  }
+  return tasks;
+}
+let startupStarted = false;
+function beginStartup() {
+  if (startupStarted) return;
+  startupStarted = true;
+  // Debe ocurrir en el gesto de usuario, antes de cualquier await o temporizador.
+  fx.music('menu');
+  const start = performance.now();
+  const intro = byId('startup');
+  const continueButton = byId('startup-continue');
+  const loading = byId('startup-loading');
+  const progress = byId('startup-progress');
+  const percent = byId('startup-percent');
+  const status = byId('startup-status');
+  continueButton.disabled = true;
+  continueButton.hidden = true;
+  loading.hidden = false;
+  intro.setAttribute('aria-busy', 'true');
+  let tasks = [];
+  try { tasks = startupTasks(); } catch (error) { console.warn('Precarga parcial', error); }
+  let settled = 0, failed = 0;
+  for (const task of tasks) Promise.resolve(task).then(ok => {
+    settled++;
+    if (!ok) failed++;
+  }, () => { settled++; failed++; });
+  const tick = () => {
+    const elapsed = performance.now() - start;
+    const complete = settled === tasks.length;
+    const deadline = elapsed >= STARTUP_MAX_MS;
+    const canEnter = elapsed >= STARTUP_MIN_MS && (complete || deadline);
+    const timeShare = Math.min(1, elapsed / STARTUP_MIN_MS);
+    const resourceShare = tasks.length ? settled / tasks.length : 1;
+    const value = canEnter ? 100 : Math.min(99, Math.floor(100 * (.65 * timeShare + .35 * resourceShare)));
+    progress.value = value;
+    percent.textContent = value + ' %';
+    if (elapsed >= STARTUP_MIN_MS && !complete) status.textContent = 'Preparando los últimos recursos…';
+    if (!canEnter) { requestAnimationFrame(tick); return; }
+    status.textContent = complete && !failed ? '¡Listo!' : 'Entrando al menú…';
+    // Los recursos lentos siguen cargando de forma nativa sin bloquear el menú.
+    requestAnimationFrame(() => {
+      intro.hidden = true;
+      intro.removeAttribute('aria-busy');
+      document.body.classList.remove('booting');
+      document.querySelector('.masthead').hidden = false;
+      byId('inicio').hidden = false;
+      byId('play-local').focus({ preventScroll: true });
+    });
+  };
+  requestAnimationFrame(tick);
+}
+byId('startup-continue').addEventListener('click', beginStartup);
+byId('startup-continue').disabled = false;
