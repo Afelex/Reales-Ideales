@@ -104,7 +104,7 @@ function bannerFromEvent(event) {
     case 'turn': return { kind: event.side, title: 'TURNO DE ' + rules.SIDE[event.side].toUpperCase(), subtitle: 'Prepara tu movimiento o ataque' };
     case 'move': return { kind: 'move', title: 'FASE DE MOVIMIENTO', subtitle: nameOf(event.piece) + ' avanza en el tablero' };
     case 'special': return { kind: 'special', title: event.power.toUpperCase(),
-      subtitle: nameOf(event.piece) + ': ' + rules.SPECIALS[event.animal].description };
+      subtitle: nameOf(event.piece) + ': ' + rules.FIRE_POWER.description };
     case 'attack': return event.special ? null : {
       kind: 'attack', title: mode === 'ai' && event.side === 'R' ? '¡TE DECLARAN ATAQUE!' : '¡ATAQUE DECLARADO!',
       subtitle: 'Fase de ataque: prepara tus cartas'
@@ -153,7 +153,7 @@ function announceNewEvents() {
     if (banner) bannerQueue.push(banner);
     if (event.type === 'turn' && game.players[event.side].charge >= rules.CHARGE_MAX
         && !(mode === 'ai' && event.side === 'R'))
-      bannerQueue.push({ kind: 'special', title: '¡ATAQUE ESPECIAL LISTO!',
+      bannerQueue.push({ kind: 'special', title: '¡FUEGO ESPECIAL LISTO!',
         subtitle: 'Toca una ficha con fuego y pulsa el botón ESPECIAL' });
   }
   // Primero la animación, después el banner: como en los juegos de artillería.
@@ -352,7 +352,7 @@ const powerStyles = {
 function specialCall(event) {
   const point = cellPoint(pieceCell(event.piece));
   const piece = rules.piece(game, event.piece);
-  const power = rules.SPECIALS[event.animal];
+  const power = rules.FIRE_POWER;
   const style = powerStyles[event.animal] ?? powerStyles.tigrillo;
   fx.play('special');
   if (point) {
@@ -971,7 +971,7 @@ function isAITurn() {
 function selectable(id) {
   return rules.moves(game, id).length > 0 || rules.attacks(game, id).length > 0 || rules.specialOptions(game, id).length > 0;
 }
-// Modo de ataque especial: se elige el poder y luego el objetivo (y la casilla, si el poder desplaza).
+// Fuego Especial: selecciona una ficha y un objetivo adyacente.
 let specialMode = false;
 let specialAt = null;
 function specialView() {
@@ -1022,17 +1022,15 @@ function proposeDestination(id, cell) {
 }
 // Vista previa del combate: con fuerza base 0, conviene saber qué pasa sin cartas.
 function attackPreview(attacker, special) {
-  const power = special && rules.SPECIALS[special];
+  const power = special && rules.FIRE_POWER;
   const start = (attacker.cannon ? 2 : 0) + (power?.bonus ?? 0);
   const hand = game.players[attacker.side].hand.filter(Boolean);
   const helpful = hand.filter(card => (rules.CARDS[card].own ?? 0) > 0 || card === 'decisive').length;
   const cards = helpful === 0 ? 'No tienes cartas que sumen fuerza.'
     : 'Tienes ' + helpful + (helpful === 1 ? ' carta que suma.' : ' cartas que suman.');
-  const rival = power?.rivalLimit === 0 ? ' El rival no podrá usar cartas.'
-    : power?.rivalLimit === 1 ? ' El rival solo podrá usar 1 carta.' : '';
   return start > 0
-    ? 'Empiezas con fuerza ' + start + ' contra 0: sin cartas, ganas.' + rival + ' ' + cards
-    : 'Empiezas 0 contra 0: si nadie juega cartas, es empate y salen las dos fichas.' + rival + ' ' + cards;
+    ? 'Empiezas con fuerza ' + start + ' contra 0: sin cartas, ganas.' + ' ' + cards
+    : 'Empiezas 0 contra 0: si nadie juega cartas, es empate y salen las dos fichas.' + ' ' + cards;
 }
 function startAttack(attacker, defender) {
   if (!rules.attack(game, attacker.id, defender.id)) return;
@@ -1059,7 +1057,7 @@ function clickCell(cell) {
   const special = specialView();
   if (special) {
     const attacker = rules.piece(game, selection);
-    const power = rules.SPECIALS[attacker.animal];
+    const power = rules.FIRE_POWER;
     if (special.destinations.includes(cell)) {
       specialAt = cell;
     } else if (piece && special.targets.includes(piece.id)) {
@@ -1207,32 +1205,32 @@ function renderSpecialFire() {
   [...specialFire.querySelectorAll('.ss-ring circle')].forEach((segment, index) => {
     segment.classList.toggle('charged', index < charge);
   });
-  specialFire.setAttribute('aria-label', 'Carga del especial: ' + charge + ' de ' + rules.CHARGE_MAX);
+  specialFire.setAttribute('aria-label', 'Carga del fuego: ' + charge + ' de ' + rules.CHARGE_MAX);
   specialFire.setAttribute('aria-pressed', String(show && specialMode));
   document.body.classList.toggle('ss-ready', show);
   const hint = byId('special-hint');
   hint.hidden = !show;
   if (!show) return;
   const options = selection ? rules.specialOptions(game, selection) : [];
-  const power = options.length ? rules.SPECIALS[rules.piece(game, selection).animal] : null;
+  const power = options.length ? rules.FIRE_POWER : null;
   // La guía cambia con la ficha y el objetivo seleccionados.
   hint.dataset.step = specialMode ? 'target' : power ? 'press' : 'piece';
   hint.textContent = specialMode
     ? (specialView()?.destinations.length && !specialAt ? 'Elige una casilla verde o un objetivo rojo' : 'Toca el objetivo rojo')
-    : power ? 'Activa ' + power.name : 'Elige una ficha con fuego';
+    : power ? 'Activa el fuego' : 'Elige una ficha con fuego';
   specialFire.dataset.side = side;
   specialFire.classList.toggle('armed', Boolean(power));
   specialFire.classList.toggle('active', specialMode);
   specialFire.setAttribute('aria-pressed', String(specialMode));
   specialFire.setAttribute('aria-label', specialMode ? 'Cancelar ' + power?.name
-    : power ? 'Ataque especial: ' + power.name : 'Ataque especial listo: elige una ficha junto a un enemigo');
+    : power ? 'Activar Fuego Especial: +3 de fuerza' : 'Fuego Especial listo: elige una ficha junto a un enemigo');
 }
 specialFire.addEventListener('click', () => {
   if (!game || busy() || isAITurn()) return;
   const options = selection ? rules.specialOptions(game, selection) : [];
   if (!options.length) {
     fx.play('pass');
-    say('Ataque especial listo', 'Toca una ficha tuya que tenga un enemigo a su alcance y luego este botón.');
+    say('Fuego Especial listo', 'Toca una ficha tuya que tenga un enemigo a su alcance y luego este botón.');
     return;
   }
   specialMode = !specialMode;
@@ -1370,7 +1368,7 @@ function renderControls() {
                 : 'Un movimiento y un ataque por turno.');
       if (mode === 'local') button(actions, 'Fin de turno', nextTurn, 'primary end-turn');
       if (specialMode && selection) {
-        const power = rules.SPECIALS[rules.piece(game, selection).animal];
+        const power = rules.FIRE_POWER;
         say(power.name, power.description + ' ' + (specialView().destinations.length && !specialAt
           ? 'Elige una casilla de destino o un objetivo marcado.' : 'Elige el objetivo marcado.'));
       }
