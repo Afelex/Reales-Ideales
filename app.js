@@ -185,9 +185,9 @@ function releaseEffects() {
   if (!bannerShowing && bannerQueue.length) showNextBanner();
   else scheduleProgress();
 }
-// Ocupado mientras hay animación o banner: se bloquean clics y la IA.
+// La partida espera mientras se muestran efectos o una opción del menú.
 function busy() {
-  return fxBusy || bannerShowing || byId('settings').open;
+  return fxBusy || bannerShowing || matchDialogs.some(node => node.open);
 }
 
 // === Efectos visuales y sonoros ===
@@ -594,15 +594,39 @@ function playEffects(events) {
 }
 const settingsDialog = byId('settings');
 const settingsForm = settingsDialog.querySelector('form');
+const gameMenu = byId('game-menu');
+const helpDialog = byId('help-dialog');
+const historyDialog = byId('history');
+const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog];
+const gameMenuButton = byId('game-menu-button');
+const coverHeaderActions = document.querySelector('.header-actions');
+const seats = [...document.querySelectorAll('.seat')];
+const handDrawer = byId('hand-drawer');
+const phaseIndicator = byId('phase-indicator');
+gameMenuButton.addEventListener('click', () => gameMenu.showModal());
+byId('help-button').addEventListener('click', () => helpDialog.showModal());
+byId('match-help').addEventListener('click', () => {
+  gameMenu.close();
+  helpDialog.showModal();
+});
+byId('match-history').addEventListener('click', () => {
+  gameMenu.close();
+  historyDialog.showModal();
+});
 function syncSettingsForm() {
   const values = { music: fx.musicOn() ? 'on' : 'off', effects: fx.effectsOn() ? 'on' : 'off',
     timer: settings.timer, speed: String(settings.speed), board: settings.board };
   for (const [name, value] of Object.entries(values))
     settingsForm.querySelector('input[name="' + name + '"][value="' + value + '"]').checked = true;
 }
-byId('settings-button').addEventListener('click', () => {
+function openSettings() {
   syncSettingsForm();
   settingsDialog.showModal();
+}
+byId('settings-button').addEventListener('click', openSettings);
+byId('match-settings').addEventListener('click', () => {
+  gameMenu.close();
+  openSettings();
 });
 settingsForm.addEventListener('change', event => {
   const { name, value } = event.target;
@@ -620,7 +644,9 @@ settingsForm.addEventListener('change', event => {
   }
   saveSettings();
 });
-settingsDialog.addEventListener('close', () => { if (game) scheduleProgress(); });
+for (const node of matchDialogs) {
+  node.addEventListener('close', () => { if (game) scheduleProgress(); });
+}
 // Música del menú principal; empieza con el primer gesto si el navegador bloquea el audio automático.
 fx.music('menu');
 function currentPhase() {
@@ -906,7 +932,13 @@ function layoutScene() {
     const right = Math.max(...cells.map(cell => cell.left + cell.w));
     const top = Math.min(...cells.map(cell => Math.min(cell.top, cell.y + cell.h * .2 - cell.w * TOKEN_SCALE)));
     const bottom = Math.max(...cells.map(cell => cell.top + cell.h));
-    const hudBottom = byId('phase-indicator').getBoundingClientRect().bottom;
+    let hudBottom = Math.max(...seats.map(seat => seat.getBoundingClientRect().bottom));
+    if (!handDrawer.hidden) {
+      const cardsHeight = game.phase === 'reveal' ? 136 : 108;
+      hudBottom = Math.max(hudBottom, handDrawer.getBoundingClientRect().top + cardsHeight);
+    } else if (game.phase !== 'turn') {
+      hudBottom = Math.max(hudBottom, phaseIndicator.getBoundingClientRect().bottom);
+    }
     const dockTop = controls.getBoundingClientRect().top;
     const margin = 8;
     // Mantiene el terreno, las fichas y sus áreas táctiles en el mismo plano.
@@ -929,7 +961,7 @@ const sceneResize = new ResizeObserver(() => {
   if (document.body.classList.contains('scene-full')) layoutScene();
 });
 sceneResize.observe(controls);
-sceneResize.observe(byId('phase-indicator'));
+sceneResize.observe(phaseIndicator);
 applyBoardTheme();
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
@@ -1241,12 +1273,11 @@ function renderSpecialFire() {
   if (!show) return;
   const options = selection ? rules.specialOptions(game, selection) : [];
   const power = options.length ? rules.SPECIALS[rules.piece(game, selection).animal] : null;
-  // Guía en tres pasos: ficha con fuego, botón ESPECIAL y objetivo marcado.
+  // La guía cambia con la ficha y el objetivo seleccionados.
   hint.dataset.step = specialMode ? 'target' : power ? 'press' : 'piece';
   hint.textContent = specialMode
-    ? (specialView()?.destinations.length && !specialAt ? 'Paso 3: elige casilla verde u objetivo rojo' : 'Paso 3: toca el objetivo rojo')
-    : power ? 'Paso 2: pulsa ESPECIAL' : selection ? 'Esa ficha no alcanza a nadie: elige otra con fuego'
-      : 'Paso 1: toca una ficha con fuego';
+    ? (specialView()?.destinations.length && !specialAt ? 'Elige una casilla verde o un objetivo rojo' : 'Toca el objetivo rojo')
+    : power ? 'Activa ' + power.name : 'Elige una ficha con fuego';
   specialFire.dataset.side = side;
   specialFire.classList.toggle('armed', Boolean(power));
   specialFire.classList.toggle('active', specialMode);
@@ -1381,8 +1412,6 @@ function renderHands() {
   let menuNode = null;
   for (const side of ['I', 'R']) {
     const hand = byId('hand-' + side);
-    const seat = document.querySelector('.seat.' + (side === 'I' ? 'blue' : 'red'));
-    seat.dataset.prompt = String(actor === side && ['turn', 'reveal'].includes(game.phase));
     hand.replaceChildren();
     const own = actor === side && !isAITurn() && ['turn', 'reveal'].includes(game.phase);
     for (let slot = 0; slot < rules.HAND_SIZE; slot++) {
@@ -1471,8 +1500,8 @@ function renderControls() {
             : game.moved.length ? 'Movimiento usado. Puedes atacar.'
               : game.attacked ? 'Ataque resuelto. Puedes mover una ficha.'
                 : 'Un movimiento y un ataque por turno.');
-      if (mode === 'local') button(actions, 'Terminar turno', nextTurn, 'primary end-turn');
-      createDrawerButton(drawerOpen ? 'Cerrar cartas' : 'Mis 3 cartas',
+      if (mode === 'local') button(actions, 'Fin de turno', nextTurn, 'primary end-turn');
+      createDrawerButton(drawerOpen ? 'Cerrar cartas' : 'Cartas',
         !drawerOpen, !drawerOpen, 'secondary');
       if (specialMode && selection) {
         const power = rules.SPECIALS[rules.piece(game, selection).animal];
@@ -1789,24 +1818,25 @@ byId('stats-export').addEventListener('click', () => byId('export').click());
 
 function render() {
   if (game.phase === 'end' && ended === null) ended = Date.now();
-  byId('round').textContent = 'Ronda ' + game.round + ' de 12';
-  byId('active-side').textContent = game.phase === 'end' ? 'Partida terminada' : game.turn === 'I' ? 'Turno idealista' : mode === 'ai' ? 'Turno de la IA' : 'Turno realista';
-  byId('blue-rescues').textContent = 'Rescates: ' + game.players.I.rescues;
-  byId('red-rescues').textContent = 'Rescates: ' + game.players.R.rescues;
-  byId('deck-I').textContent = game.players.I.deck.length;
-  byId('deck-R').textContent = game.players.R.deck.length;
-  // Barra de ataque especial: 3 segmentos que se llenan uno por turno propio.
-  for (const side of ['I', 'R']) {
-    const charge = game.players[side].charge;
+  byId('partida').dataset.phase = game.phase;
+  byId('round-value').textContent = game.round;
+  const actor = ai.decisionSide(game, rules);
+  byId('active-side').textContent = actor === null ? 'Partida terminada'
+    : actor === 'R' && mode === 'ai' ? 'Turno de la IA' : 'Turno ' + SIDE_ADJECTIVE[actor];
+  for (const [side, color] of [['I', 'blue'], ['R', 'red']]) {
+    const { rescues, deck, charge } = game.players[side];
+    const seat = byId(color).closest('.seat');
+    seat.dataset.prompt = String(side === actor);
+    byId(color + '-rescues').textContent = rescues;
+    byId('deck-' + side).textContent = deck.length;
     const bar = byId('charge-' + side);
     [...bar.children].forEach((segment, i) => segment.classList.toggle('full', i < charge));
     bar.classList.toggle('ready', charge >= rules.CHARGE_MAX);
     bar.setAttribute('aria-label', charge >= rules.CHARGE_MAX ? 'Ataque especial listo'
       : 'Ataque especial: ' + charge + ' de ' + rules.CHARGE_MAX);
   }
-  const phase = byId('phase-indicator');
-  phase.textContent = currentPhase();
-  phase.dataset.phase = game.phase;
+  phaseIndicator.textContent = currentPhase();
+  phaseIndicator.dataset.phase = game.phase;
   byId('turn-info').textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4'
     : game.phase === 'turn' ? 'Acciones: ' + game.actions + ' de 2' : '';
   const result = byId('battle-result');
@@ -1825,6 +1855,7 @@ function render() {
   renderControls();
   renderSpecialFire();
   syncTimer();
+  if (document.body.classList.contains('scene-full')) layoutScene();
   if (document.body.classList.contains('scene-full')) layoutScene();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
     const item = document.createElement('li');
@@ -1929,11 +1960,11 @@ function startGame(nextMode) {
   byId('partida').hidden = false;
   document.body.classList.add('playing');
   layoutScene();
-  byId('history').hidden = false;
-  byId('restart').hidden = false;
-  byId('red-name').textContent = mode === 'ai' ? 'Realistas · IA' : 'Realistas';
+  coverHeaderActions.hidden = true;
+  gameMenuButton.hidden = false;
+  byId('red-ai').hidden = mode !== 'ai';
   render();
-  byId('phase-title').focus();
+  byId('partida').focus({ preventScroll: true });
   window.scrollTo(0, 0);
 }
 function returnToMenu() {
@@ -1945,9 +1976,8 @@ function returnToMenu() {
   byId('partida').hidden = true;
   document.body.classList.remove('playing', 'revealing');
   layoutScene();
-  byId('history').hidden = true;
-  byId('history').open = false;
-  byId('restart').hidden = true;
+  coverHeaderActions.hidden = false;
+  gameMenuButton.hidden = true;
   byId('play-local').focus();
   window.scrollTo(0, 0);
 }
@@ -1962,8 +1992,10 @@ byId('menu-link').addEventListener('click', event => {
   event.preventDefault();
   if (game) confirmRestart('¿Volver al menú?', 'Volver al menú', returnToMenu);
 });
-byId('restart').addEventListener('click', () =>
-  confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => startGame(mode)));
+byId('restart').addEventListener('click', () => {
+  gameMenu.close();
+  confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => startGame(mode));
+});
 byId('export').addEventListener('click', () => {
   const data = { version: '0.15', mode, complete: game.phase === 'end', round: game.round,
     durationSeconds: started === null ? 0 : Math.floor(((ended ?? Date.now()) - started) / 1000),
