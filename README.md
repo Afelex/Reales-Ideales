@@ -4,7 +4,7 @@ Prototipo v0.15 (propuesta de reglas v0.15) de un juego táctico de mesa para do
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** (la IA juega con los realistas). Arrastra una ficha o tócala y luego su destino; el diálogo de confirmación anticipa el resultado del combate. En Versus IA, ambas reservas son visibles durante el combate y el turno avanza automáticamente al concluir los efectos y agotarse las jugadas posibles. En partida local, toca una carta para descubrirla. El botón de engranaje abre los **ajustes**: música, efectos, temporizador (sin tiempo, relajado o normal) y velocidad de animación; se guardan en el navegador. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
+Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** (la IA juega con los realistas). Arrastra una ficha o tócala y luego el destino válido para mover o atacar directamente. La reserva propia se mantiene visible; durante el combate se muestran solo las cartas activadas del rival. En ambos modos, el turno avanza automáticamente al concluir los efectos y agotarse las jugadas legales, con un botón de fin de turno voluntario. El botón de engranaje abre los **ajustes**: música, efectos, temporizador (sin tiempo, relajado o normal) y velocidad de animación; se guardan en el navegador. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
 
 `game.js` contiene las reglas. `ai.js` decide las jugadas de la IA. `app.js` conecta las reglas con la interfaz y `fx.js` genera sonidos y música. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
 
@@ -127,6 +127,13 @@ python3 tools/medir_escenario.py assets/escenario/campo-andino.mp4 assets/escena
 ```
 
 Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.png` (`tools/guia_escenario.py`): 27 casillas, columnas de 5-6-5-6-5 y estrellas en B1, D1, B11 y D11. Anímala con la cámara fija y en bucle, optimízala con `ffmpeg` (sin audio, fundido de 1 s entre el final y el inicio) y mídela. Revisa siempre la imagen de verificación antes de publicar.
+
+## HUD limpio (v0.27)
+
+- Retratos circulares de los bandos con contorno dorado para el actor y ocho segmentos que representan las fichas vivas; se actualizan tras bajas y rescates. Se conservan los pequeños contadores de rescates y mazo.
+- Indicadores de mover y atacar a la derecha del dock: encendido = legal, borde discontinuo = sin destino válido, apagado = consumido. Se conservan las acciones especiales de combos, rescates y avances.
+- Movimiento y ataque directos sobre destinos válidos, sin confirmación ordinaria; cierre automático al resolver los efectos, en ambos modos. La flecha permite pasar voluntariamente.
+- Al tocar una carta se muestra su ilustración aprobada, efecto y botones de cancelar/activar. La activación sigue restringida al turno de revelado correspondiente.
 
 ## Pruebas automatizadas
 
