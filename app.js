@@ -1358,7 +1358,7 @@ function createDrawerButton(label, nextOpen, nextPrivate, className) {
     render();
   }, className + ' drawer-toggle');
   control.setAttribute('aria-controls', 'hand-drawer');
-  control.setAttribute('aria-expanded', String(nextOpen));
+  control.setAttribute('aria-expanded', String(!nextOpen));
 }
 // Cartas vistas una a una con un toque, sin pulsar "Ver mis cartas".
 let peeked = new Set();
@@ -1827,6 +1827,8 @@ function render() {
     const { rescues, deck, charge } = game.players[side];
     const seat = byId(color).closest('.seat');
     seat.dataset.prompt = String(side === actor);
+    if (side === actor) seat.setAttribute('aria-current', 'true');
+    else seat.removeAttribute('aria-current');
     byId(color + '-rescues').textContent = rescues;
     byId('deck-' + side).textContent = deck.length;
     const bar = byId('charge-' + side);
@@ -1855,7 +1857,6 @@ function render() {
   renderControls();
   renderSpecialFire();
   syncTimer();
-  if (document.body.classList.contains('scene-full')) layoutScene();
   if (document.body.classList.contains('scene-full')) layoutScene();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
     const item = document.createElement('li');
