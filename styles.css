@@ -1641,3 +1641,42 @@ body.scene-full .hand-drawer[data-open-hands="true"] .hand {
     width: min(100%, calc((100cqh - 1.25rem) * 2.66 + .44rem));
   }
 }
+
+/* HUD táctil de partida. */
+.seat-turn { display: none; }
+@media (orientation: portrait) and (max-width: 849px) {
+  body.playing .seat[data-prompt="true"] .seat-turn {
+    display: inline;
+    color: #ffdf94;
+    font: 800 .56rem/1 system-ui, sans-serif;
+  }
+  body.playing .turn-timer { width: 2.45rem; height: 2.45rem; }
+  body.playing .turn-timer small { font-size: .57rem; }
+  body.scene-full .field-heading { top: calc(var(--game-header) + .14rem); }
+  body.scene-full.revealing .field-heading { top: env(safe-area-inset-top); }
+
+  body.playing .controls:has(.actions:not(:empty), .special-fire:not([hidden])) {
+    padding: .24rem;
+    border: 1px solid #d5a262;
+    border-radius: .85rem;
+    background: linear-gradient(160deg, #204047f5, #10282ff5);
+    box-shadow: 0 2px 6px #20140960;
+  }
+  body.playing .controls .actions { padding: 0; }
+  body.playing .actions button { min-width: 44px; border-radius: .6rem; }
+  body.playing .actions .drawer-toggle {
+    border: 1px solid #e5bc7a;
+    background: #2e5055;
+    color: #fff4dd;
+    box-shadow: none;
+  }
+  body.playing .actions .drawer-toggle[aria-expanded="true"] {
+    background: #f6d48b;
+    color: #302018;
+  }
+  body.playing .special-fire { bottom: .24rem; }
+  body.playing.ss-ready .actions .drawer-toggle,
+  body.playing.ss-ready .actions .end-turn { max-width: calc(50% - 24px); }
+  body.playing.ss-ready .actions .drawer-toggle::before,
+  body.playing.ss-ready .actions .end-turn::before { display: none; }
+}
