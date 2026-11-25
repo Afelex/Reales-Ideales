@@ -4,13 +4,13 @@ Prototipo v0.15 (propuesta de reglas v0.15) de un juego táctico de mesa para do
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** (la IA juega con los realistas). Arrastra una ficha o tócala y luego su destino; el diálogo de confirmación anticipa el resultado del combate. Toca una carta para verla y otra vez para activarla. El botón de engranaje abre los **ajustes**: música, efectos, temporizador (sin tiempo, relajado o normal) y velocidad de animación; se guardan en el navegador. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
+Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** (la IA juega con los realistas). Arrastra una ficha o tócala y luego su destino; el diálogo de confirmación anticipa el resultado del combate. En Versus IA, ambas reservas son visibles durante el combate y el turno avanza automáticamente al concluir los efectos y agotarse las jugadas posibles. En partida local, toca una carta para descubrirla. El botón de engranaje abre los **ajustes**: música, efectos, temporizador (sin tiempo, relajado o normal) y velocidad de animación; se guardan en el navegador. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
 
 `game.js` contiene las reglas. `ai.js` decide las jugadas de la IA. `app.js` conecta las reglas con la interfaz y `fx.js` genera sonidos y música. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
 
 ## Interfaz adaptable (GitHub Pages)
 
-La partida ocupa **una sola pantalla** sin desplazamientos: cabecera compacta, marcadores de las dos facciones (fichas, rescates, mazo y barra de ataque especial), tablero, dock de acciones y cajón de cartas. El cajón nunca tapa el tablero (ver *Interfaz de partida v0.17*). Al cambiar de jugador en partidas locales, las cartas vuelven a ocultarse; la IA conserva ocultas sus cartas privadas.
+La partida ocupa **una sola pantalla** sin desplazamientos: cabecera compacta, marcadores de las dos facciones (fichas, rescates, mazo y barra de ataque especial), tablero, dock de acciones y cajón de cartas. El cajón nunca tapa el tablero (ver *Interfaz de partida v0.17*). Al cambiar de jugador en partidas locales, las cartas vuelven a ocultarse. En Versus IA se muestran las cartas de ambos bandos durante el combate.
 
 ### Verificación visual recomendada
 
