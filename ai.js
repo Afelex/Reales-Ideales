@@ -73,21 +73,15 @@
     return best;
   }
 
-  // Elige el mejor ataque especial disponible: más fuerza, objetivos valiosos y efectos extra.
+  // El Fuego Especial es igual para todas las fichas; prioriza objetivos valiosos.
   function specialChoice(rules, game, allies, side) {
     if (game.players[side].charge < rules.CHARGE_MAX) return null;
-    const rival = side === 'I' ? 'R' : 'I';
-    const rivalCards = game.players[rival].hand.filter(Boolean).length;
     let best = null;
     let bestScore = -Infinity;
     for (const piece of allies) {
-      const power = rules.SPECIALS[piece.animal];
       for (const option of rules.specialOptions(game, piece.id)) {
         const target = rules.piece(game, option.target);
-        let score = power.bonus + (target.cannon ? 3 : 0);
-        if (power.rivalLimit !== undefined) score += Math.min(rivalCards, 2 - power.rivalLimit) * 1.2;
-        if (power.double) score += 1.5;
-        if (option.at !== piece.cell) score -= .2;
+        const score = rules.FIRE_POWER.bonus + (target.cannon ? 3 : 0);
         if (score > bestScore) {
           best = { type: 'special', piece: piece.id, target: option.target, at: option.at };
           bestScore = score;
