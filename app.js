@@ -26,19 +26,13 @@ let game = null;
 let mode = null;
 let progressTimer = null;
 let selection = null;
-let privateHand = false;
 let pending = null;
 let drag = null;
 let suppressClick = false;
-let shown = { I: [], R: [] };
-let restoreCards = null;
 let battleResult = null;
 let duel = null;
 let started = null;
 let ended = null;
-let drawerOpen = false;
-let lastRevealBattle = null;
-let lastRevealSlot = -1;
 let bannerTimer = null;
 let bannerQueue = [];
 let bannerShowing = false;
@@ -390,6 +384,9 @@ function attackSequence(event) {
 }
 function fireShell(fromCell, toCell, side) {
   const from = cellPoint(fromCell), to = cellPoint(toCell);
+  launchShell(from, to, side);
+}
+function launchShell(from, to, side) {
   if (!from || !to) return;
   fx.play('launch');
   spawn('fx-muzzle', from, {}, 500);
@@ -417,6 +414,11 @@ function fireShell(fromCell, toCell, side) {
 const SHOWCASE_MS = 1700;
 function showcase(event) {
   const card = event.type === 'reveal' ? event.card : null;
+  if (card && (mode === 'local' || event.side === 'I')) {
+    applyCardForce(event.side, card);
+    fx.play(card);
+    return;
+  }
   const node = spawn('fx-showcase from-' + event.side, { x: window.innerWidth / 2, y: window.innerHeight * .42, size: 0 }, {},
     card ? SHOWCASE_MS : 1000);
   if (!node) return;
@@ -449,15 +451,8 @@ function showcase(event) {
 }
 // Suma la carta al marcador del duelo y hace volar el número ganado o perdido.
 function floatNumber(side, text, kind) {
-  let target = byId('duel').querySelector('[data-force="' + side + '"]');
-  let rect = target?.getBoundingClientRect();
-  // En móvil el cajón de cartas tapa el duelo: el número vuela al resumen de fuerza.
-  const covered = !rect?.width || !document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('#duel');
-  const hint = byId('drawer-hint').querySelector('.hint-force');
-  if (covered && hint && !byId('hand-drawer').hidden) {
-    target = hint;
-    rect = hint.getBoundingClientRect();
-  }
+  const target = byId('duel').querySelector('[data-force="' + side + '"]');
+  const rect = target?.getBoundingClientRect();
   const point = rect?.width ? { x: rect.left + rect.width / 2, y: rect.top, size: 0 }
     : { x: window.innerWidth / 2, y: window.innerHeight * .6, size: 0 };
   const node = spawn('fx-number ' + kind, point, {}, 1400);
@@ -470,8 +465,8 @@ function applyCardForce(side, card) {
   const before = [forceOf(0).total, forceOf(1).total];
   duelPlayed[side] = [...duelPlayed[side], card];
   renderDuel();
-  renderForceHint();
   renderRivalPlayed();
+  if (document.body.classList.contains('scene-full')) layoutScene();
   const after = [forceOf(0).total, forceOf(1).total];
   const own = after[index] - before[index], rival = after[1 - index] - before[1 - index];
   if (card === 'decisive') floatNumber(side, 'Decisivo', 'decisive');
@@ -557,6 +552,17 @@ function effectFor(event) {
     case 'turn':
       fx.play('turn', event.side);
       return;
+    case 'time-cannon': {
+      const art = board.getBoundingClientRect();
+      const viewport = boardViewport.getBoundingClientRect();
+      // Boca del cañón decorativo en el fotograma andino de 720 × 1280.
+      const x = art.left + art.width * 507 / 720;
+      const y = art.top + art.height * 317 / 1280;
+      const visible = board.dataset.theme === 'andes' && y >= viewport.top && y <= viewport.bottom && y >= 0;
+      launchShell(visible ? { x, y, size: 40 } : { x: viewport.right - 32, y: viewport.top + 28, size: 40 },
+        { x: window.innerWidth / 2, y: window.innerHeight * .46, size: 64 }, 'R');
+      return;
+    }
     case 'end':
       flash('#f0b52e', '#fff7e6');
       spawn('fx-rays', centerPoint(), {}, 1600);
@@ -566,7 +572,7 @@ function effectFor(event) {
 const fxDurations = { move: DRIVE_MS + 800, bonus: DRIVE_MS + 800, advance: DRIVE_MS + 800,
   attack: SHOT_DELAY + SHOT_FLIGHT + 500, reveal: SHOWCASE_MS, pass: 900, 'combo-card': 700,
   'combo-ready': 700, battle: 1100, combo: 1000, double: 1000, 'double-ready': 700, summon: 1100, rescue: 1100,
-  end: 1400, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
+  'time-cannon': SHOT_FLIGHT + 500, end: 1400, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
 function playEffects(events) {
   // Instantánea de casillas: las fichas eliminadas conservan su posición previa.
   const cells = new Map(lastCells);
@@ -601,7 +607,7 @@ const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog];
 const gameMenuButton = byId('game-menu-button');
 const coverHeaderActions = document.querySelector('.header-actions');
 const seats = [...document.querySelectorAll('.seat')];
-const handDrawer = byId('hand-drawer');
+let handOwner = null;
 const phaseIndicator = byId('phase-indicator');
 gameMenuButton.addEventListener('click', () => gameMenu.showModal());
 byId('help-button').addEventListener('click', () => helpDialog.showModal());
@@ -933,12 +939,8 @@ function layoutScene() {
     const top = Math.min(...cells.map(cell => Math.min(cell.top, cell.y + cell.h * .2 - cell.w * TOKEN_SCALE)));
     const bottom = Math.max(...cells.map(cell => cell.top + cell.h));
     let hudBottom = Math.max(...seats.map(seat => seat.getBoundingClientRect().bottom));
-    if (!handDrawer.hidden) {
-      const cardsHeight = game.phase === 'reveal' ? 136 : 108;
-      hudBottom = Math.max(hudBottom, handDrawer.getBoundingClientRect().top + cardsHeight);
-    } else if (game.phase !== 'turn') {
-      hudBottom = Math.max(hudBottom, phaseIndicator.getBoundingClientRect().bottom);
-    }
+    const rivalStrip = byId('rival-played');
+    if (!rivalStrip.hidden) hudBottom = Math.max(hudBottom, rivalStrip.getBoundingClientRect().bottom);
     const dockTop = controls.getBoundingClientRect().top;
     const margin = 8;
     // Mantiene el terreno, las fichas y sus áreas táctiles en el mismo plano.
@@ -989,8 +991,6 @@ function clearSpecial() {
 }
 function startSpecial(attacker, defender, at) {
   if (!rules.specialAttack(game, attacker.id, defender.id, at)) return;
-  started ??= Date.now();
-  clearRevealed();
   battleResult = null;
   // El duelo muestra la ficha tal como empieza el combate (ya en su casilla de ataque).
   duel = [{ ...attacker }, { ...rules.piece(game, defender.id) }];
@@ -999,17 +999,13 @@ function startSpecial(attacker, defender, at) {
   duelHold = false;
   selection = null;
   clearSpecial();
-  privateHand = false;
   render();
 }
 function proposeDestination(id, cell) {
   const actor = rules.piece(game, id);
   if (rules.moves(game, id).includes(cell)) {
     confirmAction('¿Mover la ficha?', 'Mover a ' + pieceName(actor) + ' a la casilla marcada.', 'Mover', () => {
-      started ??= Date.now();
       rules.move(game, id, cell);
-      drawerOpen = false;
-      privateHand = false;
       selection = null;
       render();
     });
@@ -1040,8 +1036,6 @@ function attackPreview(attacker, special) {
 }
 function startAttack(attacker, defender) {
   if (!rules.attack(game, attacker.id, defender.id)) return;
-  started ??= Date.now();
-  clearRevealed();
   battleResult = null;
   duel = [{ ...attacker }, { ...defender }];
   duelPlayed = { I: [], R: [] };
@@ -1049,7 +1043,6 @@ function startAttack(attacker, defender) {
   duelHold = false;
   selection = null;
   clearSpecial();
-  privateHand = false;
   render();
 }
 function clickCell(cell) {
@@ -1087,7 +1080,6 @@ function clickCell(cell) {
   if (game.phase === 'rescue' && selection && !piece) {
     if (rules.rescue(game, selection, cell)) selection = null;
   } else if (game.phase === 'turn' || game.phase === 'bonus') {
-    privateHand = false;
     if (selection && proposeDestination(selection, cell)) return;
     if (piece && selectable(piece.id)) selection = selection === piece.id ? null : piece.id;
     else selection = null;
@@ -1154,7 +1146,6 @@ board.addEventListener('pointermove', event => {
     drag.ghost.classList.add('drag-token');
     document.body.append(drag.ghost);
     selection = drag.id;
-    privateHand = false;
     render();
   }
   drag.ghost.style.left = event.clientX + 'px';
@@ -1176,33 +1167,16 @@ board.addEventListener('pointerup', stopDrag);
 board.addEventListener('pointercancel', event => stopDrag(event, true));
 board.addEventListener('pointerleave', () => { if (drag && !drag.ghost) drag = null; });
 
-function clearRevealed() {
-  clearTimeout(restoreCards);
-  restoreCards = null;
-  shown = { I: [], R: [] };
-}
-function play(index = null, slot = null, searchTarget = null) {
-  const side = rules.actor(game);
-  const card = index === null ? null : game.players[side].hand[index];
-  if (card && slot === null) slot = index;
+function play(index = null, searchTarget = null) {
   if (!rules.reveal(game, index, searchTarget)) return;
-  if (card) shown[side].push({ slot, card, latest: true });
-  privateHand = false;
-  if (game.phase !== 'reveal') {
-    battleResult = game.events.findLast(event => event.type === 'battle');
-    restoreCards = setTimeout(() => {
-      clearRevealed();
-      if (game) renderHands();
-    }, 1550);
-  }
+  if (game.phase !== 'reveal') battleResult = game.events.findLast(event => event.type === 'battle');
   render();
-  if (card && shown[side].length) shown[side].at(-1).latest = false;
 }
 function chooseSearch(index) {
   const side = rules.actor(game);
   const options = rules.searchOptions(game, side);
   if (!options.length) {
-    play(index, index, null);
+    play(index);
     return;
   }
   const choices = byId('search-options');
@@ -1212,7 +1186,7 @@ function chooseSearch(index) {
       - game.battle.search[side].filter(value => value.card === card).length;
     const option = button(choices, '', () => {
       searchDialog.close();
-      play(index, index, card);
+      play(index, card);
     }, 'search-option');
     option.setAttribute('aria-label', rules.CARDS[card].name + ', ' + copies + ' en el mazo');
     const face = span(option, 'card front search-face', '');
@@ -1222,51 +1196,19 @@ function chooseSearch(index) {
   }
   searchDialog.showModal();
 }
-function syncHandDrawer() {
-  const revealing = game.phase === 'reveal';
-  const actor = revealing ? rules.actor(game) : game.turn;
-  const openBattleHands = revealing && mode === 'ai';
-  // En el modo local se restablece la privacidad en cada oportunidad de jugar.
-  if (revealing && (game.battle !== lastRevealBattle || game.battle.slot !== lastRevealSlot)) {
-    lastRevealBattle = game.battle;
-    lastRevealSlot = game.battle.slot;
-    privateHand = false;
-    peeked = new Set();
-    closeCardMenu();
-    drawerOpen = true;
-  } else if (!revealing) {
-    if (lastRevealBattle) {
-      drawerOpen = false;
-      privateHand = false;
-      peeked = new Set();
-    }
-    lastRevealBattle = null;
-    lastRevealSlot = -1;
-    if (game.phase !== 'turn') drawerOpen = false;
-  }
-  const drawer = byId('hand-drawer');
-  drawer.hidden = !openBattleHands && (!drawerOpen || isAITurn());
-  drawer.dataset.openHands = String(openBattleHands);
-  byId('drawer-close').hidden = openBattleHands;
-  document.body.classList.toggle('drawer-visible', !drawer.hidden);
-  drawer.dataset.side = actor;
-  byId('drawer-title').textContent = revealing
-    ? (actor === game.battle.defender ? 'Defensa' : 'Ataque') + ' · ' + rules.SIDE[actor]
-    : 'Reserva · ' + rules.SIDE[actor];
-  renderForceHint(revealing, openBattleHands ? 'I' : actor);
-  renderRivalPlayed(revealing && !openBattleHands, actor);
-  for (const side of ['I', 'R']) {
-    byId('reserve-' + side).hidden = !openBattleHands && actor !== side;
-    byId('reserve-label-' + side).hidden = !openBattleHands;
-  }
-}
-// Botón redondo de fuego: visible con la barra llena en el turno de un jugador humano.
+// El anillo muestra la carga aunque el especial aún no esté disponible.
 const specialFire = byId('special-fire');
 function renderSpecialFire() {
   const side = game.turn;
   const show = game.phase === 'turn' && !isAITurn() && !game.attacked && game.actions < 2
     && game.players[side].charge >= rules.CHARGE_MAX;
-  specialFire.hidden = !show;
+  const charge = game.players[handSide() ?? side].charge;
+  specialFire.disabled = !show;
+  [...specialFire.querySelectorAll('.ss-ring circle')].forEach((segment, index) => {
+    segment.classList.toggle('charged', index < charge);
+  });
+  specialFire.setAttribute('aria-label', 'Carga del especial: ' + charge + ' de ' + rules.CHARGE_MAX);
+  specialFire.setAttribute('aria-pressed', String(show && specialMode));
   document.body.classList.toggle('ss-ready', show);
   const hint = byId('special-hint');
   hint.hidden = !show;
@@ -1282,7 +1224,6 @@ function renderSpecialFire() {
   specialFire.classList.toggle('armed', Boolean(power));
   specialFire.classList.toggle('active', specialMode);
   specialFire.setAttribute('aria-pressed', String(specialMode));
-  byId('special-fire-power').textContent = specialMode ? 'Cancelar' : power ? power.name : 'Elige ficha';
   specialFire.setAttribute('aria-label', specialMode ? 'Cancelar ' + power?.name
     : power ? 'Ataque especial: ' + power.name : 'Ataque especial listo: elige una ficha junto a un enemigo');
 }
@@ -1300,11 +1241,7 @@ specialFire.addEventListener('click', () => {
   render();
 });
 // Cartas activadas por el rival: siempre visibles durante el combate.
-function miniCards(parent, cards, empty) {
-  if (!cards.length) {
-    span(parent, 'mini-empty', empty);
-    return;
-  }
+function miniCards(parent, cards) {
   for (const card of cards) {
     const mini = span(parent, 'mini-card card front', '');
     renderCardFace(mini, card);
@@ -1313,55 +1250,18 @@ function miniCards(parent, cards, empty) {
     mini.title = rules.CARDS[card].name + ': ' + rules.CARDS[card].description;
   }
 }
-function renderRivalPlayed(revealing = game.phase === 'reveal', actor = revealing ? rules.actor(game) : game.turn) {
+function renderRivalPlayed() {
   const strip = byId('rival-played');
-  strip.hidden = !revealing || !duel;
+  const side = handSide();
+  const rival = side === 'I' ? 'R' : 'I';
+  const cards = duelPlayed[rival];
   strip.replaceChildren();
+  strip.hidden = game.phase !== 'reveal' || !cards.length || (mode === 'local' && handOwner !== side);
   if (strip.hidden) return;
-  const rival = actor === 'I' ? 'R' : 'I';
   strip.dataset.side = rival;
-  span(strip, 'rival-played-label', 'Cartas de ' + rules.SIDE[rival]);
-  const row = span(strip, 'rival-played-cards', '');
-  miniCards(row, duelPlayed[rival], 'Todavía ninguna');
+  span(strip, 'rival-played-label', 'Activadas por el rival');
+  miniCards(span(strip, 'rival-played-cards', ''), cards);
 }
-function renderForceHint(revealing = game.phase === 'reveal', actor = revealing ? rules.actor(game) : game.turn) {
-  const hint = byId('drawer-hint');
-  hint.replaceChildren();
-  const summary = revealing ? forceSummary() : null;
-  if (summary) {
-    const mine = duel[0].side === actor ? summary.a : summary.d;
-    const theirs = duel[0].side === actor ? summary.d : summary.a;
-    const status = mine.total > theirs.total ? 'Vas ganando' : mine.total < theirs.total ? 'Vas perdiendo' : 'Empate';
-    span(hint, 'hint-force', 'Tu fuerza ' + mine.total + ' · Rival ' + theirs.total);
-    const decisive = (duel[0].side === actor ? 1 : -1) * summary.decisive;
-    const tone = decisive ? (decisive > 0 ? 'up' : 'down')
-      : mine.total > theirs.total ? 'up' : mine.total < theirs.total ? 'down' : 'tie';
-    span(hint, 'hint-status ' + tone, decisive > 0 ? 'Tu golpe decisivo gana'
-      : decisive < 0 ? 'Golpe decisivo rival: solo otro lo anula' : status);
-    const limit = rules.cardLimit(game, actor);
-    span(hint, 'hint-rule', limit === 0 ? 'No puedes activar cartas' : 'Hasta ' + limit + (limit === 1 ? ' carta' : ' cartas'));
-  } else hint.textContent = revealing ? 'Puedes activar hasta 2 cartas en este combate' : '3 cartas de reserva';
-}
-byId('drawer-close').addEventListener('click', () => {
-  drawerOpen = false;
-  privateHand = false;
-  peeked = new Set();
-  cardMenu = null;
-  cardMenuNode.hidden = true;
-  if (game) render();
-});
-function createDrawerButton(label, nextOpen, nextPrivate, className) {
-  const control = button(actions, label, () => {
-    if (game.phase === 'turn') clearRevealed();
-    drawerOpen = nextOpen;
-    privateHand = nextPrivate;
-    render();
-  }, className + ' drawer-toggle');
-  control.setAttribute('aria-controls', 'hand-drawer');
-  control.setAttribute('aria-expanded', String(!nextOpen));
-}
-// Cartas vistas una a una con un toque, sin pulsar "Ver mis cartas".
-let peeked = new Set();
 let cardMenu = null;
 const cardMenuNode = document.createElement('div');
 cardMenuNode.id = 'card-menu';
@@ -1373,12 +1273,11 @@ function closeCardMenu() {
   if (cardMenu === null) return;
   cardMenu = null;
   cardMenuNode.hidden = true;
-  if (game) renderHands();
 }
 // Un toque fuera del menú y de la carta lo cancela.
 document.addEventListener('pointerdown', event => {
   if (cardMenu === null || cardMenuNode.contains(event.target)) return;
-  if (byId('hand-' + cardMenu.side).querySelector('[data-slot="' + cardMenu.slot + '"]')?.contains(event.target)) return;
+  if (byId('hud-hand').querySelector('[data-slot="' + cardMenu.slot + '"]')?.contains(event.target)) return;
   closeCardMenu();
 }, true);
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeCardMenu(); });
@@ -1394,8 +1293,10 @@ function openCardMenu(node, side, slot, card) {
   const activate = button(row, 'Activar', () => {
     cardMenu = null;
     cardMenuNode.hidden = true;
-    card === 'search' ? chooseSearch(slot) : play(slot, slot);
+    if (busy() || game.phase !== 'reveal' || rules.actor(game) !== side || game.players[side].hand[slot] !== card) return;
+    card === 'search' ? chooseSearch(slot) : play(slot);
   }, 'primary');
+  activate.disabled = game.phase !== 'reveal' || isAITurn() || !rules.playable(game, side, card);
   cardMenuNode.hidden = false;
   const rect = node.getBoundingClientRect();
   const width = cardMenuNode.offsetWidth;
@@ -1403,84 +1304,51 @@ function openCardMenu(node, side, slot, card) {
   cardMenuNode.style.left = left + 'px';
   cardMenuNode.style.top = Math.max(8, rect.top - cardMenuNode.offsetHeight - 10) + 'px';
   cardMenuNode.style.setProperty('--arrow', (rect.left + rect.width / 2 - left) + 'px');
-  activate.focus();
+  (activate.disabled ? row.firstElementChild : activate).focus();
+}
+function handSide() {
+  return mode === 'ai' ? 'I' : ai.decisionSide(game, rules);
 }
 function renderHands() {
-  const revealing = game.phase === 'reveal';
-  const actor = revealing ? rules.actor(game) : game.turn;
-  const openBattleHands = revealing && mode === 'ai';
-  let menuNode = null;
-  for (const side of ['I', 'R']) {
-    const hand = byId('hand-' + side);
-    hand.replaceChildren();
-    const own = actor === side && !isAITurn() && ['turn', 'reveal'].includes(game.phase);
-    for (let slot = 0; slot < rules.HAND_SIZE; slot++) {
-      const face = shown[side].find(item => item.slot === slot);
-      const card = face?.card ?? game.players[side].hand[slot];
-      const visible = Boolean(face || (card && (openBattleHands || (own && (privateHand || peeked.has(slot))))));
-      const canPlay = Boolean(revealing && own && card && !face && rules.playable(game, side, card));
-      const node = document.createElement('button');
-      node.type = 'button';
-      node.dataset.slot = String(slot);
-      node.className = 'card ' + (visible ? 'front' : card ? 'back' : 'empty');
-      node.disabled = Boolean(face) || !card || !own || (visible && !canPlay);
-      if (face) node.classList.add('played', ...(face.latest ? ['new'] : []));
-      if (visible && canPlay) node.classList.add('ready');
-      if (visible && !face && peeked.has(slot) && !privateHand && !openBattleHands) node.classList.add('peeked');
-      if (visible) {
-        const name = renderCardFace(node, card);
-        node.setAttribute('aria-label', face ? 'Revelada: ' + name : canPlay ? name + '. Toca para ver su efecto y activarla' : name);
-      } else {
-        if (!card) node.textContent = '—';
-        node.setAttribute('aria-label', card ? 'Carta boca abajo ' + (slot + 1) + '. Toca para verla' : 'Sin carta');
-      }
-      if (!node.disabled) node.addEventListener('click', () => {
-        if (busy()) return;
-        if (!visible) {
-          // Primer toque: voltear solo esta carta.
-          peeked.add(slot);
-          fx.play('deal');
-          cardMenu = null;
-          cardMenuNode.hidden = true;
-          renderHands();
-          return;
-        }
-        if (cardMenu?.slot === slot && cardMenu.side === side) closeCardMenu();
-        else {
-          renderHands();
-          const fresh = byId('hand-' + side).querySelector('[data-slot="' + slot + '"]');
-          fresh.classList.add('menu-open');
-          openCardMenu(fresh, side, slot, card);
-        }
-      });
-      if (cardMenu && cardMenu.side === side && cardMenu.slot === slot) {
-        if (canPlay && visible) {
-          node.classList.add('menu-open');
-          menuNode = node;
-        }
-      }
-      hand.append(node);
-    }
+  const hand = byId('hud-hand');
+  const side = handSide();
+  closeCardMenu();
+  hand.replaceChildren();
+  if (game.phase === 'end' || !side) return;
+  if (mode === 'local' && handOwner !== side) {
+    button(hand, 'Ver mano de ' + rules.SIDE[side], () => {
+      if (busy()) return;
+      handOwner = side;
+      renderHands();
+      renderRivalPlayed();
+      if (document.body.classList.contains('scene-full')) layoutScene();
+    }, 'secondary hand-handoff');
+    return;
   }
-  if (cardMenu && !menuNode) {
-    cardMenu = null;
-    cardMenuNode.hidden = true;
+  for (const [slot, card] of game.players[side].hand.entries()) {
+    const node = button(hand, card ? '' : '—', () => {
+      if (busy()) return;
+      if (cardMenu?.side === side && cardMenu.slot === slot) closeCardMenu();
+      else openCardMenu(node, side, slot, card);
+    }, 'hud-card');
+    node.dataset.slot = String(slot);
+    node.disabled = !card;
+    node.title = card ? rules.CARDS[card].name : 'Casilla vacía';
+    node.setAttribute('aria-label', node.title);
+    if (!card) continue;
+    const icon = document.createElement('img');
+    icon.src = card === 'search' ? 'assets/clay/dorso-idealista.webp' : 'assets/clay/emblemas/' + card + '.webp';
+    icon.alt = '';
+    node.append(icon);
   }
 }
 function nextTurn() {
   selection = null;
   clearSpecial();
-  peeked = new Set();
   cardMenu = null;
   cardMenuNode.hidden = true;
-  drawerOpen = false;
-  privateHand = false;
-  lastRevealBattle = null;
-  lastRevealSlot = -1;
-  clearRevealed();
   battleResult = null;
   duel = null;
-  started ??= Date.now();
   const previous = game.turn;
   if (!rules.nextTurn(game)) return;
   if (game.phase !== 'end') bannerQueue.push({ kind: 'endturn', title: 'FIN DEL TURNO', subtitle: 'Termina el turno de ' + rules.SIDE[previous] });
@@ -1501,8 +1369,6 @@ function renderControls() {
               : game.attacked ? 'Ataque resuelto. Puedes mover una ficha.'
                 : 'Un movimiento y un ataque por turno.');
       if (mode === 'local') button(actions, 'Fin de turno', nextTurn, 'primary end-turn');
-      createDrawerButton(drawerOpen ? 'Cerrar cartas' : 'Cartas',
-        !drawerOpen, !drawerOpen, 'secondary');
       if (specialMode && selection) {
         const power = rules.SPECIALS[rules.piece(game, selection).animal];
         say(power.name, power.description + ' ' + (specialView().destinations.length && !specialAt
@@ -1512,13 +1378,7 @@ function renderControls() {
     case 'reveal': {
       const side = rules.actor(game);
       const role = side === game.battle.defender ? 'Defensa' : 'Ataque';
-      say(role + ' · ' + rules.SIDE[side], mode === 'ai' || privateHand || peeked.size
-        ? 'Elige una carta o pasa.'
-        : 'Pasa el dispositivo al jugador indicado. Toca una carta para verla.');
-      if (mode === 'local') {
-        if (!privateHand) createDrawerButton('Ver todas', true, true, 'secondary');
-        else createDrawerButton('Ocultar cartas', false, false, 'secondary');
-      }
+      say(role + ' · ' + rules.SIDE[side], 'Elige una carta o pasa.');
       button(actions, 'Pasar', () => { if (!busy()) play(); }, 'secondary');
       break;
     }
@@ -1544,7 +1404,8 @@ function renderControls() {
       break;
     case 'end':
       say(game.winner ? 'Ganan los ' + rules.SIDE[game.winner].toLowerCase() : 'Empate',
-        game.reason === 'eliminación' ? 'Partida decidida por las últimas fichas.' : 'Se completaron las 12 rondas.');
+        game.timeResult ? 'Se cumplieron los 10 minutos.'
+          : game.reason === 'eliminación' ? 'Partida decidida por las últimas fichas.' : 'Se completaron las 12 rondas.');
       break;
   }
 }
@@ -1598,16 +1459,6 @@ function renderDuel() {
     meter.dataset.force = piece.side;
     span(meter, 'duel-force-label', 'Fuerza');
     span(meter, 'duel-force-value', String(force.total));
-    const chips = span(portrait, 'force-chips', '');
-    for (const part of force.parts) {
-      if (part.label === 'Base') continue;
-      const chip = span(chips, 'force-chip ' + (part.label === 'Base' ? 'base' : part.value > 0 ? 'up' : 'down'),
-        (part.label === 'Base' ? part.value : signed(part.value)) + ' ' + part.label);
-      chip.title = part.label;
-    }
-    if (force.decisive) span(chips, 'force-chip decisive', 'Golpe decisivo' + (force.decisive > 1 ? ' ×2' : ''));
-    const played = span(portrait, 'duel-cards', '');
-    miniCards(played, duelPlayed[piece.side], 'Sin cartas');
     if (battleResult?.removed.includes(piece.id)) portrait.dataset.defeated = 'true';
     view.append(portrait);
   }
@@ -1675,7 +1526,51 @@ function timeOut() {
   }
   render();
 }
+const MATCH_DURATION_MS = 10 * 60 * 1000;
+let matchDeadline = 0;
+
+function updateMatchClock() {
+  if (!game || game.phase === 'end' || !matchDeadline) return false;
+  const seconds = Math.max(0, Math.ceil((matchDeadline - Date.now()) / 1000));
+  const clock = byId('match-clock');
+  const label = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  if (clock.textContent !== label) {
+    clock.textContent = label;
+    clock.dateTime = 'PT' + seconds + 'S';
+  }
+  if (seconds > 0) return false;
+  if (!rules.finishOnTime(game)) return false;
+  ended = matchDeadline;
+  clearTimeout(progressTimer);
+  clearTimeout(bannerTimer);
+  bannerQueue = [];
+  bannerShowing = false;
+  byId('phase-banner').hidden = true;
+  document.body.classList.remove('banner-on');
+  clearEffects();
+  pending = null;
+  for (const node of [dialog, searchDialog, ...matchDialogs]) if (node.open) node.close();
+  closeCardMenu();
+  drag?.ghost?.remove();
+  drag = null;
+  selection = null;
+  duel = null;
+  battleResult = null;
+  clearSpecial();
+  announcedEvents = game.events.length - 2;
+  render();
+  return true;
+}
+document.addEventListener('visibilitychange', updateMatchClock);
+for (const action of ['click', 'pointerdown', 'keydown']) {
+  document.addEventListener(action, event => {
+    if (!updateMatchClock()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+}
 setInterval(() => {
+  if (updateMatchClock()) return;
   const now = performance.now();
   const elapsed = (now - timerLast) / 1000;
   timerLast = now;
@@ -1708,10 +1603,17 @@ function maybeShowEnd() {
   screen.dataset.kind = kind;
   screen.dataset.side = winner ?? '';
   byId('end-kicker').textContent = winner ? 'Ganan los ' + rules.SIDE[winner] : 'Nadie gana';
-  byId('end-title').textContent = title;
+  byId('end-title').textContent = game.timeResult ? 'FIN DEL JUEGO' : title;
   byId('end-text').textContent = game.reason === 'eliminación'
     ? 'La partida se decidió por eliminación en la ronda ' + game.round + '.'
     : 'Se completaron las 12 rondas: ' + rules.remaining(game, 'I') + ' fichas idealistas contra ' + rules.remaining(game, 'R') + ' realistas.';
+  if (game.timeResult) {
+    const { scores, criterion } = game.timeResult;
+    const explanations = { pieces: 'fichas vivas', cards: 'cartas activadas', powerful: 'cartas poderosas activadas' };
+    byId('end-text').textContent = 'Se cumplieron los 10 minutos. ' + (criterion
+      ? 'Deciden las ' + explanations[criterion] + ': ' + scores.I[criterion] + ' Idealistas, ' + scores.R[criterion] + ' Realistas.'
+      : 'Ambos bandos empataron en los tres criterios.');
+  }
   screen.hidden = false;
   fx.duck(.3);
   fx.play(kind === 'lose' ? 'defeat' : 'victory');
@@ -1851,7 +1753,7 @@ function render() {
       + describe(battleResult);
   }
   document.body.classList.toggle('revealing', game.phase === 'reveal');
-  syncHandDrawer();
+  renderRivalPlayed();
   renderBoard();
   renderHands();
   renderControls();
@@ -1895,6 +1797,7 @@ function scheduleProgress() {
   if (!shouldAutoEndTurn() && !isAITurn()) return;
   progressTimer = setTimeout(() => {
     progressTimer = null;
+    if (updateMatchClock()) return;
     if (!game || dialog.open || searchDialog.open || busy()) return;
     if (shouldAutoEndTurn()) {
       nextTurn();
@@ -1907,7 +1810,7 @@ function scheduleProgress() {
       case 'attack':
         startAttack(rules.piece(game, action.piece), rules.piece(game, action.target));
         return;
-      case 'reveal': play(action.index, action.index, action.searchTarget ?? null); return;
+      case 'reveal': play(action.index, action.searchTarget ?? null); return;
       case 'combo': rules.comboEliminate(game, action.target); break;
       case 'nextTurn': nextTurn(); return;
       case 'move': rules.move(game, action.piece, action.cell); break;
@@ -1932,14 +1835,8 @@ function resetPresentation() {
   drag?.ghost?.remove();
   drag = null;
   selection = null;
-  drawerOpen = false;
-  lastRevealBattle = null;
-  lastRevealSlot = -1;
-  privateHand = false;
-  peeked = new Set();
   cardMenu = null;
   cardMenuNode.hidden = true;
-  clearRevealed();
   battleResult = null;
   duel = null;
   duelPlayed = { I: [], R: [] };
@@ -1949,6 +1846,8 @@ function resetPresentation() {
   endShown = false;
   hideEndScreens();
   timerKey = null;
+  matchDeadline = 0;
+  handOwner = null;
   started = null;
   ended = null;
 }
@@ -1957,6 +1856,11 @@ function startGame(nextMode) {
   fx.music('battle');
   mode = nextMode;
   game = rules.makeGame();
+  started = Date.now();
+  matchDeadline = started + MATCH_DURATION_MS;
+  handOwner = 'I';
+  byId('match-clock').hidden = false;
+  updateMatchClock();
   byId('inicio').hidden = true;
   byId('partida').hidden = false;
   document.body.classList.add('playing');
@@ -1973,6 +1877,7 @@ function returnToMenu() {
   fx.music('menu');
   game = null;
   mode = null;
+  byId('match-clock').hidden = true;
   byId('inicio').hidden = false;
   byId('partida').hidden = true;
   document.body.classList.remove('playing', 'revealing');
