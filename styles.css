@@ -524,7 +524,7 @@ body.playing .seat[data-prompt="true"] {
 body.playing .seat-heading { gap: .25rem; justify-content: start; }
 body.playing .seat-crest { width: 1.1rem; }
 body.playing .seat-heading h2 { flex: 1; font: 800 clamp(.73rem, 3.2vw, .98rem)/1.1 Georgia, serif; color: inherit; white-space: nowrap; }
-.seat-ai { margin-left: .2rem; color: #ffdfae; font: 750 .56rem/1 system-ui, sans-serif; }
+.seat-heading .seat-ai { margin-left: .2rem; color: #ffdfae; font: 750 .62rem/1 system-ui, sans-serif; }
 body.playing .seat-heading strong {
   padding: 0; flex: 0 0 auto;
   font: 800 clamp(.95rem, 4vw, 1.25rem)/1.1 system-ui, sans-serif;
@@ -545,7 +545,7 @@ body.playing .field {
 }
 body.playing .field-heading {
   align-self: stretch; flex: 0 0 auto; justify-content: center;
-  padding: 0; margin: 0; line-height: 1.2;
+  padding: 0; margin: 0 0 .2rem; line-height: 1.2;
 }
 .round-count {
   padding: .16rem .4rem; border: 1px solid #ffe0a96b; border-radius: 999px;
