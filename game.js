@@ -24,9 +24,9 @@
   const CARDS = {
     boost: { name: 'Refuerzo', count: 8, own: 1, description: 'Suma 1 a tu fuerza.' },
     weaken: { name: 'Debilitar', count: 8, rival: -1, description: 'Resta 1 a la fuerza rival.' },
-    major: { name: 'Refuerzo mayor', count: 4, own: 2, description: 'Suma 2 a tu fuerza.' },
-    decisive: { name: 'Golpe decisivo', count: 2, description: 'Gana. Si ambos lo juegan, se anulan.' },
-    cannon: { name: 'Invocar cañón', count: 2, own: 2, description: 'Tu ficha en combate se convierte en cañón al instante y suma +2.' },
+    major: { powerful: true, name: 'Refuerzo mayor', count: 4, own: 2, description: 'Suma 2 a tu fuerza.' },
+    decisive: { powerful: true, name: 'Golpe decisivo', count: 2, description: 'Gana. Si ambos lo juegan, se anulan.' },
+    cannon: { powerful: true, name: 'Invocar cañón', count: 2, own: 2, description: 'Tu ficha en combate se convierte en cañón al instante y suma +2.' },
     search: { name: 'Exploración', count: 4, own: 1, description: '+1 y busca una carta de tu mazo que sustituye a Exploración al acabar el combate.' },
   };
   const CELLS = {};
@@ -408,6 +408,23 @@
     record(s, 'end', { winner, reason, remaining: { I: remaining(s, 'I'), R: remaining(s, 'R') },
       text: winner ? 'Ganan los ' + SIDE[winner].toLowerCase() + '.' : 'La partida termina en empate.' });
   }
+  function finishOnTime(s) {
+    if (s.phase === 'end') return false;
+    const scores = Object.fromEntries(['I', 'R'].map(side => [side, {
+      pieces: remaining(s, side), cards: 0, powerful: 0,
+    }]));
+    for (const event of s.events) {
+      if (event.type !== 'reveal') continue;
+      scores[event.side].cards++;
+      if (CARDS[event.card].powerful) scores[event.side].powerful++;
+    }
+    const criterion = ['pieces', 'cards', 'powerful'].find(key => scores.I[key] !== scores.R[key]);
+    const winner = criterion ? (scores.I[criterion] > scores.R[criterion] ? 'I' : 'R') : null;
+    s.timeResult = { scores, criterion };
+    record(s, 'time-cannon', { text: 'El cañón anuncia el fin del juego.' });
+    finish(s, winner, 'límite de tiempo');
+    return true;
+  }
   function nextTurn(s) {
     if (s.phase !== 'turn') return false;
     if (s.turn === 'R' && s.round === 12) {
@@ -428,7 +445,7 @@
 
   const game = { SIDE, HAND_SIZE, ROSTER, SPECIALS, CHARGE_MAX, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
     piece, occupant, remaining, moves, attacks, move, attack, specialOptions, specialAttack, actor, cardLimit, playable,
-    searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, skipBonus, nextTurn };
+    searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, skipBonus, nextTurn, finishOnTime };
   if (typeof module === 'object') module.exports = game;
   else window.RealesIdeales = game;
 })();
