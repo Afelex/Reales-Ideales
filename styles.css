@@ -1642,3 +1642,43 @@ body.scene-full .rival-played-label { max-width: none; white-space: nowrap; font
 body.scene-full #drawer-hint { min-width: 0; }
 body.scene-full .drawer-toolbar strong { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 400px) { body.scene-full .hint-status { display: none; } }
+
+/* El paisaje rellena los márgenes cuando el terreno debe encajar en una pantalla estrecha. */
+body.scene-full[data-theme="andes"] .board-viewport {
+  background: linear-gradient(#23465d66, #1f391988),
+    url('assets/escenario/campo-andino-fondo.webp') center / cover #2d4a22;
+}
+
+body.playing .hand-drawer[data-open-hands="true"] .drawer-hands {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .55rem;
+}
+body.playing .hand-drawer[data-open-hands="true"] .reserve {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
+  min-width: 0;
+}
+body.playing .hand-drawer[data-open-hands="true"] .reserve-label {
+  margin-bottom: .25rem;
+  color: #334553;
+  font-size: .75rem;
+  font-weight: 750;
+  text-align: center;
+}
+body.playing .hand-drawer[data-open-hands="true"] #reserve-R .reserve-label { color: #853a31; }
+body.playing .hand-drawer[data-open-hands="true"] .hand { width: 100%; gap: .22rem; }
+body.playing .hand-drawer[data-open-hands="true"] .card.front:disabled { opacity: 1; }
+body.scene-full .hand-drawer[data-open-hands="true"] { grid-template-rows: auto minmax(0, 1fr); }
+body.scene-full.revealing .hand-drawer[data-open-hands="true"] #drawer-hint { margin-right: 1.9rem; }
+body.scene-full.revealing:has(.hand-drawer[data-open-hands="true"]) #turn-timer { right: .65rem; }
+
+@media (min-width: 850px) and (min-height: 610px) {
+  body.playing .hand-drawer[data-open-hands="true"] .drawer-hands { grid-template-columns: minmax(0, 1fr); }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  body.playing .hand-drawer[data-open-hands="true"] .hand {
+    width: min(100%, calc((100cqh - 1.25rem) * 2.66 + .44rem));
+  }
+}

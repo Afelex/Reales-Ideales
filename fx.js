@@ -35,7 +35,7 @@
       const data = noiseBuffer.getChannelData(0);
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     }
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     return ctx;
   }
   // === Música de fondo: Clan Quest en el menú y Clan Charge en la partida ===
@@ -62,7 +62,8 @@
     if (!current) return;
     const old = current.el;
     current = null;
-    fade(old, 0, 600, () => old.pause());
+    if (old.paused) clearInterval(old._fade);
+    else fade(old, 0, 600, () => old.pause());
   }
   function applyMusic() {
     if (!musicOn || !wanted) {
@@ -82,7 +83,9 @@
     el.preload = 'auto';
     current = { name: wanted, el };
     // Sin un gesto previo el navegador rechaza play(); se reintenta en el primer toque.
-    el.play().then(() => fade(el, track.volume * duckLevel, 900)).catch(() => {});
+    el.play().then(() => {
+      if (current?.el === el && musicOn) fade(el, track.volume * duckLevel, 900);
+    }).catch(() => {});
   }
   function music(name) {
     wanted = name;
@@ -95,13 +98,14 @@
   }
 
   // Los navegadores exigen un gesto del usuario para habilitar el audio.
-  const unlock = () => {
-    if (!effectsOn && !musicOn) return;
+  const unlock = event => {
+    if (!event.isTrusted || (!effectsOn && !musicOn)) return;
     if (effectsOn) audio();
     if (wanted && (!current || current.el.paused)) applyMusic();
   };
-  window.addEventListener('pointerdown', unlock, { passive: true });
-  window.addEventListener('keydown', unlock);
+  for (const event of ['pointerup', 'touchend', 'click', 'keydown']) {
+    window.addEventListener(event, unlock, { capture: true, passive: true });
+  }
 
   function envelope(gain, t, attack, peak, decay) {
     gain.gain.setValueAtTime(0.0001, t);

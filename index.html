@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=021-escenario27">
+  <link rel="stylesheet" href="styles.css?v=022-combate">
   <script defer src="game.js"></script>
   <script defer src="ai.js"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="fx.js?v=021-escenario27"></script>
-  <script defer src="app.js?v=021-escenario27"></script>
+  <script defer src="fx.js?v=022-combate"></script>
+  <script defer src="app.js?v=022-combate"></script>
 </head>
 <body>
   <header class="masthead">
@@ -21,8 +21,9 @@
         <div class="help-content">
           <img class="help-art" src="assets/clay/portada-jardin.webp" alt="" width="1536" height="1024" loading="lazy">
           <p><b>Turno:</b> mueve una ficha una casilla y declara un ataque, en el orden que quieras. Arrastra la ficha o tócala y luego su destino.</p>
+          <p>En Versus IA, el turno cambia solo cuando se resuelven los efectos y ya no hay jugadas disponibles.</p>
           <p><b>Fuerza:</b> todas las fichas empiezan con 0. El cañón suma +2 al atacar. En empate salen ambas fichas.</p>
-          <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. Toca una carta para verla y otra vez para activarla.</p>
+          <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. En Versus IA las dos reservas se ven boca arriba. En partidas locales, toca una carta para descubrirla.</p>
           <p><b>Ataque especial:</b> la barra de tu bando se llena un tercio por turno. Cuando brilla, toca una ficha con fuego, pulsa el botón ESPECIAL y elige el objetivo rojo. Cada animal tiene su poder.</p>
           <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha.</p>
           <p><b>Victoria:</b> elimina todas las fichas rivales o conserva más al final de la ronda 12.</p>
@@ -107,8 +108,14 @@
       </div>
       <div id="rival-played" class="rival-played" hidden></div>
       <div class="drawer-hands">
-        <div id="hand-I" class="hand" aria-label="Reserva idealista, tres cartas"></div>
-        <div id="hand-R" class="hand" aria-label="Reserva realista, tres cartas"></div>
+        <div id="reserve-I" class="reserve">
+          <span id="reserve-label-I" class="reserve-label" hidden>Tus cartas</span>
+          <div id="hand-I" class="hand" aria-label="Reserva idealista, tres cartas"></div>
+        </div>
+        <div id="reserve-R" class="reserve">
+          <span id="reserve-label-R" class="reserve-label" hidden>Cartas de la IA</span>
+          <div id="hand-R" class="hand" aria-label="Reserva realista, tres cartas"></div>
+        </div>
       </div>
     </section>
   </main>

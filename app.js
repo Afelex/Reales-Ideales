@@ -24,7 +24,7 @@ const newAsset = filename => 'assets/v014/' + filename;
 
 let game = null;
 let mode = null;
-let aiTimer = null;
+let progressTimer = null;
 let selection = null;
 let privateHand = false;
 let pending = null;
@@ -44,6 +44,7 @@ let bannerQueue = [];
 let bannerShowing = false;
 let announcedEvents = 0;
 const searchDialog = byId('search-choice');
+const controls = actions.closest('.controls');
 // === Ajustes del jugador (se guardan en este navegador) ===
 const SETTINGS_KEY = 'reales-ideales-ajustes';
 const settings = { timer: 'normal', speed: 1, board: 'andes' };
@@ -93,7 +94,7 @@ byId('cancel').addEventListener('click', () => dialog.close());
 dialog.addEventListener('close', () => {
   if (!dialog.open) {
     pending = null;
-    scheduleAI();
+    scheduleProgress();
   }
 });
 byId('confirm').addEventListener('click', () => {
@@ -133,7 +134,7 @@ function showNextBanner() {
     bannerShowing = false;
     document.body.classList.remove('banner-on');
     if (game) maybeShowEnd();
-    scheduleAI();
+    scheduleProgress();
     return;
   }
   const next = bannerQueue.shift();
@@ -182,7 +183,7 @@ function releaseEffects() {
     renderDuel();
   }
   if (!bannerShowing && bannerQueue.length) showNextBanner();
-  else scheduleAI();
+  else scheduleProgress();
 }
 // Ocupado mientras hay animación o banner: se bloquean clics y la IA.
 function busy() {
@@ -619,7 +620,7 @@ settingsForm.addEventListener('change', event => {
   }
   saveSettings();
 });
-settingsDialog.addEventListener('close', () => { if (game) scheduleAI(); });
+settingsDialog.addEventListener('close', () => { if (game) scheduleProgress(); });
 // Música del menú principal; empieza con el primer gesto si el navegador bloquea el audio automático.
 fx.music('menu');
 function currentPhase() {
@@ -899,18 +900,24 @@ function layoutScene() {
   if (full && boardViewport.parentElement !== document.body) document.body.prepend(boardViewport);
   if (!full && boardViewport.parentElement !== home) home.append(boardViewport);
   if (full) {
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const scale = Math.max(vw / W, vh / H);
-    const width = W * scale, height = H * scale;
-    // Si sobra alto, se recorta el cielo (arriba) y nunca el terreno de juego.
-    Object.assign(board.style, { left: (vw - width) / 2 + 'px', top: Math.min(0, vh - height) + 'px',
-      width: width + 'px', height: height + 'px' });
+    const vw = boardViewport.clientWidth, vh = boardViewport.clientHeight;
+    const cells = Object.values(sceneGeometry.cells);
+    const left = Math.min(...cells.map(cell => cell.left));
+    const right = Math.max(...cells.map(cell => cell.left + cell.w));
+    const top = Math.min(...cells.map(cell => Math.min(cell.top, cell.y + cell.h * .2 - cell.w * TOKEN_SCALE)));
+    const bottom = Math.max(...cells.map(cell => cell.top + cell.h));
+    const hudBottom = byId('phase-indicator').getBoundingClientRect().bottom;
+    const dockTop = controls.getBoundingClientRect().top;
+    const margin = 8;
+    // Mantiene el terreno, las fichas y sus áreas táctiles en el mismo plano.
+    const scale = Math.min(Math.max(vw / W, vh / H),
+      (vw - margin * 2) / (right - left),
+      Math.max(1, dockTop - hudBottom - margin * 2) / (bottom - top));
+    const y = Math.max(hudBottom + margin - top * scale, Math.min(vh - H * scale, dockTop - margin - bottom * scale));
+    Object.assign(board.style, { left: (vw - (left + right) * scale) / 2 + 'px', top: y + 'px',
+      width: W * scale + 'px', height: H * scale + 'px' });
     boardViewport.style.removeProperty('--scene-aspect');
-    // Límites del terreno en pantalla para colocar la interfaz alrededor de las fichas.
-    const ys = Object.values(sceneGeometry.cells).flatMap(c => [c.y + c.h * .2 - c.w * TOKEN_SCALE, c.top + c.h]);
-    const offset = Math.min(0, vh - height);
-    document.body.style.setProperty('--grid-top', Math.min(...ys) * scale + offset + 'px');
-    document.body.style.setProperty('--grid-bottom', Math.max(...ys) * scale + offset + 'px');
+    document.body.style.setProperty('--grid-top', top * scale + y + 'px');
   } else {
     boardViewport.style.setProperty('--scene-aspect', String(W / (H - crop)));
     Object.assign(board.style, { left: '0', width: '100%', top: -crop / (H - crop) * 100 + '%', height: H / (H - crop) * 100 + '%' });
@@ -918,6 +925,11 @@ function layoutScene() {
 }
 window.addEventListener('resize', layoutScene);
 portraitPhone.addEventListener?.('change', layoutScene);
+const sceneResize = new ResizeObserver(() => {
+  if (document.body.classList.contains('scene-full')) layoutScene();
+});
+sceneResize.observe(controls);
+sceneResize.observe(byId('phase-indicator'));
 applyBoardTheme();
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
@@ -1181,15 +1193,15 @@ function chooseSearch(index) {
 function syncHandDrawer() {
   const revealing = game.phase === 'reveal';
   const actor = revealing ? rules.actor(game) : game.turn;
-  // Cada ventana de elección vuelve a estar cubierta, incluso en el modo local.
-  // Evita que un jugador vea las cartas privadas del siguiente participante.
+  const openBattleHands = revealing && mode === 'ai';
+  // En el modo local se restablece la privacidad en cada oportunidad de jugar.
   if (revealing && (game.battle !== lastRevealBattle || game.battle.slot !== lastRevealSlot)) {
     lastRevealBattle = game.battle;
     lastRevealSlot = game.battle.slot;
     privateHand = false;
     peeked = new Set();
     closeCardMenu();
-    drawerOpen = !isAITurn();
+    drawerOpen = true;
   } else if (!revealing) {
     if (lastRevealBattle) {
       drawerOpen = false;
@@ -1201,16 +1213,20 @@ function syncHandDrawer() {
     if (game.phase !== 'turn') drawerOpen = false;
   }
   const drawer = byId('hand-drawer');
-  drawer.hidden = !drawerOpen || isAITurn();
+  drawer.hidden = !openBattleHands && (!drawerOpen || isAITurn());
+  drawer.dataset.openHands = String(openBattleHands);
+  byId('drawer-close').hidden = openBattleHands;
   document.body.classList.toggle('drawer-visible', !drawer.hidden);
   drawer.dataset.side = actor;
   byId('drawer-title').textContent = revealing
     ? (actor === game.battle.defender ? 'Defensa' : 'Ataque') + ' · ' + rules.SIDE[actor]
     : 'Reserva · ' + rules.SIDE[actor];
-  renderForceHint(revealing, actor);
-  renderRivalPlayed(revealing, actor);
-  byId('hand-I').hidden = actor !== 'I';
-  byId('hand-R').hidden = actor !== 'R';
+  renderForceHint(revealing, openBattleHands ? 'I' : actor);
+  renderRivalPlayed(revealing && !openBattleHands, actor);
+  for (const side of ['I', 'R']) {
+    byId('reserve-' + side).hidden = !openBattleHands && actor !== side;
+    byId('reserve-label-' + side).hidden = !openBattleHands;
+  }
 }
 // Botón redondo de fuego: visible con la barra llena en el turno de un jugador humano.
 const specialFire = byId('special-fire');
@@ -1331,7 +1347,7 @@ function closeCardMenu() {
 // Un toque fuera del menú y de la carta lo cancela.
 document.addEventListener('pointerdown', event => {
   if (cardMenu === null || cardMenuNode.contains(event.target)) return;
-  if (event.target.closest?.('.card[data-slot="' + cardMenu.slot + '"]')) return;
+  if (byId('hand-' + cardMenu.side).querySelector('[data-slot="' + cardMenu.slot + '"]')?.contains(event.target)) return;
   closeCardMenu();
 }, true);
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeCardMenu(); });
@@ -1361,6 +1377,7 @@ function openCardMenu(node, side, slot, card) {
 function renderHands() {
   const revealing = game.phase === 'reveal';
   const actor = revealing ? rules.actor(game) : game.turn;
+  const openBattleHands = revealing && mode === 'ai';
   let menuNode = null;
   for (const side of ['I', 'R']) {
     const hand = byId('hand-' + side);
@@ -1371,7 +1388,7 @@ function renderHands() {
     for (let slot = 0; slot < rules.HAND_SIZE; slot++) {
       const face = shown[side].find(item => item.slot === slot);
       const card = face?.card ?? game.players[side].hand[slot];
-      const visible = Boolean(face || (card && own && (privateHand || peeked.has(slot))));
+      const visible = Boolean(face || (card && (openBattleHands || (own && (privateHand || peeked.has(slot))))));
       const canPlay = Boolean(revealing && own && card && !face && rules.playable(game, side, card));
       const node = document.createElement('button');
       node.type = 'button';
@@ -1380,10 +1397,10 @@ function renderHands() {
       node.disabled = Boolean(face) || !card || !own || (visible && !canPlay);
       if (face) node.classList.add('played', ...(face.latest ? ['new'] : []));
       if (visible && canPlay) node.classList.add('ready');
-      if (visible && !face && peeked.has(slot) && !privateHand) node.classList.add('peeked');
+      if (visible && !face && peeked.has(slot) && !privateHand && !openBattleHands) node.classList.add('peeked');
       if (visible) {
         const name = renderCardFace(node, card);
-        node.setAttribute('aria-label', face ? 'Revelada: ' + name : canPlay ? name + '. Toca de nuevo para activar' : name);
+        node.setAttribute('aria-label', face ? 'Revelada: ' + name : canPlay ? name + '. Toca para ver su efecto y activarla' : name);
       } else {
         if (!card) node.textContent = '—';
         node.setAttribute('aria-label', card ? 'Carta boca abajo ' + (slot + 1) + '. Toca para verla' : 'Sin carta');
@@ -1429,7 +1446,6 @@ function nextTurn() {
   cardMenuNode.hidden = true;
   drawerOpen = false;
   privateHand = false;
-  drawerOpen = false;
   lastRevealBattle = null;
   lastRevealSlot = -1;
   clearRevealed();
@@ -1449,11 +1465,13 @@ function renderControls() {
   }
   switch (game.phase) {
     case 'turn':
-      say('Turno de ' + rules.SIDE[game.turn], game.actions === 2 ? 'Dos acciones completadas.'
-        : selection ? 'Elige una casilla marcada.'
-          : game.moved.length ? 'Movimiento usado. Puedes atacar.'
-            : 'Un movimiento y un ataque por turno.');
-      button(actions, 'Terminar turno', nextTurn, 'primary end-turn');
+      say('Turno de ' + rules.SIDE[game.turn], shouldAutoEndTurn() ? 'Cambia el turno automáticamente.'
+        : game.actions === 2 ? 'Dos acciones completadas.'
+          : selection ? 'Elige una casilla marcada.'
+            : game.moved.length ? 'Movimiento usado. Puedes atacar.'
+              : game.attacked ? 'Ataque resuelto. Puedes mover una ficha.'
+                : 'Un movimiento y un ataque por turno.');
+      if (mode === 'local') button(actions, 'Terminar turno', nextTurn, 'primary end-turn');
       createDrawerButton(drawerOpen ? 'Cerrar cartas' : 'Mis 3 cartas',
         !drawerOpen, !drawerOpen, 'secondary');
       if (specialMode && selection) {
@@ -1465,13 +1483,14 @@ function renderControls() {
     case 'reveal': {
       const side = rules.actor(game);
       const role = side === game.battle.defender ? 'Defensa' : 'Ataque';
-      say(role + ' · ' + rules.SIDE[side], privateHand || peeked.size
-        ? 'Toca una carta descubierta para activarla, o pasa.'
-        : mode === 'ai' ? 'Toca una carta para verla y otra vez para activarla.'
-          : 'Pasa el dispositivo al jugador indicado. Toca una carta para verla.');
-      if (!privateHand) createDrawerButton('Ver todas', true, true, 'secondary');
-      else createDrawerButton('Ocultar cartas', false, false, 'secondary');
-      button(actions, 'Pasar', () => play(), 'secondary');
+      say(role + ' · ' + rules.SIDE[side], mode === 'ai' || privateHand || peeked.size
+        ? 'Elige una carta o pasa.'
+        : 'Pasa el dispositivo al jugador indicado. Toca una carta para verla.');
+      if (mode === 'local') {
+        if (!privateHand) createDrawerButton('Ver todas', true, true, 'secondary');
+        else createDrawerButton('Ocultar cartas', false, false, 'secondary');
+      }
+      button(actions, 'Pasar', () => { if (!busy()) play(); }, 'secondary');
       break;
     }
     case 'combo':
@@ -1806,6 +1825,7 @@ function render() {
   renderControls();
   renderSpecialFire();
   syncTimer();
+  if (document.body.classList.contains('scene-full')) layoutScene();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
     const item = document.createElement('li');
     item.textContent = describe(event);
@@ -1817,7 +1837,7 @@ function render() {
   announceNewEvents();
   // Los contadores de fichas cambian después de la explosión, no antes.
   if (!fxBusy) syncCounters();
-  scheduleAI();
+  scheduleProgress();
 }
 function syncCounters(pulse = false) {
   for (const [side, id] of [['I', 'blue'], ['R', 'red']]) {
@@ -1832,13 +1852,23 @@ function syncCounters(pulse = false) {
     }
   }
 }
-function scheduleAI() {
-  clearTimeout(aiTimer);
-  aiTimer = null;
-  if (!game || dialog.open || searchDialog.open || busy() || !isAITurn()) return;
-  aiTimer = setTimeout(() => {
-    aiTimer = null;
-    if (!game || dialog.open || searchDialog.open || busy() || !isAITurn()) return;
+function shouldAutoEndTurn() {
+  return mode === 'ai' && game.phase === 'turn'
+    && !game.pieces.some(piece => piece.side === game.turn && selectable(piece.id));
+}
+function scheduleProgress() {
+  clearTimeout(progressTimer);
+  progressTimer = null;
+  if (!game || dialog.open || searchDialog.open || busy()) return;
+  if (!shouldAutoEndTurn() && !isAITurn()) return;
+  progressTimer = setTimeout(() => {
+    progressTimer = null;
+    if (!game || dialog.open || searchDialog.open || busy()) return;
+    if (shouldAutoEndTurn()) {
+      nextTurn();
+      return;
+    }
+    if (!isAITurn()) return;
     const action = ai.choose(rules, game, 'R');
     if (!action) return;
     switch (action.type) {
@@ -1859,7 +1889,7 @@ function scheduleAI() {
   }, game.phase === 'reveal' ? 650 : 440);
 }
 function resetPresentation() {
-  clearTimeout(aiTimer);
+  clearTimeout(progressTimer);
   clearTimeout(bannerTimer);
   bannerQueue = [];
   bannerShowing = false;
@@ -1870,6 +1900,9 @@ function resetPresentation() {
   drag?.ghost?.remove();
   drag = null;
   selection = null;
+  drawerOpen = false;
+  lastRevealBattle = null;
+  lastRevealSlot = -1;
   privateHand = false;
   peeked = new Set();
   cardMenu = null;
