@@ -197,6 +197,7 @@ test('cada ficha conoce su animal', () => {
   assert.equal(G.piece(s, 'I5').animal, 'tigrillo');
   assert.equal(G.piece(s, 'R4').animal, 'gallo');
   assert.equal(Object.keys(G.SPECIALS).length, 8);
+  for (const power of Object.values(G.SPECIALS)) assert.equal(power, G.FIRE_POWER);
 });
 
 test('un cañón ya formado ataca a cualquier distancia con +2', () => {
@@ -248,13 +249,13 @@ test('la barra se llena 1/3 por turno propio: el ataque especial llega en el tur
   assert.equal(s.players.I.charge, 3);
 });
 
-test('Garra de Trueno: +3 y la barra vuelve a 0', () => {
+test('Fuego Especial: +3 y la barra vuelve a 0', () => {
   const s = setup();
   ready(s);
   G.piece(s, 'I5').cell = 'C6';
   assert.equal(G.specialAttack(s, 'I5', 'R4'), true);
   assert.equal(s.players.I.charge, 0);
-  assert.equal(s.events.some(e => e.type === 'special' && e.power === 'Garra de Trueno'), true);
+  assert.equal(s.events.some(e => e.type === 'special' && e.power === 'Fuego Especial'), true);
   reveal(s);
   assert.deepEqual(result(s).force, [3, 0]);
   G.nextTurn(s);
@@ -274,97 +275,68 @@ test('el ataque especial exige barra llena, solo al atacar y nunca desde un cañ
   assert.deepEqual(G.specialOptions(s, 'I5'), []);
 });
 
-test('Carga Andina: la llama ataca a 2 casillas en línea recta con +2', () => {
-  const s = setup();
-  ready(s);
-  G.piece(s, 'I5').cell = null;
-  G.piece(s, 'I2').cell = 'C4';
-  assert.equal(G.specialOptions(s, 'I2').some(o => o.target === 'R4'), true);
-  G.piece(s, 'I1').cell = 'C6';
-  assert.equal(G.specialOptions(s, 'I2').some(o => o.target === 'R4'), false);
-  G.piece(s, 'I1').cell = 'A2';
-  assert.equal(G.specialAttack(s, 'I2', 'R4'), true);
-  reveal(s);
-  assert.deepEqual(result(s).force, [2, 0]);
-  assert.equal(s.phase, 'bonus');
+test('los ocho animales de ambos bandos tienen el mismo Fuego Especial +3', () => {
+  for (const side of ['I', 'R']) for (const animal of G.ROSTER[side]) {
+    const s = setup();
+    s.turn = side;
+    ready(s, side);
+    const fighter = s.pieces.find(p => p.side === side && p.animal === animal);
+    const enemy = s.pieces.find(p => p.side !== side);
+    for (const p of s.pieces) p.cell = null;
+    fighter.cell = 'C6';
+    enemy.cell = 'C8';
+    assert.deepEqual(G.specialOptions(s, fighter.id), [{ target: enemy.id, at: 'C6' }]);
+    assert.equal(G.specialAttack(s, fighter.id, enemy.id), true);
+    assert.equal(s.actions, 1);
+    assert.equal(s.attacked, true);
+    assert.equal(s.moved.length, 0);
+    assert.equal(fighter.cell, 'C6');
+    assert.equal(s.players[side].charge, 0);
+    assert.equal(G.cardLimit(s, side), 2);
+    assert.equal(G.cardLimit(s, enemy.side), 2);
+    reveal(s);
+    assert.deepEqual(result(s).force, [3, 0]);
+  }
 });
 
-test('Bombardeo en Picada: el guacamayo ataca a 2 casillas por encima de otra ficha', () => {
-  const s = setup();
-  ready(s);
-  G.piece(s, 'I5').cell = 'C6';
-  G.piece(s, 'I3').cell = 'C4';
-  assert.equal(G.specialAttack(s, 'I3', 'R4'), true);
-  reveal(s);
-  assert.deepEqual(result(s).force, [2, 0]);
+test('Fuego Especial no permite alcance extra, saltos ni teletransporte', () => {
+  for (const animal of G.ROSTER.I) {
+    const s = setup();
+    ready(s);
+    const p = s.pieces.find(p => p.side === 'I' && p.animal === animal);
+    const target = G.piece(s, 'R4');
+    for (const q of s.pieces) q.cell = null;
+    p.cell = 'C4';
+    target.cell = 'C8';
+    assert.deepEqual(G.specialOptions(s, p.id), []);
+    assert.equal(G.specialAttack(s, p.id, target.id, 'C6'), false);
+    assert.equal(G.specialAttack(s, p.id, target.id), false);
+    assert.equal(s.players.I.charge, 3);
+    assert.equal(p.cell, 'C4');
+  }
 });
 
-test('Salto Relámpago: la rana se mueve hasta 2 casillas y ataca con +2', () => {
-  const s = setup();
-  ready(s);
-  G.piece(s, 'I5').cell = null;
-  G.piece(s, 'I4').cell = 'C4';
-  assert.equal(G.specialAttack(s, 'I4', 'R4', 'A8'), false);
-  assert.equal(G.specialAttack(s, 'I4', 'R4', 'C6'), true);
-  assert.equal(G.piece(s, 'I4').cell, 'C6');
-  assert.equal(s.events.some(e => e.type === 'leap' && e.to === 'C6'), true);
-  assert.equal(s.moved.length, 0);
-  reveal(s);
-  assert.deepEqual(result(s).force, [2, 0]);
-  assert.equal(G.piece(s, 'I4').cell, 'C8');
-});
-
-test('Estandarte de Guerra: el rival solo activa 1 carta', () => {
-  const s = setup(['boost', 'boost'], []);
-  s.turn = 'R';
-  ready(s, 'R');
-  G.piece(s, 'R4').cell = 'C6';
-  assert.equal(G.specialAttack(s, 'R4', 'I5'), true);
-  assert.equal(G.cardLimit(s, 'I'), 1);
-  assert.equal(G.reveal(s, 0), true);
-  assert.equal(G.reveal(s, null), true);
-  assert.equal(G.playable(s, 'I', s.players.I.hand[1]), false);
-  assert.equal(G.reveal(s, 1), false);
-  assert.equal(G.reveal(s, null), true);
-  assert.equal(G.reveal(s, null), true);
-  assert.deepEqual(result(s).force, [1, 1]);
-});
-
-test('Doble Impacto: si el mono gana, elimina a otra ficha enemiga vecina', () => {
-  const s = setup(['boost']);
-  ready(s);
-  G.piece(s, 'I1').cell = 'C6';
-  G.piece(s, 'I5').cell = 'A2';
-  G.piece(s, 'R2').cell = 'D7';
-  assert.equal(G.specialAttack(s, 'I1', 'R4'), true);
-  reveal(s, null, 0);
-  assert.deepEqual(result(s).force, [2, 0]);
-  assert.equal(s.phase, 'combo');
-  assert.equal(s.battle.combo.kind, 'double');
-  assert.deepEqual(G.comboTargets(s), ['R2']);
-  assert.equal(G.comboEliminate(s, 'R2'), true);
-  assert.equal(G.piece(s, 'R2').cell, null);
-  assert.equal(s.events.some(e => e.type === 'double'), true);
-  assert.equal(G.piece(s, 'I1').cell, 'C8');
-});
-
-test('Túnel Relámpago: el cuy aparece junto a cualquier enemigo y ataca con +2', () => {
-  const s = setup();
-  ready(s);
-  assert.equal(G.specialAttack(s, 'I7', 'R4', 'C6'), true);
-  assert.equal(G.piece(s, 'I7').cell, 'C6');
-  reveal(s);
-  assert.deepEqual(result(s).force, [2, 0]);
-});
-
-test('Sombra Letal: el rival no puede activar cartas', () => {
-  const s = setup([], ['boost', 'major']);
+test('Fuego Especial respeta cartas y combos ordinarios del defensor', () => {
+  const s = setup([], ['major', 'major']);
   ready(s);
   G.piece(s, 'I8').cell = 'C6';
   assert.equal(G.specialAttack(s, 'I8', 'R4'), true);
-  assert.equal(G.cardLimit(s, 'R'), 0);
-  assert.equal(G.reveal(s, 0), false);
-  assert.equal(G.reveal(s, null), true);
+  reveal(s, 0, null, 1, null);
+  assert.deepEqual(result(s).force, [3, 5]);
+  assert.equal(result(s).winner, 'R');
+});
+
+test('Fuego Especial no causa una segunda eliminación por sí mismo', () => {
+  const s = setup();
+  ready(s);
+  G.piece(s, 'I1').cell = 'C6';
+  G.piece(s, 'I5').cell = 'A4';
+  G.piece(s, 'R2').cell = 'D7';
+  assert.equal(G.specialAttack(s, 'I1', 'R4'), true);
+  reveal(s);
+  assert.deepEqual(result(s).removed, ['R4']);
+  assert.equal(G.piece(s, 'R2').cell, 'D7');
+  assert.equal(s.phase === 'combo', false);
 });
 
 test('el límite de tiempo prioriza fichas, cartas activadas y cartas poderosas', () => {

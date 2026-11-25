@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=025-match">
-  <script defer src="game.js?v=025-match"></script>
-  <script defer src="ai.js"></script>
+  <link rel="stylesheet" href="styles.css?v=026-fuego">
+  <script defer src="game.js?v=026-fuego"></script>
+  <script defer src="ai.js?v=026-fuego"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
   <script defer src="fx.js?v=022-combate"></script>
-  <script defer src="app.js?v=025-match"></script>
+  <script defer src="app.js?v=026-fuego"></script>
 </head>
 <body>
   <header class="masthead">
@@ -94,7 +94,6 @@
             <circle cx="22" cy="22" r="19" pathLength="120" transform="rotate(120 22 22)"/>
             <circle cx="22" cy="22" r="19" pathLength="120" transform="rotate(240 22 22)"/>
           </svg>
-          <span class="ss-label">SS</span>
         </button>
         <div id="hud-hand" class="hud-hand" role="group" aria-label="Tus cartas"></div>
         <div id="actions" class="actions"></div>
@@ -151,7 +150,7 @@
       <p>En Versus IA, el turno cambia solo cuando se resuelven los efectos y ya no hay jugadas disponibles.</p>
       <p><b>Fuerza:</b> todas las fichas empiezan con 0. El cañón suma +2 al atacar. En empate salen ambas fichas.</p>
       <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. En Versus IA las dos reservas se ven boca arriba. En partidas locales, toca una carta para descubrirla.</p>
-      <p><b>Ataque especial:</b> la barra de tu bando se llena un tercio por turno. Cuando brilla, toca una ficha con fuego, pulsa el botón de la llama y elige el objetivo rojo. Cada animal tiene su poder.</p>
+      <p><b>Fuego Especial:</b> acumula un segmento al empezar cada turno propio. Con tres, selecciona una ficha normal junto a un enemigo, pulsa el fuego y elige el objetivo. Todas las fichas normales suman +3 de fuerza al atacar; ambos jugadores conservan sus dos cartas. La carga vuelve a cero y los cañones no pueden usarlo.</p>
       <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha.</p>
       <p><b>Victoria:</b> elimina todas las fichas rivales o conserva más al final de la ronda 12.</p>
     </div>

@@ -3,24 +3,16 @@
 
   const SIDE = { I: 'Idealistas', R: 'Realistas' };
   const HAND_SIZE = 3;
-  // Reglas v0.15: todas las fichas tienen fuerza base 0. La personalidad
-  // llega con el ataque especial de cada animal.
+  // Todas las fichas tienen fuerza base 0 y comparten el Fuego Especial.
   const ROSTER = {
     I: ['mono', 'llama', 'guacamayo', 'rana', 'tigrillo', 'gallo', 'cuy', 'gato'],
     R: ['rana', 'tigrillo', 'guacamayo', 'gallo', 'cuy', 'llama', 'mono', 'gato'],
   };
   // Barra por bando: +1 al empezar cada turno propio; con 3 se puede lanzar un ataque especial.
   const CHARGE_MAX = 3;
-  const SPECIALS = {
-    tigrillo: { name: 'Garra de Trueno', bonus: 3, reach: 'adjacent', description: '+3 de fuerza.' },
-    llama: { name: 'Carga Andina', bonus: 2, reach: 'line', description: 'Ataca hasta 2 casillas en línea recta, con +2.' },
-    guacamayo: { name: 'Bombardeo en Picada', bonus: 2, reach: 'range', description: 'Ataca a una ficha a 1 o 2 casillas, incluso por encima de otra, con +2.' },
-    rana: { name: 'Salto Relámpago', bonus: 2, reach: 'leap', description: 'Se mueve hasta 2 casillas libres y ataca, con +2.' },
-    gallo: { name: 'Estandarte de Guerra', bonus: 1, rivalLimit: 1, reach: 'adjacent', description: '+1 y el rival solo puede activar 1 carta.' },
-    mono: { name: 'Doble Impacto', bonus: 1, double: true, reach: 'adjacent', description: '+1 y, si gana, elimina además a otra ficha enemiga vecina.' },
-    cuy: { name: 'Túnel Relámpago', bonus: 2, reach: 'tunnel', description: 'Aparece en una casilla libre junto a cualquier enemigo y ataca, con +2.' },
-    gato: { name: 'Sombra Letal', bonus: 0, rivalLimit: 0, reach: 'adjacent', description: 'El rival no puede activar cartas en este combate.' },
-  };
+  // La especie solo identifica el arte y las animaciones; la regla es universal.
+  const FIRE_POWER = Object.freeze({ name: 'Fuego Especial', bonus: 3, reach: 'adjacent', description: '+3 de fuerza.' });
+  const SPECIALS = Object.freeze(Object.fromEntries(ROSTER.I.map(animal => [animal, FIRE_POWER])));
   const CARDS = {
     boost: { name: 'Refuerzo', count: 8, own: 1, description: 'Suma 1 a tu fuerza.' },
     weaken: { name: 'Debilitar', count: 8, rival: -1, description: 'Resta 1 a la fuerza rival.' },
@@ -172,65 +164,19 @@
     record(s, 'attack', { side: a.side, piece: a.id, target: d.id, nearby: s.battle.nearby, special,
       text: a.id + ' ataca a ' + d.id + '.' });
   }
-  // === Ataques especiales ===
-  const enemyAt = (s, cell, side) => {
-    const q = occupant(s, cell);
-    return q && q.side !== side ? q : null;
-  };
-  // Opciones { target, at }: "at" es la casilla desde la que ataca (cambia en Salto y Túnel).
+  // Fuego Especial: mismo alcance que un ataque normal, sin desplazamiento extra.
   function specialOptions(s, id) {
     const p = piece(s, id);
-    if (s.phase !== 'turn' || !p?.cell || p.side !== s.turn || s.actions >= 2 || s.attacked || p.cannon) return [];
-    if (s.players[p.side].charge < CHARGE_MAX) return [];
-    const power = SPECIALS[p.animal];
-    const enemies = s.pieces.filter(q => q.cell && q.side !== p.side);
-    const options = [];
-    const add = (target, at) => {
-      if (!options.some(o => o.target === target && o.at === at)) options.push({ target, at });
-    };
-    const near = at => enemies.filter(q => adjacent(at, q.cell)).forEach(q => add(q.id, at));
-    if (power.reach === 'adjacent') near(p.cell);
-    if (power.reach === 'line') {
-      near(p.cell);
-      const { col, row } = CELLS[p.cell];
-      for (const [dc, dr] of DIRECTIONS) {
-        const mid = cellAt(col + dc, row + dr), far = cellAt(col + 2 * dc, row + 2 * dr);
-        if (mid && far && !occupant(s, mid) && enemyAt(s, far, p.side)) add(occupant(s, far).id, p.cell);
-      }
-    }
-    if (power.reach === 'range') enemies.filter(q => distance(p.cell, q.cell) <= 2).forEach(q => add(q.id, p.cell));
-    if (power.reach === 'leap') {
-      // Hasta dos pasos por casillas libres; también puede atacar sin moverse.
-      const reach = new Set([p.cell]);
-      let frontier = [p.cell];
-      for (let step = 0; step < 2; step++) {
-        frontier = frontier.flatMap(from => Object.keys(CELLS).filter(c => adjacent(from, c) && !occupant(s, c) && !reach.has(c)));
-        frontier.forEach(c => reach.add(c));
-      }
-      reach.forEach(near);
-    }
-    if (power.reach === 'tunnel') {
-      near(p.cell);
-      for (const q of enemies) for (const c of Object.keys(CELLS))
-        if (adjacent(c, q.cell) && !occupant(s, c)) add(q.id, c);
-    }
-    return options;
+    if (!p?.cell || p.cannon || s.players[p.side].charge < CHARGE_MAX) return [];
+    return attacks(s, id).map(target => ({ target, at: p.cell }));
   }
   function specialAttack(s, id, target, at = null) {
     const p = piece(s, id);
     const cell = at ?? p?.cell;
     if (!specialOptions(s, id).some(o => o.target === target && o.at === cell)) return false;
-    const power = SPECIALS[p.animal];
     s.players[p.side].charge = 0;
-    record(s, 'special', { side: p.side, piece: id, animal: p.animal, power: power.name, target,
-      text: id + ' lanza ' + power.name + '.' });
-    if (cell !== p.cell) {
-      const from = p.cell;
-      p.cell = cell;
-      // El desplazamiento del ataque especial no activa rescates ni gasta el movimiento normal.
-      record(s, 'leap', { side: p.side, piece: id, from, to: cell, animal: p.animal,
-        text: id + ' salta de ' + from + ' a ' + cell + '.' });
-    }
+    record(s, 'special', { side: p.side, piece: id, animal: p.animal, power: FIRE_POWER.name, target,
+      text: id + ' lanza ' + FIRE_POWER.name + '.' });
     startBattle(s, p, piece(s, target), p.animal);
     return true;
   }
@@ -244,11 +190,8 @@
     }
     return Object.keys(CARDS).filter(card => remaining.includes(card));
   }
-  // Cartas que un bando puede activar en el combate (Estandarte y Sombra las limitan).
-  function cardLimit(s, side) {
-    const power = s.battle?.special && SPECIALS[s.battle.special];
-    return power && side === s.battle.defender && power.rivalLimit !== undefined ? power.rivalLimit : 2;
-  }
+  // Ambos bandos conservan sus dos oportunidades de activar cartas.
+  function cardLimit(s, side) { return 2; }
   function playable(s, side, card) {
     if (s.phase !== 'reveal' || !card || s.battle.played[side].length >= cardLimit(s, side)) return false;
     return card !== 'cannon' || (!s.battle.startedWithCannon[side] && !s.battle.played[side].includes(card));
@@ -290,7 +233,7 @@
   // Fuerza inicial del atacante: 0, +2 si ya era cañón y el bono de su ataque especial.
   function baseAttack(s) {
     const b = s.battle;
-    return (b.attackerCannon ? 2 : 0) + (b.special ? SPECIALS[b.special].bonus : 0);
+    return (b.attackerCannon ? 2 : 0) + (b.special ? FIRE_POWER.bonus : 0);
   }
   // Fuerza de ambos bandos con un conjunto de cartas (por defecto, las activadas).
   function projected(s, played = s.battle.played) {
@@ -340,14 +283,6 @@
       b.combo = { kind: 'decisive', side: winner.side, winner: winner.id, cleared, nearby: b.nearby };
       s.phase = 'combo';
       record(s, 'combo-ready', { side: winner.side, text: '¡COMBO DECISIVO! Elige una segunda ficha enemiga para eliminar.' });
-      return;
-    }
-    // Doble Impacto del mono: si gana atacando, elimina también a un enemigo vecino.
-    if (winner === a && b.special && SPECIALS[b.special].double
-        && s.pieces.some(p => p.cell && p.side !== a.side && adjacent(p.cell, a.cell))) {
-      b.combo = { kind: 'double', side: a.side, winner: a.id, cleared, nearby: b.nearby };
-      s.phase = 'combo';
-      record(s, 'double-ready', { side: a.side, text: '¡DOBLE IMPACTO! Elige otra ficha enemiga vecina.' });
       return;
     }
     continueBattle(s, winner, cleared, b.nearby);
@@ -443,7 +378,7 @@
     return true;
   }
 
-  const game = { SIDE, HAND_SIZE, ROSTER, SPECIALS, CHARGE_MAX, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
+  const game = { SIDE, HAND_SIZE, ROSTER, FIRE_POWER, SPECIALS, CHARGE_MAX, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
     piece, occupant, remaining, moves, attacks, move, attack, specialOptions, specialAttack, actor, cardLimit, playable,
     searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, skipBonus, nextTurn, finishOnTime };
   if (typeof module === 'object') module.exports = game;

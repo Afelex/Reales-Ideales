@@ -46,24 +46,13 @@ Haz hasta dos acciones en el orden que prefieras: **solo un movimiento normal** 
 - **Mover.** Elige una única ficha propia y desplázala una casilla libre adyacente. No se permite realizar un segundo movimiento normal ese turno. Puedes entrar en cualquier zona.
 - **Atacar.** Elige una ficha propia y una enemiga adyacente. El cañón puede atacar a cualquier ficha enemiga. El turno admite un solo ataque.
 
-## Ataques especiales (v0.15)
+## Fuego Especial (regla universal)
 
-Cada bando tiene una **barra de ataque especial** de tres segmentos. Se llena 1/3 al empezar cada turno propio: el primer ataque especial llega en el **turno 3** de cada jugador. Al usarlo, la barra vuelve a 0 y se recarga en tres turnos. Llena, se queda llena hasta que se use.
+Cada bando acumula un segmento al comenzar cada turno propio, hasta tres. El primer Fuego Especial está disponible en el turno 3. Al usarlo la carga vuelve a cero.
 
-El ataque especial **solo se usa al atacar**, en lugar del ataque normal del turno. Primero se elige el poder y el objetivo; después empieza el combate por cartas. El cañón no puede lanzar ataques especiales. Cada animal tiene el suyo:
+**Todas las fichas normales de los ocho animales comparten el mismo poder: +3 de fuerza al atacar a un enemigo adyacente.** Sustituye el ataque normal, no modifica el movimiento ni el alcance, y deja disponibles las dos cartas de cada combatiente. Los cañones no pueden usarlo. No requiere elegir comandante.
 
-| Animal | Ataque especial | Efecto |
-|---|---|---|
-| Tigrillo | Garra de Trueno | +3 de fuerza. |
-| Llama | Carga Andina | Ataca hasta 2 casillas en línea recta (la casilla intermedia debe estar libre), con +2. |
-| Guacamayo | Bombardeo en Picada | Ataca a una ficha a 1 o 2 casillas, incluso por encima de otra, con +2. |
-| Rana | Salto Relámpago | Se mueve hasta 2 casillas libres y ataca, con +2. |
-| Gallo | Estandarte de Guerra | +1 y el rival solo puede activar 1 carta. |
-| Mono | Doble Impacto | +1 y, si gana, elimina además a otra ficha enemiga vecina (o la perdona). |
-| Cuy | Túnel Relámpago | Aparece en una casilla libre junto a cualquier enemigo y ataca, con +2. |
-| Gato | Sombra Letal | El rival no puede activar cartas en este combate. |
-
-El desplazamiento de Salto Relámpago y Túnel Relámpago no gasta el movimiento normal ni activa rescates.
+En el tablero físico se aplica el mismo bono de +3 al calcular la fuerza y se reinicia el contador de tres cargas. En la aplicación se utiliza el botón con icono de fuego y tres segmentos radiales, sin las letras SS.
 
 ## Combate
 
@@ -104,7 +93,7 @@ La interfaz muestra banners de pantalla completa para los cambios principales: c
 - **Escena única:** el tablero se apoya sobre el empedrado de la plaza, con inclinación leve y sombra de contacto, sin recuadro propio.
 - **Las fichas siempre a la vista:** en escritorio el duelo ocupa la columna izquierda y las cartas la derecha. En móvil vertical el cajón entra en el flujo y el tablero se ajusta para caber entero. En horizontal, el duelo y las cartas usan la columna derecha.
 - **Sin desplazamientos:** el cajón, la elección de Exploración (cuadrícula de cartas) y la ayuda caben en pantalla.
-- **Guía del ataque especial:** aviso "¡ATAQUE ESPECIAL LISTO!" al llenarse la barra, fichas con anillo de fuego, botón redondo ESPECIAL en el dock y un globo con flecha que indica cada paso. Paso 1: ficha con fuego. Paso 2: botón. Paso 3: objetivo con mira.
+- **Guía del ataque especial:** aviso "¡ATAQUE ESPECIAL LISTO!" al llenarse la barra, fichas con anillo de fuego, botón redondo de fuego en el dock y un globo con flecha que indica cada paso. Paso 1: ficha con fuego. Paso 2: botón. Paso 3: objetivo con mira.
 - **Música:** *Clan Quest* en el menú principal y *Clan Charge* durante la partida, con transición suave. Se silencia con el botón de sonido. Los navegadores pueden esperar al primer toque para empezar a sonar. Pistas creadas por el autor con Suno, en `assets/audio/`.
 
 ## Fase 1 y tablero SVG (v0.18)
@@ -141,9 +130,9 @@ Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.
 
 ## Pruebas automatizadas
 
-El archivo `game.test.js` contempla 30 casos: fuerza base 0, cañón inmediato, barra de ataque especial, los ocho poderes, límite de movimiento, combos, búsqueda diferida, reserva de tres y eliminación doble. Ejecuta `node --test` para comprobar la regresión.
+El archivo `game.test.js` comprueba fuerza base 0, cañón inmediato, carga y poder universal de los ocho animales, límites de movimiento, combos, búsqueda diferida y reserva de tres. Ejecuta `node --test` para comprobar la regresión.
 
-### Simulación de equilibrio v0.15
+### Simulación histórica de equilibrio v0.15 (antes del Fuego Especial universal)
 
 2000 partidas IA contra IA por versión (la misma IA en ambos bandos; indica tendencias, no sustituye las pruebas en mesa):
 
