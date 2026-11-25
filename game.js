@@ -107,6 +107,15 @@
     if (p.cannon && s.players[p.side].ownTurns < p.ready) return [];
     return s.pieces.filter(q => q.cell && q.side !== p.side && (p.cannon || adjacent(p.cell, q.cell))).map(q => q.id);
   }
+  // Estado de las dos acciones normales: útil para el HUD y el cierre automático.
+  function turnActions(s) {
+    if (s.phase !== 'turn') return { move: 'waiting', attack: 'waiting' };
+    const allies = s.pieces.filter(p => p.side === s.turn && p.cell);
+    return {
+      move: s.moved.length ? 'spent' : allies.some(p => moves(s, p.id).length) ? 'ready' : 'waiting',
+      attack: s.attacked ? 'spent' : allies.some(p => attacks(s, p.id).length) ? 'ready' : 'waiting',
+    };
+  }
   function entry(s, p, cell, after, type) {
     const from = p.cell;
     p.cell = cell;
@@ -379,7 +388,7 @@
   }
 
   const game = { SIDE, HAND_SIZE, ROSTER, FIRE_POWER, SPECIALS, CHARGE_MAX, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
-    piece, occupant, remaining, moves, attacks, move, attack, specialOptions, specialAttack, actor, cardLimit, playable,
+    piece, occupant, remaining, moves, attacks, turnActions, move, attack, specialOptions, specialAttack, actor, cardLimit, playable,
     searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, skipBonus, nextTurn, finishOnTime };
   if (typeof module === 'object') module.exports = game;
   else window.RealesIdeales = game;

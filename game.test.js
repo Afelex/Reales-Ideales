@@ -370,3 +370,25 @@ test('el límite de tiempo prioriza fichas, cartas activadas y cartas poderosas'
     assert.equal(G.finishOnTime(s), false);
   }
 });
+
+test('HUD distingue acciones disponibles, pendientes y consumidas sin exigir un orden', () => {
+  const s = setup(['boost']);
+  assert.equal(G.turnActions(s).move, 'ready');
+  assert.equal(G.turnActions(s).attack, 'waiting');
+  assert.equal(G.move(s, 'I5', 'C6'), true);
+  assert.deepEqual(G.turnActions(s), { move: 'spent', attack: 'ready' });
+  assert.equal(G.attack(s, 'I5', 'R4'), true);
+  reveal(s, null, 0);
+  assert.equal(s.phase, 'turn');
+  assert.deepEqual(G.turnActions(s), { move: 'spent', attack: 'spent' });
+});
+test('atacar primero conserva el movimiento normal y el turno puede terminar sin jugadas', () => {
+  const s = setup(['boost']);
+  G.piece(s, 'I5').cell = 'C6';
+  assert.equal(G.attack(s, 'I5', 'R4'), true);
+  reveal(s, null, 0);
+  assert.equal(s.phase, 'turn');
+  assert.deepEqual(G.turnActions(s), { move: 'ready', attack: 'spent' });
+  for (const p of s.pieces) if (p.side === 'I') p.cell = null;
+  assert.deepEqual(G.turnActions(s), { move: 'waiting', attack: 'spent' });
+});

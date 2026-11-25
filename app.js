@@ -102,7 +102,7 @@ byId('search-cancel').addEventListener('click', () => searchDialog.close());
 function bannerFromEvent(event) {
   switch (event.type) {
     case 'turn': return { kind: event.side, title: 'TURNO DE ' + rules.SIDE[event.side].toUpperCase(), subtitle: 'Prepara tu movimiento o ataque' };
-    case 'move': return { kind: 'move', title: 'FASE DE MOVIMIENTO', subtitle: nameOf(event.piece) + ' avanza en el tablero' };
+    case 'move': return null; // El desplazamiento y su sonido ya comunican la acción.
     case 'special': return { kind: 'special', title: event.power.toUpperCase(),
       subtitle: nameOf(event.piece) + ': ' + rules.FIRE_POWER.description };
     case 'attack': return event.special ? null : {
@@ -154,7 +154,7 @@ function announceNewEvents() {
     if (event.type === 'turn' && game.players[event.side].charge >= rules.CHARGE_MAX
         && !(mode === 'ai' && event.side === 'R'))
       bannerQueue.push({ kind: 'special', title: '¡FUEGO ESPECIAL LISTO!',
-        subtitle: 'Toca una ficha con fuego y pulsa el botón ESPECIAL' });
+        subtitle: 'Toca una ficha con fuego y pulsa el icono de fuego' });
   }
   // Primero la animación, después el banner: como en los juegos de artillería.
   const duration = playEffects(newEvents);
@@ -1002,35 +1002,21 @@ function startSpecial(attacker, defender, at) {
   render();
 }
 function proposeDestination(id, cell) {
+  if (!game || isAITurn() || busy() || dialog.open || searchDialog.open) return false;
   const actor = rules.piece(game, id);
   if (rules.moves(game, id).includes(cell)) {
-    confirmAction('¿Mover la ficha?', 'Mover a ' + pieceName(actor) + ' a la casilla marcada.', 'Mover', () => {
-      rules.move(game, id, cell);
-      selection = null;
-      render();
-    });
+    if (!rules.move(game, id, cell)) return false;
+    selection = null;
+    clearSpecial();
+    render();
     return true;
   }
   const target = rules.occupant(game, cell);
   if (target && rules.attacks(game, id).includes(target.id)) {
-    confirmAction('¿Atacar a esta ficha?', pieceName(actor) + ' atacará a ' + pieceName(target) + '. ' + attackPreview(actor, null), 'Atacar', () => {
-      startAttack(actor, target);
-    });
+    startAttack(actor, target);
     return true;
   }
   return false;
-}
-// Vista previa del combate: con fuerza base 0, conviene saber qué pasa sin cartas.
-function attackPreview(attacker, special) {
-  const power = special && rules.FIRE_POWER;
-  const start = (attacker.cannon ? 2 : 0) + (power?.bonus ?? 0);
-  const hand = game.players[attacker.side].hand.filter(Boolean);
-  const helpful = hand.filter(card => (rules.CARDS[card].own ?? 0) > 0 || card === 'decisive').length;
-  const cards = helpful === 0 ? 'No tienes cartas que sumen fuerza.'
-    : 'Tienes ' + helpful + (helpful === 1 ? ' carta que suma.' : ' cartas que suman.');
-  return start > 0
-    ? 'Empiezas con fuerza ' + start + ' contra 0: sin cartas, ganas.' + ' ' + cards
-    : 'Empiezas 0 contra 0: si nadie juega cartas, es empate y salen las dos fichas.' + ' ' + cards;
 }
 function startAttack(attacker, defender) {
   if (!rules.attack(game, attacker.id, defender.id)) return;
@@ -1044,7 +1030,7 @@ function startAttack(attacker, defender) {
   render();
 }
 function clickCell(cell) {
-  if (!game || isAITurn() || busy()) return;
+  if (!game || isAITurn() || busy() || dialog.open || searchDialog.open) return;
   const piece = rules.occupant(game, cell);
   if (game.phase === 'combo' && piece && rules.comboTargets(game).includes(piece.id)) {
     const title = game.battle.combo.kind === 'double' ? '¡Doble Impacto!' : '¡Combo decisivo!';
@@ -1057,21 +1043,12 @@ function clickCell(cell) {
   const special = specialView();
   if (special) {
     const attacker = rules.piece(game, selection);
-    const power = rules.FIRE_POWER;
-    if (special.destinations.includes(cell)) {
-      specialAt = cell;
-    } else if (piece && special.targets.includes(piece.id)) {
-      const at = special.at;
-      confirmAction('¿Lanzar ' + power.name + '?', pieceName(attacker) + ' usará ' + power.name + ' contra ' + pieceName(piece)
-        + (at !== attacker.cell ? ', saltando a la casilla marcada' : '') + '. ' + power.description + ' ' + attackPreview(attacker, attacker.animal),
-        'Lanzar', () => startSpecial(attacker, piece, at));
+    if (piece && special.targets.includes(piece.id)) {
+      startSpecial(attacker, piece, special.at);
       return;
-    } else if (specialAt) {
-      specialAt = null;
-    } else {
-      clearSpecial();
-      selection = null;
     }
+    clearSpecial();
+    selection = null;
     render();
     return;
   }
@@ -1129,7 +1106,7 @@ function renderBoard() {
 }
 board.addEventListener('pointerdown', event => {
   suppressClick = false;
-  if (!game || isAITurn() || dialog.open || searchDialog.open || busy() || !event.isPrimary || event.button !== 0) return;
+  if (!game || isAITurn() || specialMode || dialog.open || searchDialog.open || busy() || !event.isPrimary || event.button !== 0) return;
   const cell = event.target.closest('[data-cell]')?.dataset.cell;
   const piece = cell && rules.occupant(game, cell);
   if (!piece || !selectable(piece.id)) return;
@@ -1282,8 +1259,18 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape') clos
 function openCardMenu(node, side, slot, card) {
   cardMenu = { side, slot };
   cardMenuNode.replaceChildren();
-  span(cardMenuNode, 'card-menu-title', rules.CARDS[card].name);
-  span(cardMenuNode, 'card-menu-text', rules.CARDS[card].description);
+  const preview = document.createElement('div');
+  preview.className = 'card-menu-preview';
+  const art = document.createElement('div');
+  art.className = 'card illustrated card-menu-art';
+  renderCardFace(art, card);
+  preview.append(art);
+  const copy = document.createElement('div');
+  copy.className = 'card-menu-copy';
+  span(copy, 'card-menu-title', rules.CARDS[card].name);
+  span(copy, 'card-menu-text', rules.CARDS[card].description);
+  preview.append(copy);
+  cardMenuNode.append(preview);
   const row = document.createElement('div');
   row.className = 'card-menu-actions';
   cardMenuNode.append(row);
@@ -1300,7 +1287,8 @@ function openCardMenu(node, side, slot, card) {
   const width = cardMenuNode.offsetWidth;
   const left = Math.min(Math.max(8, rect.left + rect.width / 2 - width / 2), window.innerWidth - width - 8);
   cardMenuNode.style.left = left + 'px';
-  cardMenuNode.style.top = Math.max(8, rect.top - cardMenuNode.offsetHeight - 10) + 'px';
+  const above = rect.top - cardMenuNode.offsetHeight - 10;
+  cardMenuNode.style.top = Math.max(8, Math.min(above, window.innerHeight - cardMenuNode.offsetHeight - 8)) + 'px';
   cardMenuNode.style.setProperty('--arrow', (rect.left + rect.width / 2 - left) + 'px');
   (activate.disabled ? row.firstElementChild : activate).focus();
 }
@@ -1347,9 +1335,7 @@ function nextTurn() {
   cardMenuNode.hidden = true;
   battleResult = null;
   duel = null;
-  const previous = game.turn;
-  if (!rules.nextTurn(game)) return;
-  if (game.phase !== 'end') bannerQueue.push({ kind: 'endturn', title: 'FIN DEL TURNO', subtitle: 'Termina el turno de ' + rules.SIDE[previous] });
+  if (!rules.nextTurn(game)) return; // El banner de inicio del siguiente turno basta.
   render();
 }
 function renderControls() {
@@ -1366,7 +1352,12 @@ function renderControls() {
             : game.moved.length ? 'Movimiento usado. Puedes atacar.'
               : game.attacked ? 'Ataque resuelto. Puedes mover una ficha.'
                 : 'Un movimiento y un ataque por turno.');
-      if (mode === 'local') button(actions, 'Fin de turno', nextTurn, 'primary end-turn');
+      const end = button(actions, '', () => {
+        if (!busy() && !dialog.open && !searchDialog.open && !isAITurn() && game.phase === 'turn') nextTurn();
+      }, 'secondary end-turn');
+      end.title = 'Fin de turno';
+      end.setAttribute('aria-label', 'Fin de turno');
+      end.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h13m-5-5 5 5-5 5M20 5v14"/></svg>';
       if (specialMode && selection) {
         const power = rules.FIRE_POWER;
         say(power.name, power.description + ' ' + (specialView().destinations.length && !specialAt
@@ -1737,6 +1728,7 @@ function render() {
     bar.setAttribute('aria-label', charge >= rules.CHARGE_MAX ? 'Ataque especial listo'
       : 'Ataque especial: ' + charge + ' de ' + rules.CHARGE_MAX);
   }
+  renderActionStatus();
   phaseIndicator.textContent = currentPhase();
   phaseIndicator.dataset.phase = game.phase;
   byId('turn-info').textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4'
@@ -1775,7 +1767,23 @@ function syncCounters(pulse = false) {
   for (const [side, id] of [['I', 'blue'], ['R', 'red']]) {
     const node = byId(id);
     const value = String(rules.remaining(game, side));
-    if (node.textContent === value) continue;
+    const meter = byId(id + '-health');
+    const previous = Number(meter.getAttribute('aria-valuenow'));
+    meter.setAttribute('aria-valuenow', value);
+    meter.setAttribute('aria-valuetext', value + ' de 8 fichas vivas');
+    meter.title = rules.SIDE[side] + ': ' + value + ' de 8 fichas vivas';
+    [...meter.children].forEach((segment, i) => {
+      const full = i < Number(value);
+      if (segment.classList.contains('full') !== full) {
+        segment.classList.toggle('full', full);
+        if (pulse && !reducedMotion()) {
+          segment.classList.remove('health-change');
+          void segment.offsetWidth;
+          segment.classList.add('health-change');
+        }
+      }
+    });
+    if (previous === Number(value) && node.textContent === value) continue;
     node.textContent = value;
     if (pulse && !reducedMotion()) {
       node.classList.remove('count-drop');
@@ -1784,9 +1792,22 @@ function syncCounters(pulse = false) {
     }
   }
 }
+function renderActionStatus() {
+  const group = byId('action-status');
+  group.hidden = game.phase !== 'turn';
+  const state = rules.turnActions(game);
+  for (const [action, label] of [['move', 'Mover'], ['attack', 'Atacar']]) {
+    const node = byId(action + '-status');
+    node.dataset.state = state[action];
+    const description = { ready: 'disponible', waiting: 'sin destino válido por ahora', spent: 'usado' }[state[action]];
+    node.setAttribute('aria-label', label + ': ' + description);
+    node.title = label + ': ' + description;
+  }
+}
 function shouldAutoEndTurn() {
-  return mode === 'ai' && game.phase === 'turn'
-    && !game.pieces.some(piece => piece.side === game.turn && selectable(piece.id));
+  if (game.phase !== 'turn') return false;
+  const actions = rules.turnActions(game);
+  return actions.move !== 'ready' && actions.attack !== 'ready';
 }
 function scheduleProgress() {
   clearTimeout(progressTimer);

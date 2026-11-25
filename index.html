@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=026-fuego">
-  <script defer src="game.js?v=026-fuego"></script>
-  <script defer src="ai.js?v=026-fuego"></script>
+  <link rel="stylesheet" href="styles.css?v=027-hud">
+  <script defer src="game.js?v=027-hud"></script>
+  <script defer src="ai.js?v=027-hud"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
   <script defer src="fx.js?v=022-combate"></script>
-  <script defer src="app.js?v=026-fuego"></script>
+  <script defer src="app.js?v=027-hud"></script>
 </head>
 <body>
   <header class="masthead">
@@ -39,9 +39,12 @@
   <main id="partida" class="play-layout" aria-label="Partida" tabindex="-1" hidden>
     <section class="seat red" aria-label="Tablero realista">
       <div class="seat-heading">
-        <img class="seat-crest" src="assets/clay/emblemas/realista.webp" alt="" width="34" height="46">
-        <h2>Realistas<small id="red-ai" class="seat-ai" hidden> IA</small></h2>
-        <strong><span class="sr-only">Fichas realistas </span><span id="red">8</span></strong>
+        <img class="seat-crest seat-avatar" src="assets/clay/fichas/realista-tigrillo.webp" alt="" width="44" height="44">
+        <h2 class="sr-only">Realistas<small id="red-ai" class="seat-ai" hidden> IA</small></h2>
+        <div class="seat-meter">
+          <div id="red-health" class="seat-health" role="meter" aria-label="Fichas vivas: Realistas" aria-valuemin="0" aria-valuemax="8" aria-valuenow="8"><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i></div>
+          <strong class="seat-count" aria-hidden="true"><span id="red">8</span>/8</strong>
+        </div>
       </div>
       <div class="seat-stats">
         <span class="seat-stat" title="Rescates disponibles"><img src="assets/clay/emblemas/rescate.webp" alt="" width="14" height="14"><span class="sr-only">Rescates disponibles </span><b id="red-rescues">2</b></span>
@@ -52,9 +55,12 @@
     </section>
     <section class="seat blue" aria-label="Tablero idealista">
       <div class="seat-heading">
-        <img class="seat-crest" src="assets/clay/emblemas/idealista.webp" alt="" width="34" height="46">
-        <h2>Idealistas</h2>
-        <strong><span class="sr-only">Fichas idealistas </span><span id="blue">8</span></strong>
+        <img class="seat-crest seat-avatar" src="assets/clay/fichas/idealista-mono.webp" alt="" width="44" height="44">
+        <h2 class="sr-only">Idealistas</h2>
+        <div class="seat-meter">
+          <div id="blue-health" class="seat-health" role="meter" aria-label="Fichas vivas: Idealistas" aria-valuemin="0" aria-valuemax="8" aria-valuenow="8"><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i></div>
+          <strong class="seat-count" aria-hidden="true"><span id="blue">8</span>/8</strong>
+        </div>
       </div>
       <div class="seat-stats">
         <span class="seat-stat" title="Rescates disponibles"><img src="assets/clay/emblemas/rescate.webp" alt="" width="14" height="14"><span class="sr-only">Rescates disponibles </span><b id="blue-rescues">2</b></span>
@@ -86,6 +92,10 @@
         <h2 id="phase-title"></h2>
       </div>
       <p id="instructions" class="instructions" role="status"></p>
+      <div id="action-status" class="action-status" role="group" aria-label="Acciones de turno" hidden>
+        <span id="move-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg><span>Mover</span></span>
+        <span id="attack-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 3 16 16M3 4l2 7 4-4M16 17l4-4M18 21l3-3M20 3 4 19M21 4l-2 7-4-4M8 17l-4-4M6 21l-3-3"/></svg><span>Atacar</span></span>
+      </div>
       <div class="battle-dock">
         <button id="special-fire" type="button" class="special-fire" disabled aria-pressed="false">
           <svg class="special-flame" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="flame-outer" d="M32 4c4 10 14 16 14 30a14 14 0 0 1-28 0c0-8 4-12 7-16 1 5 3 8 6 9-1-9 0-16 1-23z"/><path class="flame-inner" d="M32 30c2 5 7 8 7 14a7 7 0 0 1-14 0c0-4 2-6 4-8 0 2 1 3 3 4-1-4-1-7 0-10z"/></svg>
@@ -147,9 +157,9 @@
     <div class="help-content">
       <p><b>Turno:</b> mueve una ficha una casilla y declara un ataque, en el orden que quieras. Arrastra la ficha o tócala y luego su destino.</p>
       <p>La partida tiene un máximo de 10 minutos. Al agotarse, se comparan las fichas vivas, las cartas activadas y las cartas poderosas activadas, en ese orden.</p>
-      <p>En Versus IA, el turno cambia solo cuando se resuelven los efectos y ya no hay jugadas disponibles.</p>
+      <p>En ambos modos, el turno cambia automáticamente al resolver los efectos y agotar las acciones legales. Puedes terminarlo antes con el botón de flecha. Los dos indicadores muestran qué acciones quedan.</p>
       <p><b>Fuerza:</b> todas las fichas empiezan con 0. El cañón suma +2 al atacar. En empate salen ambas fichas.</p>
-      <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. En Versus IA las dos reservas se ven boca arriba. En partidas locales, toca una carta para descubrirla.</p>
+      <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. Tu reserva permanece visible; toca una carta para ver su ilustración y efecto. Solo se muestran las cartas que el rival activa. En partidas locales, entrega el dispositivo antes de revelar la reserva del siguiente jugador.</p>
       <p><b>Fuego Especial:</b> acumula un segmento al empezar cada turno propio. Con tres, selecciona una ficha normal junto a un enemigo, pulsa el fuego y elige el objetivo. Todas las fichas normales suman +3 de fuerza al atacar; ambos jugadores conservan sus dos cartas. La carga vuelve a cero y los cañones no pueden usarlo.</p>
       <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha.</p>
       <p><b>Victoria:</b> elimina todas las fichas rivales o conserva más al final de la ronda 12.</p>
