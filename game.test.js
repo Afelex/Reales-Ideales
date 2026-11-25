@@ -366,3 +366,35 @@ test('Sombra Letal: el rival no puede activar cartas', () => {
   assert.equal(G.reveal(s, 0), false);
   assert.equal(G.reveal(s, null), true);
 });
+
+test('el límite de tiempo prioriza fichas, cartas activadas y cartas poderosas', () => {
+  const cases = [
+    { loseR: true, I: [], R: ['major', 'cannon'], winner: 'I', criterion: 'pieces' },
+    { I: ['boost', 'weaken'], R: ['decisive'], winner: 'I', criterion: 'cards' },
+    { I: ['boost'], R: ['cannon'], winner: 'R', criterion: 'powerful' },
+    { I: ['major'], R: ['decisive'], winner: null, criterion: undefined },
+  ];
+  for (const scenario of cases) {
+    const s = setup(scenario.I, scenario.R);
+    stage(s, false);
+    const first = scenario.R.length ? 0 : null;
+    const second = scenario.I.length ? 0 : null;
+    assert.equal(G.reveal(s, first), true);
+    assert.equal(G.reveal(s, second), true);
+    if (scenario.loseR || scenario.I.length === 2) {
+      assert.equal(G.reveal(s, scenario.R.length === 2 ? 1 : null), true);
+      if (scenario.I.length === 2) {
+        // Cuenta activaciones confirmadas independientemente del resultado del combate.
+        assert.equal(G.reveal(s, 1), true);
+        G.piece(s, 'I5').cell ||= 'C6';
+      }
+    }
+    if (scenario.loseR) G.piece(s, 'R1').cell = null;
+    assert.equal(G.finishOnTime(s), true);
+    assert.equal(s.phase, 'end');
+    assert.equal(s.winner, scenario.winner);
+    assert.equal(s.timeResult.criterion, scenario.criterion);
+    assert.deepEqual(s.events.slice(-2).map(event => event.type), ['time-cannon', 'end']);
+    assert.equal(G.finishOnTime(s), false);
+  }
+});
