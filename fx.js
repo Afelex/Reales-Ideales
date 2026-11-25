@@ -43,6 +43,7 @@
     menu: { src: 'assets/audio/clan-quest.mp3', volume: 0.38 },
     battle: { src: 'assets/audio/clan-charge.mp3', volume: 0.26 },
   };
+  const preloaded = new Map();
   let wanted = null;
   let current = null; // { name, el }
   let duckLevel = 1;
@@ -77,7 +78,8 @@
       return;
     }
     stopCurrent();
-    const el = new Audio(track.src);
+    const el = preloaded.get(wanted) ?? new Audio(track.src);
+    preloaded.delete(wanted);
     el.loop = true;
     el.volume = 0;
     el.preload = 'auto';
@@ -86,6 +88,18 @@
     el.play().then(() => {
       if (current?.el === el && musicOn) fade(el, track.volume * duckLevel, 900);
     }).catch(() => {});
+  }
+  // Reutiliza el mismo elemento al cambiar de pista, evitando volver a descargarlo.
+  function preloadMusic(name) {
+    if (current?.name === name) return current.el;
+    if (!TRACKS[name]) return null;
+    if (!preloaded.has(name)) {
+      const el = new Audio(TRACKS[name].src);
+      el.preload = 'auto';
+      preloaded.set(name, el);
+      el.load();
+    }
+    return preloaded.get(name);
   }
   function music(name) {
     wanted = name;
@@ -289,6 +303,6 @@
     save();
     applyMusic();
   }
-  window.RealesIdealesFX = { play, setMuted, isMuted: () => !effectsOn && !musicOn, music, duck,
+  window.RealesIdealesFX = { play, setMuted, isMuted: () => !effectsOn && !musicOn, music, preloadMusic, duck,
     setEffects, setMusic, effectsOn: () => effectsOn, musicOn: () => musicOn };
 })();

@@ -5,15 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=027-hud">
-  <script defer src="game.js?v=027-hud"></script>
-  <script defer src="ai.js?v=027-hud"></script>
+  <link rel="stylesheet" href="styles.css?v=028-inicio">
+  <script defer src="game.js?v=028-inicio"></script>
+  <script defer src="ai.js?v=028-inicio"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="fx.js?v=022-combate"></script>
-  <script defer src="app.js?v=027-hud"></script>
+  <script defer src="fx.js?v=028-inicio"></script>
+  <script defer src="app.js?v=028-inicio"></script>
 </head>
-<body>
-  <header class="masthead">
+<body class="booting">
+  <section id="startup" class="startup" aria-label="Bienvenida a Reales Ideales">
+    <img class="startup-logo" src="assets/logo.webp" alt="Reales Ideales" width="180" height="92" fetchpriority="high">
+    <button id="startup-continue" type="button" class="primary startup-continue" disabled>Continuar</button>
+    <div id="startup-loading" class="startup-loading" hidden>
+      <p id="startup-status" role="status">Cargando recursos…</p>
+      <progress id="startup-progress" max="100" value="0" aria-label="Carga de recursos"></progress>
+      <span id="startup-percent" aria-hidden="true">0 %</span>
+    </div>
+  </section>
+  <header class="masthead" hidden>
     <a id="menu-link" class="brand" href="#inicio" aria-label="Reales Ideales, menú principal"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></a>
     <div class="header-actions">
       <button id="help-button" class="secondary" type="button" aria-haspopup="dialog">Cómo jugar</button>
@@ -26,9 +35,9 @@
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 6h14M5 12h14M5 18h14"/></svg>
     </button>
   </header>
-  <section id="inicio" class="cover" aria-labelledby="cover-title">
+  <section id="inicio" class="cover" aria-labelledby="cover-title" hidden>
     <div class="cover-scene">
-      <img class="cover-art" src="assets/clay/portada-jardin.webp" alt="El gato idealista y la llama realista en un jardín andino de plastilina" width="1536" height="1024" fetchpriority="high">
+      <img class="cover-art" src="assets/clay/portada-jardin.webp" alt="El gato idealista y la llama realista en un jardín andino de plastilina" width="1536" height="1024" loading="lazy">
       <h1 id="cover-title"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></h1>
     </div>
     <div class="cover-actions">
