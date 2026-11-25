@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=024-dock">
-  <script defer src="game.js"></script>
+  <link rel="stylesheet" href="styles.css?v=025-match">
+  <script defer src="game.js?v=025-match"></script>
   <script defer src="ai.js"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
   <script defer src="fx.js?v=022-combate"></script>
-  <script defer src="app.js?v=024-dock"></script>
+  <script defer src="app.js?v=025-match"></script>
 </head>
 <body>
   <header class="masthead">
@@ -21,6 +21,7 @@
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
       </button>
     </div>
+    <time id="match-clock" class="match-clock" aria-label="Tiempo restante de partida" hidden>10:00</time>
     <button id="game-menu-button" class="hud-menu-button" type="button" aria-label="Opciones de partida" title="Opciones de partida" aria-haspopup="dialog" hidden>
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 6h14M5 12h14M5 18h14"/></svg>
     </button>
@@ -72,6 +73,7 @@
       <div class="board-stage"><div class="board-viewport"><div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div></div></div>
 
       <p id="battle-result" class="battle-result" role="status" hidden></p>
+      <div id="rival-played" class="rival-played" hidden></div>
       <div id="duel" class="duel" hidden></div>
       <div class="legend">
         <span><img src="assets/clay/emblemas/rescate.webp" alt="" width="18" height="18"> Rescate</span>
@@ -84,31 +86,20 @@
         <h2 id="phase-title"></h2>
       </div>
       <p id="instructions" class="instructions" role="status"></p>
-      <div id="actions" class="actions"></div>
-      <button id="special-fire" type="button" class="special-fire" hidden aria-pressed="false">
-        <svg class="special-flame" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="flame-outer" d="M32 4c4 10 14 16 14 30a14 14 0 0 1-28 0c0-8 4-12 7-16 1 5 3 8 6 9-1-9 0-16 1-23z"/><path class="flame-inner" d="M32 30c2 5 7 8 7 14a7 7 0 0 1-14 0c0-4 2-6 4-8 0 2 1 3 3 4-1-4-1-7 0-10z"/></svg>
-        <span class="special-fire-label">Especial</span>
-        <span id="special-fire-power" class="special-fire-power"></span>
-      </button>
+      <div class="battle-dock">
+        <button id="special-fire" type="button" class="special-fire" disabled aria-pressed="false">
+          <svg class="special-flame" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="flame-outer" d="M32 4c4 10 14 16 14 30a14 14 0 0 1-28 0c0-8 4-12 7-16 1 5 3 8 6 9-1-9 0-16 1-23z"/><path class="flame-inner" d="M32 30c2 5 7 8 7 14a7 7 0 0 1-14 0c0-4 2-6 4-8 0 2 1 3 3 4-1-4-1-7 0-10z"/></svg>
+          <svg class="ss-ring" viewBox="0 0 44 44" aria-hidden="true">
+            <circle cx="22" cy="22" r="19" pathLength="120"/>
+            <circle cx="22" cy="22" r="19" pathLength="120" transform="rotate(120 22 22)"/>
+            <circle cx="22" cy="22" r="19" pathLength="120" transform="rotate(240 22 22)"/>
+          </svg>
+          <span class="ss-label">SS</span>
+        </button>
+        <div id="hud-hand" class="hud-hand" role="group" aria-label="Tus cartas"></div>
+        <div id="actions" class="actions"></div>
+      </div>
       <p id="special-hint" class="special-hint" aria-live="polite" hidden></p>
-    </section>
-    <section id="hand-drawer" class="hand-drawer" aria-label="Reserva de cartas" hidden>
-      <div class="drawer-toolbar">
-        <strong id="drawer-title">Reserva de cartas</strong>
-        <span id="drawer-hint">3 cartas · máximo 2 por batalla</span>
-        <button id="drawer-close" type="button" class="drawer-close" aria-label="Cerrar reserva"></button>
-      </div>
-      <div id="rival-played" class="rival-played" hidden></div>
-      <div class="drawer-hands">
-        <div id="reserve-I" class="reserve">
-          <span id="reserve-label-I" class="reserve-label" hidden>Tus cartas</span>
-          <div id="hand-I" class="hand" aria-label="Reserva idealista, tres cartas"></div>
-        </div>
-        <div id="reserve-R" class="reserve">
-          <span id="reserve-label-R" class="reserve-label" hidden>Cartas de la IA</span>
-          <div id="hand-R" class="hand" aria-label="Reserva realista, tres cartas"></div>
-        </div>
-      </div>
     </section>
   </main>
   <div id="phase-banner" class="phase-banner" role="status" aria-live="polite" hidden>
@@ -156,6 +147,7 @@
     <h2 id="help-title">Cómo jugar</h2>
     <div class="help-content">
       <p><b>Turno:</b> mueve una ficha una casilla y declara un ataque, en el orden que quieras. Arrastra la ficha o tócala y luego su destino.</p>
+      <p>La partida tiene un máximo de 10 minutos. Al agotarse, se comparan las fichas vivas, las cartas activadas y las cartas poderosas activadas, en ese orden.</p>
       <p>En Versus IA, el turno cambia solo cuando se resuelven los efectos y ya no hay jugadas disponibles.</p>
       <p><b>Fuerza:</b> todas las fichas empiezan con 0. El cañón suma +2 al atacar. En empate salen ambas fichas.</p>
       <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. En Versus IA las dos reservas se ven boca arriba. En partidas locales, toca una carta para descubrirla.</p>
