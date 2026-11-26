@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=033-monedas">
-  <script defer src="game.js?v=033-monedas"></script>
-  <script defer src="ai.js?v=033-monedas"></script>
+  <link rel="stylesheet" href="styles.css?v=034-hud">
+  <script defer src="game.js?v=034-hud"></script>
+  <script defer src="ai.js?v=034-hud"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="fx.js?v=033-monedas"></script>
-  <script defer src="app.js?v=033-monedas"></script>
+  <script defer src="fx.js?v=034-hud"></script>
+  <script defer src="app.js?v=034-hud"></script>
 </head>
 <body class="booting">
   <section id="startup" class="startup" aria-label="Bienvenida a Reales Ideales">
@@ -95,17 +95,25 @@
         <p id="turn-info" class="turn-info"></p>
         <h2 id="phase-title"></h2>
       </div>
-      <p id="instructions" class="instructions" role="status"></p>
-      <p id="battle-result" class="battle-result" role="status" hidden></p>
-      <div id="action-status" class="action-status" role="group" aria-label="Acciones de turno" hidden>
-        <button id="saved-rescue-button" class="saved-rescue-button" type="button" hidden title="Usar estrella guardada"><img src="assets/clay/emblemas/rescate.webp" alt="" width="20" height="20"><b id="saved-rescue-count">0</b></button>
-        <span id="move-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg><span>Mover</span></span>
-        <span id="attack-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 3 16 16M3 4l2 7 4-4M16 17l4-4M18 21l3-3M20 3 4 19M21 4l-2 7-4-4M8 17l-4-4M6 21l-3-3"/></svg><span>Atacar</span></span>
-      </div>
-      <div class="battle-dock">
+      <div class="hud-toolbar">
         <button id="game-menu-button" class="hud-menu-button" type="button" aria-label="Opciones de partida" title="Opciones de partida" aria-haspopup="dialog" hidden>
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14.7 6.3 18 3a6 6 0 0 0-7.9 7.9L3.8 17.2a2.1 2.1 0 0 0 3 3l6.3-6.3A6 6 0 0 0 21 6l-3.3 3.3-3-3Z"/></svg>
         </button>
+        <div class="hud-balance">
+          <button id="coin-button" type="button" aria-label="Consultar monedas" title="Consultar monedas" aria-haspopup="dialog"><i class="coin-icon" aria-hidden="true"></i></button>
+          <b id="coin-current" aria-label="Tus monedas">0</b>
+        </div>
+        <div class="hud-status-line" role="group" aria-label="Estado de partida">
+          <p id="instructions" class="instructions" role="status"></p>
+          <p id="battle-result" class="battle-result" role="status" hidden></p>
+          <p id="special-hint" class="special-hint" aria-live="polite" hidden></p>
+        </div>
+      <div id="action-status" class="action-status" role="group" aria-label="Acciones de turno" hidden>
+        <span id="move-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg><span class="action-label">Mover</span></span>
+        <span id="attack-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 3 16 16M3 4l2 7 4-4M16 17l4-4M18 21l3-3M20 3 4 19M21 4l-2 7-4-4M8 17l-4-4M6 21l-3-3"/></svg><span class="action-label">Atacar</span></span>
+      </div>
+      </div>
+      <div class="battle-dock">
         <button id="special-fire" type="button" class="special-fire" disabled aria-pressed="false">
           <svg class="special-flame" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="flame-outer" d="M32 4c4 10 14 16 14 30a14 14 0 0 1-28 0c0-8 4-12 7-16 1 5 3 8 6 9-1-9 0-16 1-23z"/><path class="flame-inner" d="M32 30c2 5 7 8 7 14a7 7 0 0 1-14 0c0-4 2-6 4-8 0 2 1 3 3 4-1-4-1-7 0-10z"/></svg>
           <svg class="ss-ring" viewBox="0 0 44 44" aria-hidden="true">
@@ -117,8 +125,7 @@
         <div id="hud-hand" class="hud-hand" role="group" aria-label="Tus cartas"></div>
         <div id="actions" class="actions"></div>
       </div>
-      <div class="coin-hud" role="group" aria-label="Monedas de esta partida"><span class="coin-side" data-side="R" aria-label="Monedas realistas"><i class="coin-icon" aria-hidden="true"></i><b id="coins-R">0</b></span><span class="coin-caption">Monedas</span><span class="coin-side" data-side="I" aria-label="Monedas idealistas"><i class="coin-icon" aria-hidden="true"></i><b id="coins-I">0</b></span></div>
-      <p id="special-hint" class="special-hint" aria-live="polite" hidden></p>
+      <button id="saved-rescue-button" class="saved-rescue-button" type="button" hidden title="Usar estrella guardada"><img src="assets/clay/emblemas/rescate.webp" alt="" width="20" height="20"><b id="saved-rescue-count">0</b></button>
     </section>
   </main>
   <div id="phase-banner" class="phase-banner" role="status" aria-live="polite" hidden>
@@ -152,6 +159,14 @@
       </div>
     </div>
   </section>
+  <dialog id="coin-dialog" aria-labelledby="coin-title">
+    <h2 id="coin-title">Monedas de esta partida</h2>
+    <div class="coin-breakdown">
+      <p class="coin-side" data-side="R"><i class="coin-icon" aria-hidden="true"></i><span>Realistas</span><b id="coins-R">0</b></p>
+      <p class="coin-side" data-side="I"><i class="coin-icon" aria-hidden="true"></i><span>Idealistas</span><b id="coins-I">0</b></p>
+    </div>
+    <form method="dialog" class="dialog-actions"><button class="primary">Listo</button></form>
+  </dialog>
   <dialog id="rescue-dialog" class="rescue-dialog" aria-labelledby="rescue-title">
     <h2 id="rescue-title">Recupera una ficha</h2>
     <div id="rescue-pieces" class="rescue-pieces" role="group" aria-label="Fichas perdidas"></div>
