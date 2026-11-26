@@ -4,43 +4,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=036-combate">
-  <script defer src="game.js?v=036-combate"></script>
-  <script defer src="ai.js?v=036-combate"></script>
+  <title>Reales Ideales · v0.37</title>
+  <link rel="stylesheet" href="styles.css?v=037-menu-combate">
+  <script defer src="game.js?v=037-menu-combate"></script>
+  <script defer src="ai.js?v=037-menu-combate"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
   <script defer src="assets/vendor/pixi-8.19.0.min.js"></script>
-  <script defer src="combat-fx.js?v=036-combate"></script>
-  <script defer src="fx.js?v=036-combate"></script>
-  <script defer src="app.js?v=036-combate"></script>
+  <script defer src="combat-fx.js?v=037-menu-combate"></script>
+  <script defer src="fx.js?v=037-menu-combate"></script>
+  <script defer src="app.js?v=037-menu-combate"></script>
 </head>
-<body class="booting">
-  <section id="startup" class="startup" aria-label="Bienvenida a Reales Ideales">
+<body>
+  <section id="startup" class="startup" aria-label="Preparando Reales Ideales" tabindex="-1" hidden>
     <img class="startup-logo" src="assets/logo.webp" alt="Reales Ideales" width="180" height="92" fetchpriority="high">
-    <button id="startup-continue" type="button" class="primary startup-continue" disabled>Continuar</button>
-    <div id="startup-loading" class="startup-loading" hidden>
+    <div class="startup-loading">
       <p id="startup-status" role="status">Cargando recursos…</p>
       <progress id="startup-progress" max="100" value="0" aria-label="Carga de recursos"></progress>
       <span id="startup-percent" aria-hidden="true">0 %</span>
     </div>
   </section>
-  <header class="masthead" hidden>
-    <a id="menu-link" class="brand" href="#inicio" aria-label="Reales Ideales, menú principal"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></a>
-    <div class="header-actions">
-      <button id="help-button" class="secondary" type="button" aria-haspopup="dialog">Cómo jugar</button>
-      <button id="settings-button" type="button" class="secondary settings-button" aria-haspopup="dialog" aria-label="Ajustes" title="Ajustes">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
-      </button>
-    </div>
-  </header>
-  <section id="inicio" class="cover" aria-labelledby="cover-title" hidden>
-    <div class="cover-scene">
-      <img class="cover-art" src="assets/clay/portada-jardin.webp" alt="El gato idealista y la llama realista en un jardín andino de plastilina" width="1536" height="1024" loading="lazy">
-      <h1 id="cover-title"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></h1>
-    </div>
+  <section id="inicio" class="cover" aria-labelledby="cover-title">
+    <img class="cover-art" src="assets/clay/portada-jardin.webp" alt="El gato idealista y la llama realista en un jardín andino de plastilina" width="1536" height="1024" fetchpriority="high">
+    <h1 id="cover-title"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></h1>
     <div class="cover-actions">
-      <button id="play-local" type="button" class="primary menu-play">Jugar con una persona</button>
-      <button id="play-ai" type="button" class="secondary menu-play">Versus IA</button>
+      <button id="play-menu" type="button" class="primary menu-play" aria-controls="play-options" aria-expanded="false" disabled>¡Jugar!</button>
+      <nav id="play-options" class="play-options" aria-label="Opciones de juego" hidden>
+        <button id="help-button" type="button" class="secondary menu-play" aria-haspopup="dialog">Tutorial</button>
+        <button id="play-local" type="button" class="secondary menu-play">Multijugador</button>
+        <button id="play-ai" type="button" class="secondary menu-play">Vs IA</button>
+        <button id="settings-button" type="button" class="secondary menu-play" aria-haspopup="dialog">Opciones</button>
+        <button id="play-back" type="button" class="secondary menu-back">Volver</button>
+      </nav>
     </div>
   </section>
   <main id="partida" class="play-layout" aria-label="Partida" tabindex="-1" hidden>
@@ -181,13 +175,14 @@
       <button id="match-history" class="secondary" type="button" aria-haspopup="dialog">Registro</button>
       <button id="match-settings" class="secondary" type="button" aria-haspopup="dialog">Ajustes</button>
       <button id="restart" class="secondary" type="button">Nueva partida</button>
+      <button id="match-menu" class="secondary" type="button">Menú principal</button>
     </div>
     <form method="dialog" class="dialog-actions"><button class="primary" autofocus>Volver a la partida</button></form>
   </dialog>
   <dialog id="help-dialog" aria-labelledby="help-title">
     <h2 id="help-title">Cómo jugar</h2>
     <div class="help-content">
-      <p><b>Turno:</b> mueve una ficha una casilla y declara un ataque, en el orden que quieras. Arrastra la ficha o tócala y luego su destino.</p>
+      <p><b>Turno:</b> puedes mover una ficha a una casilla vecina libre y atacar, en el orden que quieras. Para atacar, arrastra tu ficha sobre una enemiga marcada o toca las dos fichas en ese orden.</p>
       <p>La partida tiene un máximo de 10 minutos. Al agotarse, se comparan las fichas vivas, las cartas activadas y las cartas poderosas activadas, en ese orden.</p>
       <p>En ambos modos, el turno cambia automáticamente al resolver los efectos y agotar las acciones legales. Puedes terminarlo antes con el botón de flecha. Los dos indicadores muestran qué acciones quedan.</p>
       <p><b>Fuerza:</b> todas las fichas empiezan con 0. El cañón suma +2 al atacar. En empate salen ambas fichas.</p>
@@ -196,6 +191,7 @@
       <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha perdida en tu zona inicial o guarda la oportunidad. En un turno propio posterior, toca la estrella guardada y recupera una ficha en cualquier hexágono libre, sin gastar movimiento ni ataque.</p>
       <p><b>Monedas:</b> 10 por combate potente (fuerza final de 3 o más, Fuego Especial o Golpe decisivo) y 20 por cada baja causada al ganar. No cambian el resultado de la partida.</p>
       <p><b>Victoria:</b> elimina todas las fichas rivales o conserva más al final de la ronda 12.</p>
+      <p class="tutorial-demo"><a href="muestra.html">Ver ejemplos de combate</a></p>
     </div>
     <form method="dialog" class="dialog-actions"><button class="primary">Listo</button></form>
   </dialog>

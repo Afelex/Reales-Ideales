@@ -12,6 +12,7 @@ const animals = {
   tigrillo: 'Tigrillo', cuy: 'Cuy', rana: 'Rana', gato: 'Gato',
 };
 const tokenFaction = { I: 'idealista', R: 'realista' };
+const cannonArt = { I: 'assets/v014/canon-idealista.webp', R: 'assets/v014/canon.webp' };
 const cardTypes = {
   boost: 'Táctica',
   weaken: 'Control',
@@ -190,6 +191,10 @@ function releaseEffects() {
   fxBusyTimer = null;
   document.body.classList.remove('fx-busy');
   if (!game) return;
+  if (displayedPieces) {
+    displayedPieces = null;
+    renderBoard();
+  }
   visibleCoins = { I: game.players.I.coins, R: game.players.R.coins };
   renderCoins();
   syncCounters();
@@ -230,9 +235,10 @@ const fxSymbols = { boost: '+1', weaken: '−1', major: '+2', decisive: '✦', c
 let fxTimers = [];
 let fxBusy = false;
 let fxBusyTimer = null;
-let lastCells = new Map();
-// Fichas cuyo dibujo real se oculta mientras su réplica animada recorre el tablero.
-const fxHidden = new Set();
+let previousPieces = null;
+let displayedPieces = null;
+const movingPieces = new Set();
+const boardEffectTypes = new Set(['move', 'bonus', 'advance', 'leap', 'battle', 'combo', 'double', 'summon', 'rescue']);
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function later(ms, callback) {
   const timer = setTimeout(() => {
@@ -254,10 +260,11 @@ function clearEffects() {
   fxBusyTimer = null;
   fxBusy = false;
   document.body.classList.remove('fx-busy');
-  fxHidden.clear();
+  movingPieces.clear();
+  previousPieces = null;
+  displayedPieces = null;
   fxLayer.replaceChildren();
   cfx.clear();
-  lastCells = new Map();
   document.querySelector('.field')?.classList.remove('fx-shake', 'fx-shake-strong');
 }
 // Centro de una casilla en pantalla: mismo sistema de referencia que el video del escenario.
@@ -268,9 +275,11 @@ function cellPoint(cell) {
   const scale = rect.width / sceneGeometry.width;
   return { x: rect.left + geometry.x * scale, y: rect.top + geometry.y * scale, size: geometry.w * scale };
 }
-let fxCells = new Map();
+function displayedPiece(id) {
+  return displayedPieces ? displayedPieces.get(id) : rules.piece(game, id);
+}
 function pieceCell(id) {
-  return fxCells.get(id) ?? null;
+  return displayedPiece(id)?.cell ?? null;
 }
 function centerPoint() {
   const duelNode = byId('duel');
@@ -309,67 +318,65 @@ function speech(cell, text, side, life = 1100) {
     { x: point.x + (right ? 1 : -1) * point.size * .12, y: point.y - point.size * .3, size: 0 }, {}, life);
   if (bubble) bubble.textContent = text;
 }
-function tokenRect(id, cell) {
-  const rect = board.querySelector('[data-piece="' + id + '"]')?.getBoundingClientRect();
-  if (rect?.width) return rect;
+function tokenFrame(cell) {
   const point = cellPoint(cell);
-  return point && { width: point.size * TOKEN_SCALE, height: point.size * TOKEN_SCALE };
+  if (!point) return null;
+  const { w, h } = sceneGeometry.cells[cell];
+  const size = point.size * TOKEN_SCALE;
+  return { x: point.x, y: point.y + point.size * h / w * .2 - size / 2, width: size, height: size };
 }
-function hideToken(id) {
-  fxHidden.add(id);
-  board.querySelector('[data-piece="' + id + '"]')?.classList.add('fx-pending');
-}
-function showToken(id) {
-  fxHidden.delete(id);
-  board.querySelector('[data-piece="' + id + '"]')?.classList.remove('fx-pending');
-}
-// Réplica de una ficha sobre la capa de efectos (vehículo o resto antes de explotar).
-function tokenClone(piece, point, rect, className, life) {
-  const node = spawn(className, { ...point, size: 0 }, { w: rect.width + 'px', h: rect.height + 'px' }, life);
+// Réplica de una ficha sobre la capa de efectos durante su animación.
+function tokenClone(piece, point, className, life) {
+  if (!point) return null;
+  const node = spawn(className, { ...point, size: 0 }, { w: point.width + 'px', h: point.height + 'px' }, life);
   if (node) node.append(makeToken(piece));
   return node;
 }
 const DRIVE_MS = 900;
+const KNOCKOUT_MS = 1100;
+const KNOCKOUT_STAGGER_MS = 170;
 // Desplazamiento tipo camioncito: avanza a tumbos, levanta polvo y suena el motor.
 function drive(event) {
-  const piece = rules.piece(game, event.piece);
-  const from = cellPoint(event.from), to = cellPoint(event.to);
-  const rect = tokenRect(event.piece, event.to);
-  if (!piece || !from || !to || !rect) return;
+  const piece = displayedPiece(event.piece);
+  if (!piece) return;
+  const from = tokenFrame(event.from), to = tokenFrame(event.to);
   fx.play('drive', DRIVE_MS / 1000);
-  if (reducedMotion()) {
-    spawn('fx-dust', to, {}, 700);
-  } else {
-    const vehicle = tokenClone(piece, from, rect, 'fx-vehicle', DRIVE_MS + 60);
-    if (vehicle) {
-      vehicle.style.setProperty('--dx', (to.x - from.x) + 'px');
-      vehicle.style.setProperty('--dy', (to.y - from.y) + 'px');
-      vehicle.style.setProperty('--tilt', (to.x >= from.x ? 5 : -5) + 'deg');
-    }
+  const vehicle = from && to && !reducedMotion() ? tokenClone(piece, from, 'fx-vehicle', DRIVE_MS + 300) : null;
+  if (vehicle) {
+    vehicle.style.setProperty('--dx', (to.x - from.x) + 'px');
+    vehicle.style.setProperty('--dy', (to.y - from.y) + 'px');
+    vehicle.style.setProperty('--end-scale', String(to.width / from.width));
+    vehicle.style.setProperty('--tilt', (to.x >= from.x ? 5 : -5) + 'deg');
+    movingPieces.add(piece.id);
+    renderBoard();
     for (let i = 0; i < 4; i++) later(i * DRIVE_MS / 4, () => {
       const t = i / 4;
-      spawn('fx-dust small', { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t + rect.height * .35, size: rect.width * .5 }, {}, 650);
+      spawn('fx-dust small', { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t + from.height * .35, size: from.width * .5 }, {}, 650);
     });
   }
   later(DRIVE_MS, () => {
-    cfx.dust(to, 12);
-    showToken(event.piece);
+    displayedPieces?.set(piece.id, { ...piece, cell: event.to });
+    movingPieces.delete(piece.id);
+    renderBoard();
+    vehicle?.remove();
+    cfx.dust(cellPoint(event.to), 12);
     fx.play('ok');
     speech(event.to, '¡Ok!', piece.side, 950);
   });
 }
-function explodeAt(cell, big = false, id = null, attackerSide = null) {
+function defeatPiece(id, big, attackerSide) {
+  const piece = displayedPiece(id);
+  if (!piece) return;
+  const cell = piece.cell;
   const point = cellPoint(cell);
-  const piece = id && rules.piece(game, id);
   if (point) {
-    cfx.impact({ ...point, y: point.y - point.size * .1 }, piece?.side ?? 'R', big ? 2 : 1);
-    // La ficha vencida sale despedida girando, en dirección contraria al atacante.
-    if (piece && !reducedMotion()) {
-      const dir = attackerSide === 'I' ? 1 : attackerSide === 'R' ? -1 : (Math.random() < .5 ? -1 : 1);
-      const ko = tokenClone({ ...piece, cannon: false }, point, { width: point.size * .78, height: point.size * .78 }, 'fx-ko', 1100);
-      ko?.style.setProperty('--dir', String(dir));
-    }
+    cfx.impact({ ...point, y: point.y - point.size * .1 }, piece.side, big ? 2 : 1);
+    const ko = tokenClone(piece, tokenFrame(cell), 'fx-ko', KNOCKOUT_MS);
+    ko?.style.setProperty('--dir', attackerSide === 'R' || (!attackerSide && piece.side === 'I') ? '-1' : '1');
   }
+  // El cuerpo animado sustituye a la ficha en el mismo fotograma del impacto.
+  displayedPieces?.delete(id);
+  renderBoard();
   spawn('fx-explosion' + (big ? ' big' : ''), point, {}, 1200);
   spawn('fx-shockwave', point, {}, 900);
   if (!reducedMotion()) for (let i = 0; i < 8; i++) {
@@ -394,14 +401,14 @@ const powerStyles = {
 };
 function specialCall(event) {
   const point = cellPoint(pieceCell(event.piece));
-  const piece = rules.piece(game, event.piece);
+  const piece = displayedPiece(event.piece);
   const power = rules.FIRE_POWER;
   const style = powerStyles[event.animal] ?? powerStyles.tigrillo;
   fx.play('special');
   if (point) {
     spawn('fx-spotlight', { x: 0, y: 0, size: 0 }, { x: point.x + 'px', y: point.y + 'px', r: point.size * .7 + 'px' }, SPECIAL_MS);
     spawn('fx-power-aura side-' + event.side, point, { color: style.color, glow: style.glow }, SPECIAL_MS);
-    if (piece) tokenClone(piece, point, { width: point.size * .95, height: point.size * .95 }, 'fx-hero', SPECIAL_MS);
+    if (piece) tokenClone(piece, tokenFrame(piece.cell), 'fx-hero', SPECIAL_MS);
     if (!reducedMotion()) for (let i = 0; i < 26; i++) {
       const angle = Math.random() * Math.PI * 2;
       const reach = point.size * (1.2 + Math.random() * 1.6);
@@ -563,15 +570,6 @@ function applyCardForce(side, card) {
     value?.classList.add(delta > 0 ? 'bump-up' : 'bump-down');
   }
 }
-// Las fichas vencidas siguen a la vista hasta que estalla su casilla.
-function keepUntilExplosion(id, delay) {
-  const cell = pieceCell(id);
-  const piece = rules.piece(game, id);
-  const point = cellPoint(cell);
-  const rect = point && { width: point.size * .78, height: point.size * .78 };
-  if (!piece || !point || delay <= 0) return;
-  tokenClone(piece, point, rect, 'fx-remnant', delay + 80);
-}
 function effectFor(event) {
   switch (event.type) {
     case 'move':
@@ -611,8 +609,8 @@ function effectFor(event) {
       // El duelo se retira justo antes de la explosión para no tapar las fichas.
       duelHold = false;
       renderDuel();
-      event.removed.forEach((id, i) => later(i * 170, () => explodeAt(pieceCell(id), big, id, event.removed.length > 1 ? null : event.winner)));
-      later(event.removed.length * 170 + 250, () => syncCounters(true));
+      event.removed.forEach((id, i) => later(i * KNOCKOUT_STAGGER_MS, () => defeatPiece(id, big, event.winner)));
+      later(knockoutDuration(event), () => syncCounters(true));
       if (event.winner) flash(event.winner === 'I' ? '#235f82' : '#9d312f', '#ffe3a3');
       shake(big || event.removed.length > 1);
       return;
@@ -624,19 +622,31 @@ function effectFor(event) {
     case 'double':
     case 'combo':
       fx.play('explosion', true);
-      explodeAt(pieceCell(event.target), true, event.target, event.side);
-      later(300, () => syncCounters(true));
+      defeatPiece(event.target, true, event.side);
+      later(KNOCKOUT_MS, () => syncCounters(true));
       shake(true);
       return;
-    case 'summon':
+    case 'summon': {
+      const piece = displayedPiece(event.piece);
+      if (piece && displayedPieces) {
+        displayedPieces.set(piece.id, { ...piece, cannon: true });
+        renderBoard();
+      }
       fx.play('summon');
       spawn('fx-summon', cellPoint(event.cell), {}, 1300);
       return;
-    case 'rescue':
+    }
+    case 'rescue': {
+      const piece = rules.piece(game, event.piece);
+      if (piece && displayedPieces) {
+        displayedPieces.set(piece.id, { ...piece });
+        renderBoard();
+      }
       fx.play('rescue');
       spawn('fx-rescue', cellPoint(event.to), {}, 1300);
       speech(event.to, '¡Ok!', event.side, 950);
       return;
+    }
     case 'draw':
     case 'search':
       fx.play('deal');
@@ -663,31 +673,16 @@ function effectFor(event) {
 // Duración de cada animación: el siguiente evento y los banners esperan a que termine.
 const fxDurations = { move: DRIVE_MS + 800, bonus: DRIVE_MS + 800, advance: DRIVE_MS + 800,
   attack: SHOT_DELAY + SHOT_FLIGHT + 500, reveal: SHOWCASE_MS, pass: 900, 'combo-card': 700,
-  'combo-ready': 700, battle: 1100, combo: 1000, double: 1000, 'double-ready': 700, summon: 1100, rescue: 1100,
+  'combo-ready': 700, combo: KNOCKOUT_MS + 60, double: KNOCKOUT_MS + 60, 'double-ready': 700, summon: 1100, rescue: 1100,
   reward: 700, 'time-cannon': SHOT_FLIGHT + 500, end: 1400, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
+const knockoutDuration = event => KNOCKOUT_MS + (event.removed.length - 1) * KNOCKOUT_STAGGER_MS;
 function playEffects(events) {
-  // Instantánea de casillas: las fichas eliminadas conservan su posición previa.
-  const cells = new Map(lastCells);
-  for (const p of game.pieces) if (p.cell) cells.set(p.id, p.cell);
-  fxCells = cells;
   let delay = 0;
   for (const event of events) {
-    if (['move', 'bonus', 'advance'].includes(event.type)) hideToken(event.piece);
-    if (event.type === 'battle') event.removed.forEach(id => keepUntilExplosion(id, delay));
-    if (event.type === 'combo' || event.type === 'double') keepUntilExplosion(event.target, delay);
-    if (event.type === 'leap') {
-      hideToken(event.piece);
-      // Mientras se anuncia el poder, la ficha sigue en su casilla de origen.
-      const point = cellPoint(event.from);
-      const piece = rules.piece(game, event.piece);
-      if (delay > 0 && point && piece)
-        tokenClone(piece, point, { width: point.size * .78, height: point.size * .78 }, 'fx-remnant still', delay + 40);
-    }
-    if (delay) later(delay, () => { if (game) { fxCells = cells; effectFor(event); } });
+    if (delay) later(delay, () => effectFor(event));
     else effectFor(event);
-    delay += fxDurations[event.type] ?? 0;
+    delay += event.type === 'battle' ? knockoutDuration(event) + 60 : (fxDurations[event.type] ?? 0);
   }
-  lastCells = new Map(game.pieces.filter(p => p.cell).map(p => [p.id, p.cell]));
   return delay;
 }
 const settingsDialog = byId('settings');
@@ -699,7 +694,8 @@ const coinDialog = byId('coin-dialog');
 const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog, coinDialog];
 byId('coin-button').addEventListener('click', () => { if (game && !busy()) { renderCoins(); coinDialog.showModal(); } });
 const gameMenuButton = byId('game-menu-button');
-const coverHeaderActions = document.querySelector('.header-actions');
+const playMenu = byId('play-menu');
+const playOptions = byId('play-options');
 const seats = [...document.querySelectorAll('.seat')];
 let handOwner = null;
 gameMenuButton.addEventListener('click', () => gameMenu.showModal());
@@ -806,7 +802,7 @@ function makeToken(piece) {
   node.setAttribute('aria-hidden', 'true');
   const image = document.createElement('img');
   image.className = 'token-art';
-  image.src = piece.cannon ? newAsset('canon.webp')
+  image.src = piece.cannon ? cannonArt[piece.side]
     : `assets/clay/fichas/${tokenFaction[piece.side]}-${character(piece)}.webp`;
   image.alt = '';
   image.draggable = false;
@@ -1186,12 +1182,13 @@ function specialReadyPieces() {
 }
 function renderBoard() {
   const tokens = [];
+  const positions = displayedPieces && new Map([...displayedPieces.values()].map(piece => [piece.cell, piece]));
   const ready = specialReadyPieces();
   const special = specialView();
   const moves = special ? special.destinations : selection ? rules.moves(game, selection) : [];
   const targets = special ? special.targets : selection ? rules.attacks(game, selection) : [];
   for (const [cell, hex] of hexButtons) {
-    const piece = rules.occupant(game, cell);
+    const piece = positions ? positions.get(cell) : rules.occupant(game, cell);
     const star = rescueCells.has(cell);
     let target = moves.includes(cell) ? 'move' : targets.includes(piece?.id) ? 'target' : '';
     if (game.phase === 'rescue' && selection && !piece && rules.rescueTargets(game).includes(cell)) target = 'move';
@@ -1206,8 +1203,9 @@ function renderBoard() {
       target === 'target' ? 'objetivo de ataque' : target === 'move' ? 'movimiento disponible' : ''].filter(Boolean).join(', '));
     if (piece) {
       const token = makeToken(piece);
+      token.dataset.tokenCell = cell;
       if (drag?.ghost && drag.id === piece.id) token.classList.add('origin');
-      if (fxHidden.has(piece.id)) token.classList.add('fx-pending');
+      if (movingPieces.has(piece.id)) token.classList.add('fx-pending');
       if (ready.has(piece.id)) token.classList.add('ss-glow');
       // La ficha refleja el estado de su casilla (selección, objetivo, estrella).
       token.dataset.highlight = target;
@@ -1221,10 +1219,29 @@ function renderBoard() {
   }
   tokenLayer.replaceChildren(...tokens);
 }
+function dragCellAt(event, ignorePiece = null) {
+  const { clientX: x, clientY: y } = event;
+  const target = document.elementFromPoint(x, y);
+  if (!board.contains(target)) return null;
+  let hit = null;
+  let nearest = Infinity;
+  for (const token of tokenLayer.children) {
+    if (token.dataset.piece === ignorePiece) continue;
+    const rect = token.getBoundingClientRect();
+    const dx = (x - (rect.left + rect.width / 2)) / rect.width;
+    const dy = (y - (rect.top + rect.height / 2)) / rect.height;
+    const distance = dx ** 2 + dy ** 2;
+    if (distance < .18 && distance < nearest) {
+      hit = token.dataset.tokenCell;
+      nearest = distance;
+    }
+  }
+  return hit ?? target.closest('[data-cell]')?.dataset.cell ?? null;
+}
 board.addEventListener('pointerdown', event => {
   suppressClick = false;
   if (!game || isAITurn() || specialMode || dialog.open || searchDialog.open || busy() || !event.isPrimary || event.button !== 0) return;
-  const cell = event.target.closest('[data-cell]')?.dataset.cell;
+  const cell = dragCellAt(event);
   const piece = cell && rules.occupant(game, cell);
   if (!piece || !selectable(piece.id)) return;
   drag = { id: piece.id, pointer: event.pointerId, x: event.clientX, y: event.clientY, ghost: null };
@@ -1251,12 +1268,16 @@ function stopDrag(event, cancelled = false) {
   ghost.remove();
   suppressClick = true;
   setTimeout(() => { suppressClick = false; }, 0);
-  const cell = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-cell]')?.dataset.cell;
+  const cell = cancelled ? null : dragCellAt(event, id);
   renderBoard();
-  if (!cancelled && cell) proposeDestination(id, cell);
+  if (cell) proposeDestination(id, cell);
 }
 board.addEventListener('pointerup', stopDrag);
 board.addEventListener('pointercancel', event => stopDrag(event, true));
+board.addEventListener('lostpointercapture', event => {
+  // En táctil, la casilla cede su captura implícita al tablero al iniciar el arrastre.
+  if (event.target === board) stopDrag(event, true);
+});
 board.addEventListener('pointerleave', () => { if (drag && !drag.ghost) drag = null; });
 
 function play(index = null, searchTarget = null) {
@@ -1753,7 +1774,7 @@ function updateMatchClock() {
     clock.dateTime = 'PT' + seconds + 'S';
     clock.setAttribute('aria-label', 'Faltan ' + Math.floor(seconds / 60) + ' minutos y ' + seconds % 60 + ' segundos');
   }
-  if (seconds > 0) return false;
+  if (seconds > 0 || fxBusy || combatIntro) return false;
   if (!rules.finishOnTime(game)) return false;
   visibleCoins = { I: game.players.I.coins, R: game.players.R.coins };
   ended = matchDeadline;
@@ -1957,6 +1978,13 @@ function renderHudStatus() {
   }
 }
 function render() {
+  const newEvents = game.events.slice(announcedEvents);
+  // El motor aplica el resultado de inmediato. El tablero conserva la escena
+  // anterior hasta que cada evento de movimiento, invocación o derrota se presenta.
+  if (previousPieces && newEvents.some(event => boardEffectTypes.has(event.type))) {
+    displayedPieces = previousPieces;
+  }
+  previousPieces = new Map(game.pieces.filter(piece => piece.cell).map(piece => [piece.id, { ...piece }]));
   renderCoins();
   if (game.phase === 'end' && ended === null) ended = Date.now();
   byId('partida').dataset.phase = game.phase;
@@ -2016,7 +2044,7 @@ function render() {
     return item;
   }));
   // El duelo sigue a la vista mientras se animan las cartas de una batalla recién resuelta.
-  duelHold = game.events.slice(announcedEvents).some(event => event.type === 'battle');
+  duelHold ||= newEvents.some(event => event.type === 'battle');
   renderDuel();
   announceNewEvents();
   // Los contadores de fichas cambian después de la explosión, no antes.
@@ -2157,7 +2185,6 @@ function startGame(nextMode) {
   byId('partida').hidden = false;
   document.body.classList.add('playing');
   layoutScene();
-  coverHeaderActions.hidden = true;
   gameMenuButton.hidden = false;
   byId('red-ai').hidden = mode !== 'ai';
   render();
@@ -2174,9 +2201,8 @@ function returnToMenu() {
   byId('partida').hidden = true;
   document.body.classList.remove('playing', 'revealing');
   layoutScene();
-  coverHeaderActions.hidden = false;
   gameMenuButton.hidden = true;
-  byId('play-local').focus();
+  showPlayOptions(false);
   window.scrollTo(0, 0);
 }
 function confirmRestart(title, label, callback) {
@@ -2184,11 +2210,21 @@ function confirmRestart(title, label, callback) {
     confirmAction(title, 'Se cerrará la partida actual.', label, callback);
   } else callback();
 }
+function showPlayOptions(open) {
+  playMenu.setAttribute('aria-expanded', String(open));
+  playMenu.hidden = open;
+  playOptions.hidden = !open;
+  (open ? byId('help-button') : playMenu).focus({ preventScroll: true });
+}
 byId('play-local').addEventListener('click', () => startGame('local'));
 byId('play-ai').addEventListener('click', () => startGame('ai'));
-byId('menu-link').addEventListener('click', event => {
-  event.preventDefault();
-  if (game) confirmRestart('¿Volver al menú?', 'Volver al menú', returnToMenu);
+byId('play-back').addEventListener('click', () => showPlayOptions(false));
+playOptions.addEventListener('keydown', event => {
+  if (event.key === 'Escape') showPlayOptions(false);
+});
+byId('match-menu').addEventListener('click', () => {
+  gameMenu.close();
+  confirmRestart('¿Volver al menú?', 'Volver al menú', returnToMenu);
 });
 byId('restart').addEventListener('click', () => {
   gameMenu.close();
@@ -2207,7 +2243,7 @@ byId('export').addEventListener('click', () => {
 });
 
 
-// === Bienvenida y precarga: cinco segundos de presentación, sin bloquear por una red lenta. ===
+// La primera pulsación de ¡Jugar! habilita la música y precarga la partida.
 const STARTUP_MIN_MS = 5000;
 const STARTUP_MAX_MS = 8000;
 const startupImages = [
@@ -2216,7 +2252,7 @@ const startupImages = [
   'assets/clay/flor.webp', 'assets/clay/relieve.webp', 'assets/clay/jardin-izquierdo.webp',
   'assets/clay/jardin-derecho.webp', 'assets/clay/cordon.webp',
   'assets/clay/dorso-idealista.webp', 'assets/clay/dorso-realista.webp',
-  'assets/v014/cartas-aprobadas.webp', 'assets/v014/canon.webp',
+  'assets/v014/cartas-aprobadas.webp', ...Object.values(cannonArt),
   'assets/escenario/campo-andino-poster.webp', 'assets/escenario/campo-andino-fondo.webp',
   ...['rescate', 'idealista', 'realista', 'turno', 'boost', 'decisive', 'cannon', 'weaken', 'major']
     .map(name => 'assets/clay/emblemas/' + name + '.webp'),
@@ -2266,20 +2302,23 @@ function startupTasks() {
 }
 let startupStarted = false;
 function beginStartup() {
-  if (startupStarted) return;
+  if (startupStarted) {
+    showPlayOptions(true);
+    return;
+  }
   startupStarted = true;
   // Debe ocurrir en el gesto de usuario, antes de cualquier await o temporizador.
   fx.music('menu');
   const start = performance.now();
   const intro = byId('startup');
-  const continueButton = byId('startup-continue');
-  const loading = byId('startup-loading');
+  const cover = byId('inicio');
   const progress = byId('startup-progress');
   const percent = byId('startup-percent');
   const status = byId('startup-status');
-  continueButton.disabled = true;
-  continueButton.hidden = true;
-  loading.hidden = false;
+  document.body.classList.add('booting');
+  cover.hidden = true;
+  intro.hidden = false;
+  intro.focus({ preventScroll: true });
   intro.setAttribute('aria-busy', 'true');
   let tasks = [];
   try { tasks = startupTasks(); } catch (error) { console.warn('Precarga parcial', error); }
@@ -2306,15 +2345,14 @@ function beginStartup() {
       intro.hidden = true;
       intro.removeAttribute('aria-busy');
       document.body.classList.remove('booting');
-      document.querySelector('.masthead').hidden = false;
-      byId('inicio').hidden = false;
-      byId('play-local').focus({ preventScroll: true });
+      cover.hidden = false;
+      showPlayOptions(true);
     });
   };
   requestAnimationFrame(tick);
 }
-byId('startup-continue').addEventListener('click', beginStartup);
-byId('startup-continue').disabled = false;
+playMenu.addEventListener('click', beginStartup);
+playMenu.disabled = false;
 
 
 // Contenedores completos sin desplazamiento: adapta el contenido real a la altura visible.

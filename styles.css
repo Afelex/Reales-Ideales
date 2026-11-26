@@ -82,6 +82,7 @@ h2 { font: 800 1.22rem/1.15 Georgia, serif; }
 summary { cursor: pointer; }
 .help-content { margin-block: .65rem 1rem; color: var(--quiet); }
 .help-content p + p { margin-top: .6rem; }
+body.playing .tutorial-demo { display: none; }
 .play-layout {
   max-width: 72rem; margin: auto; padding: 1rem; display: grid;
   grid-template-columns: minmax(12rem, 1fr) minmax(20rem, 1.75fr) minmax(12rem, 1fr);
@@ -273,51 +274,55 @@ dialog::backdrop { background: #35231893; }
 .battle-result[data-winner="R"] { border-left: .35rem solid var(--red); }
 .battle-result[data-winner=""] { border-left: .35rem solid #795332; }
 
-.brand img { display: block; width: clamp(7rem, 16vw, 10rem); height: auto; }
 .cover {
-  max-width: 70rem; margin: .85rem auto; overflow: hidden;
-  border: 2px solid #ddaa67; border-radius: 1.3rem; isolation: isolate;
-  box-shadow: 0 5px #814b33, 0 12px 24px #40201280;
+  position: fixed; inset: 0; isolation: isolate; overflow: hidden;
+  background: #514036;
 }
-.cover-scene { position: relative; }
 .cover-art {
-  display: block; width: 100%; height: min(67dvh, 40rem);
-  object-fit: cover; object-position: 50% 58%;
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; object-fit: cover; object-position: center 65%;
+}
+.cover::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, #211c2635, transparent 26%, transparent 64%, #21141bd9);
 }
 #cover-title {
-  position: absolute; inset: 4% 0 auto;
-  width: min(30%, 18rem); margin-inline: auto;
-  filter: drop-shadow(0 4px 5px #46261790);
+  position: absolute; z-index: 1; inset: max(1.1rem, env(safe-area-inset-top)) 0 auto;
+  width: min(51vw, 28dvh, 19rem); margin-inline: auto;
+  filter: drop-shadow(0 6px 9px #33211786);
 }
 #cover-title img { display: block; width: 100%; height: auto; }
 .cover-actions {
-  display: flex; gap: .64rem; flex-wrap: wrap;
-  justify-content: center; padding: .88rem .65rem 1rem;
-  border-top: 1px solid #edc17a;
-  background: var(--floral-ornament) 2% center / min(9%, 5rem) auto no-repeat,
-    var(--floral-ornament) 98% center / min(9%, 5rem) auto no-repeat,
-    linear-gradient(#562c1c7d, #3d1c13ad), var(--terracotta) center / 24rem auto;
+  position: absolute; z-index: 1; inset: auto 0 max(1.3rem, env(safe-area-inset-bottom));
+  display: grid; justify-items: center; padding-inline: max(1rem, env(safe-area-inset-left), env(safe-area-inset-right));
 }
+.play-options {
+  width: min(100%, 39rem); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .55rem; justify-items: stretch;
+}
+.menu-play {
+  min-height: 3rem; padding: .55rem .45rem;
+  font: 800 clamp(.95rem, 2.45vw, 1.2rem)/1.2 Georgia, serif;
+}
+#play-menu { width: min(15rem, 100%); min-height: 3.45rem; font-size: 1.45rem; }
+.menu-back {
+  grid-column: 1 / -1; justify-self: center; min-width: 5.5rem; min-height: 2.55rem;
+  border-color: #f1d39a9e; color: #fff4d8; background: #2c1d2adb; box-shadow: none;
+}
+.menu-back:focus-visible { outline-color: #fff2b7; }
 @media (orientation: portrait) {
-  .cover-art { height: min(57dvh, 33rem); object-position: center; }
-  #cover-title { width: min(46%, 15rem); }
-}
-@media (orientation: landscape) and (max-height: 510px) {
-  body:not(.playing) .masthead { padding-block: .25rem .55rem; }
-  body:not(.playing) .brand img { max-height: 42px; object-fit: contain; }
-  .cover { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr); }
-  .cover-art { height: min(calc(100dvh - 5.35rem), 22rem); }
-  #cover-title { width: min(37%, 12rem); }
-  .cover-actions {
-    flex-direction: column; border-top: 0; border-left: 1px solid #edc17a;
-    padding: .7rem;
-    background: var(--floral-ornament) 50% 8% / 4rem auto no-repeat,
-      var(--floral-ornament) 50% 92% / 4rem auto no-repeat,
-      linear-gradient(#562c1c7d, #3d1c13ad), var(--terracotta) center / 24rem auto;
+  .cover::before {
+    content: ''; position: absolute; inset: -1rem;
+    background: url('assets/clay/portada-jardin.webp') 50% 65% / cover;
+    filter: blur(14px) brightness(.7);
   }
-  .cover-actions .menu-play { min-width: 0; }
+  .cover-art {
+    inset: 46% 0 auto; height: min(110vw, 82dvh); translate: 0 -50%;
+    mask-image: linear-gradient(transparent, #000 16%, #000 90%, transparent);
+  }
+  #cover-title { width: min(60vw, 30dvh, 17rem); }
+  .play-options { width: min(100%, 25rem); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.menu-play { font: 800 clamp(1rem, 2.3vw, 1.4rem)/1.2 Georgia, serif; padding: .8rem 1.15rem; min-width: min(15rem, 100%); }
 .menu-play.secondary {
   background: var(--clay-grain), var(--blue-clay); color: #fff4da;
   border-color: #e0b368;
@@ -325,12 +330,10 @@ dialog::backdrop { background: #35231893; }
 }
 .menu-play:focus-visible { outline-color: #fff2b7; }
 .drawer-toggle { --button-icon: url('assets/clay/dorso-idealista.webp'); }
-#play-local { --button-icon: url('assets/clay/emblemas/idealista.webp'); }
-#play-ai { --button-icon: url('assets/clay/emblemas/realista.webp'); }
 .end-turn { --button-icon: url('assets/clay/emblemas/turno.webp'); }
 #confirm[data-action="Mover"] { --button-icon: url('assets/clay/emblemas/boost.webp'); }
 #confirm[data-action="Atacar"] { --button-icon: url('assets/clay/emblemas/decisive.webp'); }
-.menu-play::before, .drawer-toggle::before, .end-turn::before,
+.drawer-toggle::before, .end-turn::before,
 #confirm[data-action="Mover"]::before, #confirm[data-action="Atacar"]::before {
   content: '';
   display: inline-block; vertical-align: -.31em;
@@ -355,13 +358,10 @@ dialog::backdrop { background: #35231893; }
 .duelist-role { font-size: .78rem; color: var(--quiet); }
 .duel-versus { color: #794025; font: 800 .95rem/1 Georgia, serif; }
 @media (max-width: 790px) {
-  .cover { margin-inline: .7rem; }
   .play-layout { grid-template-areas: "red blue" "phase phase" "field field" "history history"; }
   .duelist .token { width: 4.2rem; }
 }
 @media (max-width: 540px) {
-  .cover-actions { display: grid; padding: .65rem 1rem .75rem; gap: .5rem; }
-  .menu-play { width: 100%; min-width: 0; font-size: 1rem; padding-block: .55rem; }
   .field { padding: .45rem; }
 }
 
@@ -495,6 +495,7 @@ body.playing .brand img { width: clamp(4.75rem, 19vw, 7rem); height: auto; max-h
 .hud-menu-button:focus-visible, .brand:focus-visible { outline: 2px solid #fff0b0; outline-offset: 2px; }
 .game-menu-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin-block: .85rem 1rem; }
 .game-menu-actions button, #game-menu .dialog-actions button { min-height: 44px; }
+#match-menu { grid-column: 1 / -1; }
 #game-menu, #help-dialog, #history { max-height: calc(100dvh - 1rem); }
 #log { max-height: min(45dvh, 20rem); }
 body.playing .play-layout {
@@ -946,11 +947,11 @@ body.fx-busy .play-layout { pointer-events: none; }
 .token.fx-pending { visibility: hidden; }
 
 /* Ficha que avanza como un camioncito: avance a tumbos con inclinación. */
-.fx-vehicle, .fx-remnant { width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); border-radius: 0; }
-.fx-vehicle > .token, .fx-remnant > .token { width: 100%; height: 100%; }
+.fx-vehicle { width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); border-radius: 0; }
+.fx-vehicle > .token { width: 100%; height: 100%; }
 .fx-vehicle { animation: fx-travel .9s cubic-bezier(.45, .05, .4, 1) forwards; }
 .fx-vehicle > .token { animation: fx-bumpy .9s linear forwards; transform-origin: 50% 90%; }
-@keyframes fx-travel { to { transform: translate(var(--dx), var(--dy)); } }
+@keyframes fx-travel { to { transform: translate(var(--dx), var(--dy)) scale(var(--end-scale, 1)); } }
 @keyframes fx-bumpy {
   0% { transform: rotate(0) translateY(0); }
   8% { transform: rotate(calc(var(--tilt) * -1)) translateY(-1px); }
@@ -964,8 +965,6 @@ body.fx-busy .play-layout { pointer-events: none; }
   100% { transform: rotate(0) translateY(0); }
 }
 .fx-dust.small { animation-duration: .6s; }
-.fx-remnant > .token { animation: fx-tremble .18s linear infinite; }
-@keyframes fx-tremble { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1.5px); } }
 
 /* Globos de diálogo: "¡Ok!" y "¡Al ataque!". */
 .fx-bubble {
@@ -1042,7 +1041,7 @@ body.fx-busy .play-layout { pointer-events: none; }
 @keyframes fx-menu-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .fx-vehicle, .fx-vehicle > .token, .fx-remnant > .token { animation: none !important; }
+  .fx-vehicle, .fx-vehicle > .token { animation: none !important; }
   .fx-bubble, .fx-showcase { animation: fx-fade 1s ease-out forwards !important; transform: translate(0, -100%) !important; }
   .fx-showcase { transform: none !important; }
   .fx-showcase-card, .card.peeked, .card-menu { animation: none; }
@@ -1157,7 +1156,6 @@ body.playing .duelist .duel-force-value { font-size: 1.3rem; }
   .charge.ready { animation: none; }
   .fx-power-name { animation: fx-fade 1.4s ease-out forwards !important; transform: none !important; }
 }
-.fx-remnant.still > .token { animation: none; }
 
 /* === v0.16: secuencia, temporizador, botón de fuego, cartas del rival, pantallas finales === */
 /* Mientras corre una animación o un banner, las cartas y menús esperan su turno. */
@@ -1825,7 +1823,7 @@ body.playing .battle-dock .end-turn svg { width: 22px; height: 22px; }
 @media (prefers-reduced-motion: reduce) { .health-change { animation: none; } }
 
 
-/* Entrada: solo logo y Continuar; después precarga sobre el mismo fondo. */
+/* Precarga después de pulsar ¡Jugar! por primera vez. */
 body.booting { min-height: 100dvh; overflow: hidden; background: #151719; }
 body.booting::before, body.booting::after { content: none; }
 .startup {
@@ -1840,11 +1838,6 @@ body.booting::before, body.booting::after { content: none; }
   display: block; width: min(76vw, 25rem, 63dvh); height: auto;
   filter: drop-shadow(0 6px 16px #0008);
 }
-.startup-continue {
-  min-width: min(15rem, 75vw); min-height: 48px;
-  font: 800 clamp(1rem, 4vw, 1.3rem)/1.2 Georgia,serif;
-}
-.startup-continue:focus-visible { outline: 3px solid #fff0b0; }
 .startup-loading { width: min(78vw, 22rem); display: grid; gap: .6rem; }
 .startup-loading p { font: 650 .9rem/1.3 system-ui,sans-serif; }
 .startup-loading progress {
@@ -2095,13 +2088,6 @@ body.scene-full .llama-clock::after { left: 7px; bottom: -7px; }
 
 /* No se crean áreas desplazables: los contenidos de ventanas se ajustan a su marco. */
 html,body { height: 100%; max-height: 100dvh; overflow: clip; overscroll-behavior: none; }
-body:not(.playing):not(.booting) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
-body:not(.playing):not(.booting) .masthead { flex: 0 0 auto; }
-body:not(.playing):not(.booting) #inicio:not([hidden]) { flex: 1 1 auto; min-height: 0; width: min(calc(100% - 1rem),70rem); margin: .35rem auto .5rem; display: grid; grid-template-rows: minmax(0,1fr) auto; }
-body:not(.playing) .cover-scene { min-height: 0; }
-body:not(.playing) .cover-art { height: 100%; max-height: none; }
-body:not(.playing) .cover-actions { padding: .45rem; gap: .4rem; }
-@media (orientation:landscape) { body:not(.playing):not(.booting) #inicio:not([hidden]) { grid-template-columns: minmax(0,1.8fr) minmax(0,1fr); grid-template-rows: minmax(0,1fr); } }
 dialog,.stats-card,.end-card,.card-menu,#log,.search-options,.drawer-hands { overflow: clip !important; }
 dialog { max-height: calc(100dvh - 16px); max-width: calc(100vw - 16px); padding: clamp(.45rem,2.5vw,.9rem); }
 dialog::before { display: none; }
@@ -2256,7 +2242,10 @@ canvas.combat-fx { position: fixed; inset: 0; z-index: 1100; width: 100%; height
 .fx-hit-ring { border: 4px solid var(--color); box-shadow: 0 0 12px var(--color); animation: fx-hit-ring .9s ease-out forwards; }
 @keyframes fx-hit-ring { 0% { transform: scale(1.3); opacity: 0; } 25% { transform: scale(.92); opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .token-layer > .token, .fx-ko, .fx-thrown, .fx-owner-ring, .fx-hit-ring { animation: none !important; }
+  .token-layer > .token, .fx-thrown, .fx-owner-ring, .fx-hit-ring { animation: none !important; }
   .fx-thrown { transition: none; }
-  .fx-ko { display: none; }
+  .fx.fx-ko { animation: fx-ko-fade 1.05s ease-out forwards !important; }
+  .fx-ko > .token { animation: none !important; filter: none; }
 }
+
+@keyframes fx-ko-fade { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
