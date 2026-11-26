@@ -32,6 +32,7 @@ let suppressClick = false;
 let battleResult = null;
 let duel = null;
 let combatIntro = false;
+let introEffects = [];
 let started = null;
 let ended = null;
 let bannerTimer = null;
@@ -130,6 +131,11 @@ function showNextBanner() {
     bannerShowing = false;
     document.body.classList.remove('banner-on');
     if (game) {
+      if (introEffects.length) {
+        const events = introEffects;
+        introEffects = [];
+        if (startEventEffects(events)) return;
+      }
       finishCombatIntro();
       maybeShowEnd();
     }
@@ -161,14 +167,22 @@ function announceNewEvents() {
       bannerQueue.push({ kind: 'special', title: '¡FUEGO ESPECIAL LISTO!',
         subtitle: 'Toca una ficha con fuego y pulsa el icono de fuego' });
   }
-  // Primero la animación, después el banner: como en los juegos de artillería.
-  const duration = playEffects(newEvents);
-  if (duration > 0) {
-    fxBusy = true;
-    document.body.classList.add('fx-busy');
-    clearTimeout(fxBusyTimer);
-    fxBusyTimer = setTimeout(releaseEffects, duration / settings.speed);
-  } else if (!fxBusy && !bannerShowing && bannerQueue.length) showNextBanner();
+  // Ataque: primero el anuncio, después la animación, y al final las cartas.
+  if (combatIntro && newEvents.some(event => event.type === 'attack')) {
+    introEffects = newEvents;
+    showNextBanner();
+    return;
+  }
+  if (!startEventEffects(newEvents) && !fxBusy && !bannerShowing && bannerQueue.length) showNextBanner();
+}
+function startEventEffects(events) {
+  const duration = playEffects(events);
+  if (!(duration > 0)) return false;
+  fxBusy = true;
+  document.body.classList.add('fx-busy');
+  clearTimeout(fxBusyTimer);
+  fxBusyTimer = setTimeout(releaseEffects, duration / settings.speed);
+  return true;
 }
 function releaseEffects() {
   fxBusy = false;
@@ -185,8 +199,9 @@ function releaseEffects() {
   else if (!bannerShowing) { finishCombatIntro(); scheduleProgress(); }
 }
 function finishCombatIntro() {
-  if (!combatIntro || fxBusy || bannerShowing || bannerQueue.length) return;
+  if (!combatIntro || introEffects.length || fxBusy || bannerShowing || bannerQueue.length) return;
   combatIntro = false;
+  introEffects = [];
   document.body.classList.remove('combat-intro');
   if (game?.phase === 'reveal') { renderDuel(); syncTimer(); layoutScene(); }
 }
@@ -1662,6 +1677,7 @@ function updateMatchClock() {
   selection = null;
   duel = null;
   combatIntro = false;
+  introEffects = [];
   document.body.classList.remove('combat-intro');
   battleResult = null;
   clearSpecial();
@@ -1985,6 +2001,7 @@ function resetPresentation() {
   if (searchDialog.open) searchDialog.close();
   if (rescueDialog.open) rescueDialog.close();
   combatIntro = false;
+  introEffects = [];
   document.body.classList.remove('combat-intro');
   drag?.ghost?.remove();
   drag = null;
