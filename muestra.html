@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Combate de muestra de Reales Ideales: prueba de calidad visual y sonora.">
+  <title>Reales Ideales · Combate de muestra</title>
+  <link rel="stylesheet" href="muestra.css?v=001">
+  <script defer src="assets/vendor/pixi-8.19.0.min.js"></script>
+  <script defer src="game.js"></script>
+  <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
+  <script defer src="muestra.js?v=001"></script>
+</head>
+<body>
+  <div id="stage" class="stage" aria-hidden="true"></div>
+
+  <header class="demo-top">
+    <a class="demo-back" href="index.html">Volver al juego</a>
+    <h1>Combate de muestra</h1>
+    <button id="demo-sound" class="demo-icon" type="button" aria-pressed="true" aria-label="Sonido activado">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 9.5h3.2L12 5.2v13.6l-4.8-4.3H4z"/><path class="on" d="M15.2 9.1a4 4 0 0 1 0 5.8M17.6 6.6a7.5 7.5 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="off" d="M15.5 9.5l5 5M20.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <p id="demo-caption" class="demo-caption" role="status" aria-live="polite">Elige un ataque para ver el combate.</p>
+
+  <nav class="demo-actions" aria-label="Variantes del combate">
+    <button type="button" data-scene="normal">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20 15 9M14 4l6 6-3 1-4-4zM5 15l4 4-2 2-4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Ataque<small>con cartas</small></span>
+    </button>
+    <button type="button" data-scene="fire" class="fire">
+      <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M32 4c4 10 14 16 14 30a14 14 0 0 1-28 0c0-8 4-12 7-16 1 5 3 8 6 9-1-9 0-16 1-23z" fill="currentColor"/></svg>
+      <span>Fuego<small>Especial +3</small></span>
+    </button>
+    <button type="button" data-scene="decisive">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor"/></svg>
+      <span>Golpe<small>decisivo</small></span>
+    </button>
+  </nav>
+
+  <div id="demo-start" class="demo-start">
+    <img src="assets/logo.webp" alt="Reales Ideales" width="220" height="112">
+    <p>Prueba de calidad visual y sonora: animación, efectos, cámara y sonido.</p>
+    <button id="demo-begin" type="button">Empezar</button>
+    <p id="demo-loading" class="demo-loading" hidden>Cargando…</p>
+  </div>
+  <noscript>Esta muestra necesita JavaScript.</noscript>
+</body>
+</html>

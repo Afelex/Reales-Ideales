@@ -1,0 +1,70 @@
+/* Combate de muestra: página aislada para probar la calidad visual y sonora. */
+:root { color-scheme: light; --ink: #2c1a12; --cream: #fff4dc; --gold: #f0b52e; --fire: #e8431c; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; overflow: hidden; overscroll-behavior: none; color: var(--ink);
+  font: 16px/1.35 system-ui, sans-serif;
+  background: #2d4a22 url('assets/escenario/campo-andino-fondo.webp') center / cover no-repeat;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.stage, .stage canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+.demo-top {
+  position: fixed; z-index: 5; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; gap: .5rem;
+  padding: max(.5rem, env(safe-area-inset-top)) .7rem .5rem;
+  background: linear-gradient(#1a0d07cc, #1a0d0700);
+}
+.demo-top h1 { flex: 1; margin: 0; text-align: center; color: var(--cream);
+  font: 900 clamp(1rem, 4.4vw, 1.3rem)/1.1 Georgia, serif; text-shadow: 0 2px 0 #2c1a12; }
+.demo-back, .demo-icon {
+  display: inline-grid; place-items: center; min-height: 40px; padding: .35rem .75rem; border-radius: .7rem;
+  background: #fff4dc; color: var(--ink); border: 2px solid #8a5a2b; font-weight: 800; font-size: .9rem; text-decoration: none;
+  box-shadow: 0 3px 0 #6b3f1c;
+}
+.demo-icon { width: 44px; padding: 0; cursor: pointer; }
+.demo-icon .off, .demo-icon[aria-pressed="false"] .on { display: none; }
+.demo-icon[aria-pressed="false"] .off { display: inline; }
+
+.demo-caption {
+  position: fixed; z-index: 5; left: 50%; translate: -50% 0; top: calc(3.7rem + env(safe-area-inset-top));
+  width: min(26rem, calc(100vw - 1.4rem)); margin: 0; padding: .45rem .8rem; border-radius: .7rem;
+  background: #1a0d07cc; color: var(--cream); text-align: center; font-weight: 750; font-size: clamp(.9rem, 3.6vw, 1rem);
+}
+.demo-actions {
+  position: fixed; z-index: 5; left: 0; right: 0; bottom: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem;
+  padding: .6rem .7rem max(.7rem, env(safe-area-inset-bottom));
+  background: linear-gradient(#1a0d0700, #1a0d07d9 35%);
+}
+.demo-actions button {
+  display: flex; align-items: center; justify-content: center; gap: .4rem; min-height: 4.4rem; padding: .4rem;
+  border-radius: 1rem; border: 3px solid #fff0b0; cursor: pointer;
+  background: linear-gradient(#fff6dc, #f1cf93); color: var(--ink); box-shadow: 0 4px 0 #6b3f1c, 0 6px 14px #0007;
+  font: 900 clamp(.95rem, 4vw, 1.1rem)/1.05 Georgia, serif; text-align: left;
+}
+.demo-actions button small { display: block; font: 700 clamp(.72rem, 3vw, .82rem)/1.1 system-ui, sans-serif; opacity: .85; }
+.demo-actions button svg { width: 1.7rem; height: 1.7rem; flex: none; }
+.demo-actions button.fire { background: radial-gradient(circle at 50% 75%, #fff3a0 0 10%, #ffb02e 38%, #e8431c 75%, #7a1608); color: #fff; text-shadow: 0 2px 0 #5a1006; }
+.demo-actions button:active { translate: 0 3px; box-shadow: 0 1px 0 #6b3f1c; }
+.demo-actions button:disabled { filter: grayscale(.7) brightness(.85); cursor: default; }
+.demo-actions button:focus-visible, .demo-back:focus-visible, .demo-icon:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+.demo-start {
+  position: fixed; z-index: 10; inset: 0; display: grid; place-content: center; justify-items: center; gap: 1rem;
+  padding: 1.5rem; text-align: center; color: var(--cream);
+  background: radial-gradient(circle at 50% 40%, #2c1a12cc, #0a0503f0);
+}
+.demo-start img { width: min(15rem, 70vw); height: auto; filter: drop-shadow(0 6px 10px #000a); }
+.demo-start p { max-width: 22rem; margin: 0; font-weight: 650; }
+.demo-start button {
+  min-width: 11rem; min-height: 3.4rem; border-radius: 1rem; border: 3px solid #fff0b0; cursor: pointer;
+  background: linear-gradient(#ffe08a, #f0a52e); color: var(--ink); font: 900 1.25rem Georgia, serif; box-shadow: 0 4px 0 #6b3f1c;
+}
+.demo-start[hidden] { display: none; }
+.demo-loading { opacity: .8; }
+
+@media (min-width: 760px) {
+  .demo-actions { left: 50%; right: auto; translate: -50% 0; width: min(36rem, 100vw); border-radius: 1.2rem 1.2rem 0 0; }
+}
