@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=032-reloj">
-  <script defer src="game.js?v=032-reloj"></script>
-  <script defer src="ai.js?v=032-reloj"></script>
+  <link rel="stylesheet" href="styles.css?v=033-monedas">
+  <script defer src="game.js?v=033-monedas"></script>
+  <script defer src="ai.js?v=033-monedas"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="fx.js?v=032-reloj"></script>
-  <script defer src="app.js?v=032-reloj"></script>
+  <script defer src="fx.js?v=033-monedas"></script>
+  <script defer src="app.js?v=033-monedas"></script>
 </head>
 <body class="booting">
   <section id="startup" class="startup" aria-label="Bienvenida a Reales Ideales">
@@ -117,6 +117,7 @@
         <div id="hud-hand" class="hud-hand" role="group" aria-label="Tus cartas"></div>
         <div id="actions" class="actions"></div>
       </div>
+      <div class="coin-hud" role="group" aria-label="Monedas de esta partida"><span class="coin-side" data-side="R" aria-label="Monedas realistas"><i class="coin-icon" aria-hidden="true"></i><b id="coins-R">0</b></span><span class="coin-caption">Monedas</span><span class="coin-side" data-side="I" aria-label="Monedas idealistas"><i class="coin-icon" aria-hidden="true"></i><b id="coins-I">0</b></span></div>
       <p id="special-hint" class="special-hint" aria-live="polite" hidden></p>
     </section>
   </main>
@@ -176,6 +177,7 @@
       <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. Tu reserva permanece visible; toca una carta para ver su ilustración y efecto. Sobre el tablero se muestran las dos oportunidades de carta por bando y su fuerza acumulada; un pase aparece como Sin carta. Nunca se muestra la reserva rival. En partidas locales, entrega el dispositivo antes de revelar la reserva del siguiente jugador.</p>
       <p><b>Fuego Especial:</b> acumula un segmento al empezar cada turno propio. Con tres, selecciona una ficha normal con enemigo a una o dos casillas, pulsa el fuego y elige el objetivo. Todas las fichas normales suman +3 de fuerza al atacar a un enemigo adyacente. Si está a dos casillas, puedes acercarte por una casilla libre y atacar, consumiendo también el movimiento. Ambos jugadores conservan sus dos cartas. La carga vuelve a cero y los cañones no pueden usarlo.</p>
       <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha perdida en tu zona inicial o guarda la oportunidad. En un turno propio posterior, toca la estrella guardada y recupera una ficha en cualquier hexágono libre, sin gastar movimiento ni ataque.</p>
+      <p><b>Monedas:</b> 10 por combate potente (fuerza final de 3 o más, Fuego Especial o Golpe decisivo) y 20 por cada baja causada al ganar. No cambian el resultado de la partida.</p>
       <p><b>Victoria:</b> elimina todas las fichas rivales o conserva más al final de la ronda 12.</p>
     </div>
     <form method="dialog" class="dialog-actions"><button class="primary">Listo</button></form>
