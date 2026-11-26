@@ -941,6 +941,7 @@ function layoutScene() {
     const heading = byId('active-side').closest('.field-heading');
     document.body.style.setProperty('--hud-turn-top', (hudBottom + 4) + 'px');
     hudBottom = Math.max(hudBottom, heading.getBoundingClientRect().bottom);
+    document.body.style.setProperty('--rival-strip-top', (hudBottom + 4) + 'px');
     const rivalStrip = byId('rival-played');
     if (!rivalStrip.hidden) hudBottom = Math.max(hudBottom, rivalStrip.getBoundingClientRect().bottom);
     const dockTop = controls.getBoundingClientRect().top;
@@ -957,7 +958,7 @@ function layoutScene() {
     // Coordenadas del globo respecto al fotograma, con límites para móviles estrechos.
     const clock = byId('match-clock');
     const rect = board.getBoundingClientRect();
-    const cx = rect.left + rect.width * .71;
+    const cx = Math.max(rect.left + rect.width * .71, heading.getBoundingClientRect().right + clock.offsetWidth / 2 + 5);
     const cy = rect.top + rect.height * .205;
     clock.style.setProperty('--clock-x', Math.max(clock.offsetWidth / 2 + 8, Math.min(vw - clock.offsetWidth / 2 - 8, cx)) + 'px');
     clock.style.setProperty('--clock-y', Math.max(heading.getBoundingClientRect().top + 25, Math.min(top * scale + y - 35, cy)) + 'px');
