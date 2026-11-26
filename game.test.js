@@ -426,3 +426,57 @@ test('atacar primero conserva el movimiento normal y el turno puede terminar sin
   for (const p of s.pieces) if (p.side === 'I') p.cell = null;
   assert.deepEqual(G.turnActions(s), { move: 'waiting', attack: 'spent' });
 });
+
+function earnTestStar(s,side) {
+  const own=side==='I'?'I':'R', other=side==='I'?'R':'I';
+  G.piece(s,own+'1').cell=null;
+  G.piece(s,own+'2').cell=side==='I'?'B9':'B3';
+  G.piece(s,other+(side==='I'?'2':'3')).cell=null;
+  G.piece(s,other+(side==='I'?'3':'2')).cell=null;
+  assert.equal(G.move(s,own+'2',side==='I'?'B11':'B1'),true);
+  assert.equal(s.phase,'rescue');
+}
+test('guardar estrella habilita rescate en cualquier hexágono libre desde el próximo turno propio', () => {
+  const s=setup(); earnTestStar(s,'I');
+  assert.equal(G.rescue(s,null),true);
+  assert.equal(s.players.I.rescues,1);
+  assert.equal(s.players.I.savedRescues.length,1);
+  assert.equal(G.startSavedRescue(s),false);
+  G.nextTurn(s); assert.equal(G.canUseSavedRescue(s,'I'),false);
+  G.nextTurn(s); assert.equal(G.startSavedRescue(s),true);
+  assert.equal(G.rescueTargets(s).includes('C6'),true);
+  assert.equal(G.rescue(s,'I1','B11'),false);
+  assert.equal(G.rescue(s,'R3','C6'),false);
+  assert.equal(G.rescue(s,'I1','Z9'),false);
+  assert.equal(G.rescue(s,'I1','C6'),true);
+  assert.equal(G.piece(s,'I1').cell,'C6');
+  assert.equal(s.players.I.savedRescues.length,0);
+  assert.equal(s.players.I.rescues,1);
+  assert.equal(s.actions,0);
+  assert.equal(s.attacked,false);
+  assert.equal(s.moved.length,0);
+  assert.equal(G.startSavedRescue(s),false);
+});
+test('rescate inmediato usa zona inicial; volver a guardar no duplica ni consume la reserva', () => {
+  const s=setup(); earnTestStar(s,'I');
+  assert.equal(G.rescue(s,'I1','C6'),false);
+  assert.equal(G.rescue(s,null),true);
+  G.nextTurn(s); G.nextTurn(s);
+  assert.equal(G.startSavedRescue(s),true);
+  assert.equal(G.rescue(s,null),true);
+  assert.equal(s.players.I.savedRescues.length,1);
+  assert.equal(s.players.I.rescues,1);
+  assert.equal(G.startSavedRescue(s),true);
+  assert.equal(G.rescue(s,'I1','C6'),true);
+  assert.equal(s.players.I.savedRescues.length,0);
+});
+test('rescate guardado restaura ficha normal y es simétrico para los realistas', () => {
+  const s=setup(); G.nextTurn(s); earnTestStar(s,'R');
+  G.piece(s,'R1').cannon=true;
+  assert.equal(G.rescue(s,null),true);
+  G.nextTurn(s); G.nextTurn(s);
+  assert.equal(G.startSavedRescue(s),true);
+  assert.equal(G.rescue(s,'R1','C6'),true);
+  assert.equal(G.piece(s,'R1').cannon,false);
+  assert.equal(s.players.R.rescues,1);
+});

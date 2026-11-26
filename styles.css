@@ -2003,3 +2003,35 @@ body.fx-busy .controls .battle-result { visibility: hidden; }
   body.playing #duel.battle-cards:not([hidden]) { gap: 1rem; }
 }
 @media (prefers-reduced-motion:reduce) { .played-arrival { animation: none; } }
+
+
+/* 031: presentación de ataque y selección de cartas son etapas separadas. */
+body.combat-intro #duel, body.combat-intro #phase-indicator,
+body.combat-intro .controls .instructions, body.combat-intro .battle-dock .actions { visibility: hidden; }
+body.scene-full.revealing .round-count { display: inline-flex; }
+body.playing .turn-timer.no-decision small { display: none; }
+body.scene-full .field-heading .turn-marker { margin-top: .1rem; }
+.saved-rescue-badge { padding: .1rem .25rem; border: 1px solid #ffe3a0; border-radius: .3rem; color: #ffdf8e; background: #263c32; }
+.saved-rescue-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: .18rem;
+  min-height: 32px; min-width: 38px; padding: .15rem .4rem; border-radius: .5rem;
+  background: #45371c; border: 1px solid #ffdf83; color: #fff2c9;
+  box-shadow: 0 0 8px #ffd46c80; pointer-events: auto;
+}
+.saved-rescue-button img { width: 20px; height: 20px; object-fit: contain; }
+body.playing .action-status:has(.saved-rescue-button:not([hidden])) { width: min(100%,34rem); justify-content: flex-end; }
+body.playing .saved-rescue-button:not([hidden]) { margin-right: auto; }
+.rescue-dialog {
+  width: min(90vw,25rem); max-height: min(80dvh,32rem); padding: .9rem;
+  border: 2px solid #d9af69; border-radius: .9rem; text-align: center; background: #f5e0b8;
+  color: #3b2819; box-shadow: 0 8px 30px #1c160f99;
+}
+.rescue-dialog h2 { font: 850 1.1rem/1.2 Georgia,serif; }
+.rescue-pieces { display: grid; grid-template-columns: repeat(auto-fit,minmax(66px,1fr)); gap: .5rem; margin: .8rem 0; }
+.rescue-piece {
+  min-height: 70px; display: grid; place-items: center; border: 1px solid #ba925b;
+  border-radius: .65rem; padding: .2rem; background: #f8edcf; touch-action: manipulation;
+}
+.rescue-piece .token { position: static; display: block; width: min(100%,4.1rem); aspect-ratio: 1; height: auto; }
+.rescue-piece .token img { display: block; width: 100%; height: auto; }
+.rescue-dialog #rescue-save { min-height: 42px; min-width: 8rem; }

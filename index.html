@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=030-cartas">
-  <script defer src="game.js?v=030-cartas"></script>
-  <script defer src="ai.js?v=030-cartas"></script>
+  <link rel="stylesheet" href="styles.css?v=031-rescates">
+  <script defer src="game.js?v=031-rescates"></script>
+  <script defer src="ai.js?v=031-rescates"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="fx.js?v=030-cartas"></script>
-  <script defer src="app.js?v=030-cartas"></script>
+  <script defer src="fx.js?v=031-rescates"></script>
+  <script defer src="app.js?v=031-rescates"></script>
 </head>
 <body class="booting">
   <section id="startup" class="startup" aria-label="Bienvenida a Reales Ideales">
@@ -52,7 +52,7 @@
         </div>
       </div>
       <div class="seat-stats">
-        <span class="seat-stat" title="Rescates disponibles"><img src="assets/clay/emblemas/rescate.webp" alt="" width="14" height="14"><span class="sr-only">Rescates disponibles </span><b id="red-rescues">2</b></span>
+        <span class="seat-stat" title="Rescates disponibles"><img src="assets/clay/emblemas/rescate.webp" alt="" width="14" height="14"><span class="sr-only">Rescates disponibles </span><b id="red-rescues">2</b><b id="red-saved" class="saved-rescue-badge" hidden></b></span>
         <span class="seat-stat" title="Cartas en el mazo"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M5 7H4v12a3 3 0 0 0 3 3M12 9h4m-4 4h4"/></svg><span class="sr-only">Cartas en el mazo </span><b id="deck-R">25</b></span>
         <span class="seat-turn" aria-hidden="true">Turno</span>
         <span id="charge-R" class="charge" role="img" title="Carga de ataque especial" aria-label="Ataque especial: 1 de 3"><i></i><i></i><i></i></span>
@@ -68,7 +68,7 @@
         </div>
       </div>
       <div class="seat-stats">
-        <span class="seat-stat" title="Rescates disponibles"><img src="assets/clay/emblemas/rescate.webp" alt="" width="14" height="14"><span class="sr-only">Rescates disponibles </span><b id="blue-rescues">2</b></span>
+        <span class="seat-stat" title="Rescates disponibles"><img src="assets/clay/emblemas/rescate.webp" alt="" width="14" height="14"><span class="sr-only">Rescates disponibles </span><b id="blue-rescues">2</b><b id="blue-saved" class="saved-rescue-badge" hidden></b></span>
         <span class="seat-stat" title="Cartas en el mazo"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="8" y="4" width="12" height="16" rx="2"/><path d="M5 7H4v12a3 3 0 0 0 3 3M12 9h4m-4 4h4"/></svg><span class="sr-only">Cartas en el mazo </span><b id="deck-I">25</b></span>
         <span class="seat-turn" aria-hidden="true">Turno</span>
         <span id="charge-I" class="charge" role="img" title="Carga de ataque especial" aria-label="Ataque especial: 1 de 3"><i></i><i></i><i></i></span>
@@ -96,6 +96,7 @@
       <p id="instructions" class="instructions" role="status"></p>
       <p id="battle-result" class="battle-result" role="status" hidden></p>
       <div id="action-status" class="action-status" role="group" aria-label="Acciones de turno" hidden>
+        <button id="saved-rescue-button" class="saved-rescue-button" type="button" hidden title="Usar estrella guardada"><img src="assets/clay/emblemas/rescate.webp" alt="" width="20" height="20"><b id="saved-rescue-count">0</b></button>
         <span id="move-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg><span>Mover</span></span>
         <span id="attack-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 3 16 16M3 4l2 7 4-4M16 17l4-4M18 21l3-3M20 3 4 19M21 4l-2 7-4-4M8 17l-4-4M6 21l-3-3"/></svg><span>Atacar</span></span>
       </div>
@@ -148,6 +149,11 @@
       </div>
     </div>
   </section>
+  <dialog id="rescue-dialog" class="rescue-dialog" aria-labelledby="rescue-title">
+    <h2 id="rescue-title">Recupera una ficha</h2>
+    <div id="rescue-pieces" class="rescue-pieces" role="group" aria-label="Fichas perdidas"></div>
+    <button id="rescue-save" type="button" class="secondary">Guardar</button>
+  </dialog>
   <dialog id="game-menu" aria-labelledby="game-menu-title">
     <h2 id="game-menu-title">Opciones de partida</h2>
     <div class="game-menu-actions">
@@ -167,7 +173,7 @@
       <p><b>Fuerza:</b> todas las fichas empiezan con 0. El cañón suma +2 al atacar. En empate salen ambas fichas.</p>
       <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. Tu reserva permanece visible; toca una carta para ver su ilustración y efecto. Sobre el tablero se muestran las dos oportunidades de carta por bando y su fuerza acumulada; un pase aparece como Sin carta. Nunca se muestra la reserva rival. En partidas locales, entrega el dispositivo antes de revelar la reserva del siguiente jugador.</p>
       <p><b>Fuego Especial:</b> acumula un segmento al empezar cada turno propio. Con tres, selecciona una ficha normal con enemigo a una o dos casillas, pulsa el fuego y elige el objetivo. Todas las fichas normales suman +3 de fuerza al atacar a un enemigo adyacente. Si está a dos casillas, puedes acercarte por una casilla libre y atacar, consumiendo también el movimiento. Ambos jugadores conservan sus dos cartas. La carga vuelve a cero y los cañones no pueden usarlo.</p>
-      <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha.</p>
+      <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha perdida en tu zona inicial o guarda la oportunidad. En un turno propio posterior, toca la estrella guardada y recupera una ficha en cualquier hexágono libre, sin gastar movimiento ni ataque.</p>
       <p><b>Victoria:</b> elimina todas las fichas rivales o conserva más al final de la ronda 12.</p>
     </div>
     <form method="dialog" class="dialog-actions"><button class="primary">Listo</button></form>

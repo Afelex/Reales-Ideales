@@ -31,6 +31,8 @@ let drag = null;
 let suppressClick = false;
 let battleResult = null;
 let duel = null;
+let combatIntro = false;
+let introEffects = [];
 let started = null;
 let ended = null;
 let bannerTimer = null;
@@ -38,6 +40,7 @@ let bannerQueue = [];
 let bannerShowing = false;
 let announcedEvents = 0;
 const searchDialog = byId('search-choice');
+const rescueDialog = byId('rescue-dialog');
 const controls = actions.closest('.controls');
 // === Ajustes del jugador (se guardan en este navegador) ===
 const SETTINGS_KEY = 'reales-ideales-ajustes';
@@ -127,7 +130,15 @@ function showNextBanner() {
     byId('phase-banner').hidden = true;
     bannerShowing = false;
     document.body.classList.remove('banner-on');
-    if (game) maybeShowEnd();
+    if (game) {
+      if (introEffects.length) {
+        const events = introEffects;
+        introEffects = [];
+        if (startEventEffects(events)) return;
+      }
+      finishCombatIntro();
+      maybeShowEnd();
+    }
     scheduleProgress();
     return;
   }
@@ -156,14 +167,22 @@ function announceNewEvents() {
       bannerQueue.push({ kind: 'special', title: '¡FUEGO ESPECIAL LISTO!',
         subtitle: 'Toca una ficha con fuego y pulsa el icono de fuego' });
   }
-  // Primero la animación, después el banner: como en los juegos de artillería.
-  const duration = playEffects(newEvents);
-  if (duration > 0) {
-    fxBusy = true;
-    document.body.classList.add('fx-busy');
-    clearTimeout(fxBusyTimer);
-    fxBusyTimer = setTimeout(releaseEffects, duration / settings.speed);
-  } else if (!fxBusy && !bannerShowing && bannerQueue.length) showNextBanner();
+  // Ataque: primero el anuncio, después la animación, y al final las cartas.
+  if (combatIntro && newEvents.some(event => event.type === 'attack')) {
+    introEffects = newEvents;
+    showNextBanner();
+    return;
+  }
+  if (!startEventEffects(newEvents) && !fxBusy && !bannerShowing && bannerQueue.length) showNextBanner();
+}
+function startEventEffects(events) {
+  const duration = playEffects(events);
+  if (!(duration > 0)) return false;
+  fxBusy = true;
+  document.body.classList.add('fx-busy');
+  clearTimeout(fxBusyTimer);
+  fxBusyTimer = setTimeout(releaseEffects, duration / settings.speed);
+  return true;
 }
 function releaseEffects() {
   fxBusy = false;
@@ -177,7 +196,14 @@ function releaseEffects() {
     renderDuel();
   }
   if (!bannerShowing && bannerQueue.length) showNextBanner();
-  else scheduleProgress();
+  else if (!bannerShowing) { finishCombatIntro(); scheduleProgress(); }
+}
+function finishCombatIntro() {
+  if (!combatIntro || introEffects.length || fxBusy || bannerShowing || bannerQueue.length) return;
+  combatIntro = false;
+  introEffects = [];
+  document.body.classList.remove('combat-intro');
+  if (game?.phase === 'reveal') { renderDuel(); syncTimer(); layoutScene(); }
 }
 // La partida espera mientras se muestran efectos o una opción del menú.
 function busy() {
@@ -670,6 +696,7 @@ function describe(event, index = game.events.indexOf(event)) {
     case 'advance': return nameOf(event.piece) + ' avanza tras la victoria.';
     case 'leap': return nameOf(event.piece) + ' se acerca con el Fuego Especial.';
     case 'rescue': return rules.SIDE[event.side] + ' rescatan a ' + nameOf(event.piece) + '.';
+    case 'rescue-saved': return rules.SIDE[event.side] + ' guardan una estrella de rescate.';
     case 'attack': return nameOf(event.piece) + ' ataca a ' + nameOf(event.target) + '.';
     case 'special': return nameOf(event.piece) + ' lanza ' + event.power + '.';
     case 'summon': return nameOf(event.piece) + ' se convierte en cañón.';
@@ -977,6 +1004,8 @@ function clearSpecial() {
 }
 function startSpecial(attacker, defender, at) {
   if (!rules.specialAttack(game, attacker.id, defender.id, at)) return;
+  combatIntro = true;
+  document.body.classList.add('combat-intro');
   battleResult = null;
   // El duelo muestra la ficha tal como empieza el combate (ya en su casilla de ataque).
   duel = [{ ...attacker }, { ...rules.piece(game, defender.id) }];
@@ -1007,6 +1036,8 @@ function proposeDestination(id, cell) {
 }
 function startAttack(attacker, defender) {
   if (!rules.attack(game, attacker.id, defender.id)) return;
+  combatIntro = true;
+  document.body.classList.add('combat-intro');
   battleResult = null;
   duel = [{ ...attacker }, { ...defender }];
   duelPlayed = { I: [], R: [] };
@@ -1072,7 +1103,7 @@ function renderBoard() {
     const piece = rules.occupant(game, cell);
     const star = rescueCells.has(cell);
     let target = moves.includes(cell) ? 'move' : targets.includes(piece?.id) ? 'target' : '';
-    if (game.phase === 'rescue' && selection && !piece && rules.ZONES[game.rescue.side].includes(cell)) target = 'move';
+    if (game.phase === 'rescue' && selection && !piece && rules.rescueTargets(game).includes(cell)) target = 'move';
     if (special && cell === special.at && specialAt) target = 'origin';
     if (special && piece?.id === selection) hex.dataset.power = 'true';
     else delete hex.dataset.power;
@@ -1361,12 +1392,8 @@ function renderControls() {
       button(actions, 'Omitir avance', () => { selection = null; rules.skipBonus(game); render(); }, 'secondary');
       break;
     case 'rescue':
-      say('Rescate de ' + rules.SIDE[game.rescue.side], selection
-        ? 'Coloca a ' + nameOf(selection) + ' en una de tus casillas de despliegue libres.'
-        : 'Elige la ficha que volverá al tablero como ficha normal.');
-      game.pieces.filter(piece => !piece.cell && piece.side === game.rescue.side).forEach(piece =>
-        button(actions, 'Rescatar a ' + animals[character(piece)], () => { selection = piece.id; render(); }, 'primary'));
-      button(actions, 'Guardar marcador', () => { rules.rescue(game, null); selection = null; render(); }, 'secondary');
+      say('Rescate', selection ? 'Toca una casilla libre marcada.' : 'Elige una ficha perdida.');
+      if (selection) button(actions, 'Guardar', saveRescueChoice, 'secondary');
       break;
     case 'end':
       say(game.winner ? 'Ganan los ' + rules.SIDE[game.winner].toLowerCase() : 'Empate',
@@ -1374,6 +1401,49 @@ function renderControls() {
           : game.reason === 'eliminación' ? 'Partida decidida por las últimas fichas.' : 'Se completaron las 12 rondas.');
       break;
   }
+}
+// Rescate: selección visual, después colocación en el tablero.
+function saveRescueChoice() {
+  if (!game || game.phase !== 'rescue' || isAITurn()) return;
+  if (!rules.rescue(game, null)) return;
+  selection = null;
+  if (rescueDialog.open) rescueDialog.close();
+  render();
+}
+function showRescuePicker() {
+  if (!game || game.phase !== 'rescue' || selection || isAITurn() || busy() ||
+      dialog.open || searchDialog.open || rescueDialog.open) return;
+  const list = byId('rescue-pieces');
+  list.replaceChildren();
+  for (const p of game.pieces.filter(p => p.side === game.rescue.side && !p.cell)) {
+    const choice = button(list, '', () => {
+      if (!game || game.phase !== 'rescue') return;
+      selection = p.id;
+      rescueDialog.close();
+      render();
+    }, 'rescue-piece');
+    choice.title = pieceName(p);
+    choice.setAttribute('aria-label', 'Recuperar ' + pieceName(p));
+    choice.append(makeToken({ ...p, cannon: false }));
+  }
+  rescueDialog.showModal();
+}
+byId('rescue-save').addEventListener('click',saveRescueChoice);
+rescueDialog.addEventListener('cancel',event => { event.preventDefault(); saveRescueChoice(); });
+byId('saved-rescue-button').addEventListener('click',() => {
+  if (!game || busy() || isAITurn() || dialog.open || searchDialog.open || !rules.startSavedRescue(game)) return;
+  selection = null;
+  clearSpecial();
+  render();
+});
+function renderSavedRescue() {
+  const button = byId('saved-rescue-button');
+  const side = game.turn;
+  const count = rules.availableSavedRescues(game,side);
+  const ready = rules.canUseSavedRescue(game,side) && !isAITurn();
+  button.hidden = !ready;
+  byId('saved-rescue-count').textContent = count;
+  button.setAttribute('aria-label','Usar estrella guardada: ' + count + ' disponibles');
 }
 // === Fuerza de combate visible ===
 // Replica el cálculo de game.js con las cartas ya mostradas en pantalla,
@@ -1453,7 +1523,7 @@ function positionDuel() {
 }
 function renderDuel(fresh = null) {
   const view = byId('duel');
-  view.hidden = !duel || (game.phase !== 'reveal' && !duelHold);
+  view.hidden = !duel || combatIntro || (game.phase !== 'reveal' && !duelHold);
   view.replaceChildren();
   if (view.hidden) return;
   preparePlayedCardPngs();
@@ -1527,9 +1597,14 @@ function timerContext() {
 function syncTimer() {
   const key = timerContext();
   const node = byId('turn-timer');
-  node.hidden = !key;
+  node.hidden = !game || game.phase === 'end';
   if (!key) {
     timerKey = null;
+    byId('turn-timer-value').textContent = '—';
+    node.classList.add('no-decision');
+    node.classList.remove('warning');
+    node.style.setProperty('--progress','0');
+    node.setAttribute('aria-label','Sin cuenta regresiva de decisión');
     return;
   }
   if (key !== timerKey) {
@@ -1538,6 +1613,7 @@ function syncTimer() {
     timerLast = performance.now();
     timerTick = -1;
   }
+  node.classList.remove('no-decision');
   drawTimer();
 }
 function drawTimer() {
@@ -1557,6 +1633,7 @@ function timeOut() {
     dialog.close();
   }
   if (searchDialog.open) searchDialog.close();
+  if (rescueDialog.open) rescueDialog.close();
   cardMenu = null;
   cardMenuNode.hidden = true;
   fx.play('pass');
@@ -1593,12 +1670,15 @@ function updateMatchClock() {
   document.body.classList.remove('banner-on');
   clearEffects();
   pending = null;
-  for (const node of [dialog, searchDialog, ...matchDialogs]) if (node.open) node.close();
+  for (const node of [dialog, searchDialog, rescueDialog, ...matchDialogs]) if (node.open) node.close();
   closeCardMenu();
   drag?.ghost?.remove();
   drag = null;
   selection = null;
   duel = null;
+  combatIntro = false;
+  introEffects = [];
+  document.body.classList.remove('combat-intro');
   battleResult = null;
   clearSpecial();
   announcedEvents = game.events.length - 2;
@@ -1782,6 +1862,11 @@ function render() {
     if (side === actor) seat.setAttribute('aria-current', 'true');
     else seat.removeAttribute('aria-current');
     byId(color + '-rescues').textContent = rescues;
+    const savedBadge = byId(color + '-saved');
+    const saved = game.players[side].savedRescues.length;
+    savedBadge.hidden = !saved;
+    savedBadge.textContent = '+' + saved;
+    savedBadge.title = saved + ' estrellas guardadas; ' + rules.availableSavedRescues(game,side) + ' habilitadas';
     byId('deck-' + side).textContent = deck.length;
     const bar = byId('charge-' + side);
     [...bar.children].forEach((segment, i) => segment.classList.toggle('full', i < charge));
@@ -1790,6 +1875,7 @@ function render() {
       : 'Ataque especial: ' + charge + ' de ' + rules.CHARGE_MAX);
   }
   renderActionStatus();
+  renderSavedRescue();
   phaseIndicator.textContent = currentPhase();
   phaseIndicator.dataset.phase = game.phase;
   byId('turn-info').textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4'
@@ -1867,12 +1953,13 @@ function renderActionStatus() {
 function shouldAutoEndTurn() {
   if (game.phase !== 'turn') return false;
   const actions = rules.turnActions(game);
-  return actions.move !== 'ready' && actions.attack !== 'ready';
+  return actions.move !== 'ready' && actions.attack !== 'ready' && !rules.canUseSavedRescue(game);
 }
 function scheduleProgress() {
   clearTimeout(progressTimer);
   progressTimer = null;
-  if (!game || dialog.open || searchDialog.open || busy()) return;
+  if (!game || dialog.open || searchDialog.open || rescueDialog.open || busy()) return;
+  if (game.phase === 'rescue' && !isAITurn()) { showRescuePicker(); return; }
   if (!shouldAutoEndTurn() && !isAITurn()) return;
   progressTimer = setTimeout(() => {
     progressTimer = null;
@@ -1894,6 +1981,7 @@ function scheduleProgress() {
       case 'nextTurn': nextTurn(); return;
       case 'move': rules.move(game, action.piece, action.cell); break;
       case 'rescue': rules.rescue(game, action.piece, action.cell); break;
+      case 'savedRescue': rules.startSavedRescue(game); break;
       case 'special':
         startSpecial(rules.piece(game, action.piece), rules.piece(game, action.target), action.at);
         return;
@@ -1911,6 +1999,10 @@ function resetPresentation() {
   clearEffects();
   byId('phase-banner').hidden = true;
   if (searchDialog.open) searchDialog.close();
+  if (rescueDialog.open) rescueDialog.close();
+  combatIntro = false;
+  introEffects = [];
+  document.body.classList.remove('combat-intro');
   drag?.ghost?.remove();
   drag = null;
   selection = null;

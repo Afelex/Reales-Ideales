@@ -67,7 +67,7 @@ En el tablero físico se aplica el mismo bono de +3 al calcular la fuerza y se r
 
 **Invocar cañón convierte al instante en cañón a tu ficha que combate y le suma +2** en ese combate, tanto al atacar como al defender. Puedes revelarla si empezaste esa batalla sin cañón. Como máximo se juega una invocación propia por combate. La carta queda fuera de la partida. El cañón puede atacar desde el siguiente turno de su dueño y se mueve como una ficha normal. Si pierde al disparar desde lejos, se retira igualmente. Ambas facciones pueden tener su propio cañón simultáneamente. La segunda invocación está disponible en un combate posterior a la pérdida del primer cañón.
 
-Al entrar en una estrella del extremo rival, puedes gastar un marcador y colocar una ficha propia eliminada en cualquier casilla libre de tu zona inicial. Cuenta la llegada por movimiento normal o por avance tras combate. Permanecer en la estrella no vuelve a activarla. Si prefieres guardar el marcador o el rescate es imposible, puedes intentarlo en otra llegada. La ficha recuperada vuelve **como ficha normal**, incluso si había sido el cañón. Los idealistas rescatan en B11 y D11. Los realistas rescatan en B1 y D1.
+Al entrar en una estrella del extremo rival, puedes gastar un marcador y colocar una ficha propia eliminada en cualquier casilla libre de tu zona inicial. Cuenta la llegada por movimiento normal o por avance tras combate. Permanecer en la estrella no vuelve a activarla. Si prefieres guardar, se descuenta un marcador no ganado y se añade una estrella reservada, utilizable a partir del siguiente turno propio. Pulsa su icono en el HUD, elige una ficha perdida y colócala en cualquier hexágono libre del tablero, sin gastar movimiento ni ataque. Puedes volver a guardar sin consumir la estrella. El rescate inmediato conserva la zona inicial. La ficha recuperada vuelve **como ficha normal**, incluso si había sido el cañón. Los idealistas rescatan en B11 y D11. Los realistas rescatan en B1 y D1.
 
 ## Mazo provisional
 
@@ -142,6 +142,10 @@ En combate se oculta la cabecera del menú, se elevan las barras de vida y las o
 ## HUD de cartas públicas (v0.30)
 
 En móvil vertical, el cronómetro de decisión va entre las vidas, seguido de la ronda (1–12) y el marcador de turno. El reloj general de diez minutos sigue junto a la llama. Durante el combate se muestran dos ranuras por bando sobre el tablero: realistas a la izquierda, idealistas a la derecha. Se utiliza el arte aprobado, recortado como PNG transparente en el navegador; una ranura pendiente dice Por jugar y un pase dice Sin carta. Los totales incluyen base, Fuego Especial, cañón, cartas, combos y debilitamientos. Las reservas privadas nunca aparecen en este marcador. Se retira al resolver el combate para liberar el tablero. El resultado queda encima del dock hasta el siguiente combate.
+
+## Secuencia de combate y estrellas guardadas (v0.31)
+
+Los espacios de cartas y la fase de batalla aparecen después de completar el anuncio y las animaciones iniciales del ataque normal o especial. Los efectos posteriores de carta conservan los espacios activos. El rescate abre una ventana con los retratos de las bajas y Guardar; después de elegir una ficha se marcan los destinos legales. Las oportunidades guardadas están separadas de los dos marcadores iniciales, no caducan durante la partida y no se pueden usar en el turno en que se obtienen.
 
 ## Pruebas automatizadas
 
