@@ -34,12 +34,11 @@ let battleResult = null;
 let visibleCoins = { I: 0, R: 0 };
 let duel = null;
 let combatIntro = false;
-let introEffects = [];
+let hudNotice = '';
+let hudNoticeTimer = null;
+let decisivePlaying = false;
 let started = null;
 let ended = null;
-let bannerTimer = null;
-let bannerQueue = [];
-let bannerShowing = false;
 let announcedEvents = 0;
 const searchDialog = byId('search-choice');
 const rescueDialog = byId('rescue-dialog');
@@ -104,78 +103,9 @@ byId('confirm').addEventListener('click', () => {
 });
 byId('search-cancel').addEventListener('click', () => searchDialog.close());
 
-function bannerFromEvent(event) {
-  switch (event.type) {
-    case 'turn': return { kind: event.side, title: mode === 'ai' ? (event.side === 'I' ? 'TU TURNO' : 'TURNO DEL RIVAL') : 'TURNO ' + rules.SIDE[event.side].toUpperCase(), subtitle: 'Prepara tu movimiento o ataque' };
-    case 'move': return null; // El desplazamiento y su sonido ya comunican la acción.
-    case 'special': return { kind: 'special', title: event.power.toUpperCase(),
-      subtitle: nameOf(event.piece) + ': ' + rules.FIRE_POWER.description };
-    case 'attack': return event.special ? null : {
-      kind: 'attack', title: mode === 'ai' && event.side === 'R' ? '¡TE DECLARAN ATAQUE!' : '¡ATAQUE DECLARADO!',
-      subtitle: 'Fase de ataque: prepara tus cartas'
-    };
-    case 'combo-card': return { kind: 'combo', title: '¡COMBO! +1', subtitle: 'Dos cartas iguales activadas' };
-    case 'combo-ready': return { kind: 'combo', title: '¡COMBO DECISIVO!', subtitle: 'Selecciona una segunda ficha enemiga' };
-    case 'combo': return { kind: 'combo', title: '¡DOBLE ELIMINACIÓN!', subtitle: 'Una segunda ficha cae ante el combo decisivo' };
-    case 'double-ready': return { kind: 'combo', title: '¡DOBLE IMPACTO!', subtitle: 'Elige otra ficha enemiga vecina' };
-    case 'double': return { kind: 'combo', title: '¡DOBLE IMPACTO!', subtitle: 'Una segunda ficha cae' };
-    case 'summon': return { kind: 'summon', title: '¡CAÑÓN INVOCADO!', subtitle: event.piece + ' es cañón: +2 en este combate y al atacar' };
-    case 'rescue': return { kind: 'rescue', title: '¡FICHA RESCATADA!', subtitle: 'Regresa al campo de batalla' };
-    case 'draw': return { kind: 'draw', title: 'ROBO DE CARTAS', subtitle: rules.SIDE[event.side] + ': ' + event.count + ' carta(s)' };
-    case 'end': return null;
-    default: return null;
-  }
-}
-function showNextBanner() {
-  clearTimeout(bannerTimer);
-  if (!game || !bannerQueue.length) {
-    byId('phase-banner').hidden = true;
-    bannerShowing = false;
-    document.body.classList.remove('banner-on');
-    if (game) {
-      if (introEffects.length) {
-        const events = introEffects;
-        introEffects = [];
-        if (startEventEffects(events)) return;
-      }
-      finishCombatIntro();
-      maybeShowEnd();
-    }
-    scheduleProgress();
-    return;
-  }
-  const next = bannerQueue.shift();
-  const node = byId('phase-banner');
-  node.dataset.kind = next.kind;
-  byId('banner-title').textContent = next.title;
-  byId('banner-subtitle').textContent = next.subtitle;
-  node.hidden = false;
-  bannerShowing = true;
-  document.body.classList.add('banner-on');
-  bannerTimer = setTimeout(() => {
-    node.hidden = true;
-    bannerShowing = false;
-    showNextBanner();
-  }, (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 500 : 1350) / settings.speed);
-}
-function announceNewEvents() {
-  const newEvents = game.events.slice(announcedEvents);
+function announceNewEvents(events) {
   announcedEvents = game.events.length;
-  for (const event of newEvents) {
-    const banner = bannerFromEvent(event);
-    if (banner) bannerQueue.push(banner);
-    if (event.type === 'turn' && game.players[event.side].charge >= rules.CHARGE_MAX
-        && !(mode === 'ai' && event.side === 'R'))
-      bannerQueue.push({ kind: 'special', title: '¡FUEGO ESPECIAL LISTO!',
-        subtitle: 'Toca una ficha con fuego y pulsa el icono de fuego' });
-  }
-  // Ataque: primero el anuncio, después la animación, y al final las cartas.
-  if (combatIntro && newEvents.some(event => event.type === 'attack')) {
-    introEffects = newEvents;
-    showNextBanner();
-    return;
-  }
-  if (!startEventEffects(newEvents) && !fxBusy && !bannerShowing && bannerQueue.length) showNextBanner();
+  if (!startEventEffects(events)) finishCombatIntro();
 }
 function startEventEffects(events) {
   const duration = playEffects(events);
@@ -203,24 +133,23 @@ function releaseEffects() {
     duelHold = false;
     renderDuel();
   }
-  if (!bannerShowing && bannerQueue.length) showNextBanner();
-  else if (!bannerShowing) { finishCombatIntro(); scheduleProgress(); }
+  finishCombatIntro();
+  renderHudStatus();
+  scheduleProgress();
 }
 function finishCombatIntro() {
-  if (!combatIntro || introEffects.length || fxBusy || bannerShowing || bannerQueue.length) return;
+  if (!combatIntro || fxBusy) return;
   combatIntro = false;
-  introEffects = [];
   document.body.classList.remove('combat-intro');
   if (game?.phase === 'reveal') { renderDuel(); syncTimer(); layoutScene(); }
 }
 // La partida espera mientras se muestran efectos o una opción del menú.
 function busy() {
-  return fxBusy || bannerShowing || matchDialogs.some(node => node.open);
+  return fxBusy || matchDialogs.some(node => node.open);
 }
 
 // === Efectos visuales y sonoros ===
-// Se derivan solo de los eventos del motor; la acción sigue explicada por
-// banners, registro y resultado aunque la animación esté desactivada.
+// Los efectos se derivan del motor y el HUD conserva las instrucciones de juego.
 const fx = window.RealesIdealesFX;
 const fxLayer = byId('fx-layer');
 // Partículas WebGL (PixiJS). Sin WebGL, cada llamada es inofensiva y quedan los efectos CSS.
@@ -261,6 +190,7 @@ function clearEffects() {
   fxBusy = false;
   document.body.classList.remove('fx-busy');
   movingPieces.clear();
+  decisivePlaying = false;
   previousPieces = null;
   displayedPieces = null;
   fxLayer.replaceChildren();
@@ -335,6 +265,9 @@ function tokenClone(piece, point, className, life) {
 const DRIVE_MS = 900;
 const KNOCKOUT_MS = 1100;
 const KNOCKOUT_STAGGER_MS = 170;
+const DECISIVE_PREP_MS = 820;
+const DECISIVE_FREEZE_MS = 420;
+const decisiveLead = () => reducedMotion() ? 260 : DECISIVE_PREP_MS + DECISIVE_FREEZE_MS;
 // Desplazamiento tipo camioncito: avanza a tumbos, levanta polvo y suena el motor.
 function drive(event) {
   const piece = displayedPiece(event.piece);
@@ -364,15 +297,19 @@ function drive(event) {
     speech(event.to, '¡Ok!', piece.side, 950);
   });
 }
-function defeatPiece(id, big, attackerSide) {
+function defeatPiece(id, big, attackerSide, decisive = false) {
   const piece = displayedPiece(id);
   if (!piece) return;
   const cell = piece.cell;
   const point = cellPoint(cell);
   if (point) {
-    cfx.impact({ ...point, y: point.y - point.size * .1 }, piece.side, big ? 2 : 1);
-    const ko = tokenClone(piece, tokenFrame(cell), 'fx-ko', KNOCKOUT_MS);
+    cfx.impact({ ...point, y: point.y - point.size * .1 }, piece.side, decisive ? 4 : big ? 2 : 1);
+    const ko = tokenClone(piece, tokenFrame(cell), decisive && !reducedMotion() ? 'fx-ko fx-ko-shatter' : 'fx-ko', KNOCKOUT_MS);
     ko?.style.setProperty('--dir', attackerSide === 'R' || (!attackerSide && piece.side === 'I') ? '-1' : '1');
+    if (ko?.classList.contains('fx-ko-shatter')) {
+      const token = ko.firstElementChild;
+      for (let i = 1; i < 4; i++) ko.append(token.cloneNode(true));
+    }
   }
   // El cuerpo animado sustituye a la ficha en el mismo fotograma del impacto.
   displayedPieces?.delete(id);
@@ -385,7 +322,57 @@ function defeatPiece(id, big, attackerSide) {
     spawn('fx-debris', point, { dx: Math.cos(angle) * reach + 'px', dy: Math.sin(angle) * reach + 'px' }, 900);
   }
 }
-const SHOT_DELAY = 650, SHOT_FLIGHT = 720;
+function decisiveImpact(event) {
+  const target = displayedPiece(event.removed[0]);
+  const victor = displayedPiece(duel?.find(piece => piece.side === event.winner)?.id);
+  const to = tokenFrame(target?.cell), from = tokenFrame(victor?.cell);
+  const impactDelay = decisiveLead();
+  if (!to || !from) return impactDelay;
+  const reduced = reducedMotion();
+  decisivePlaying = true;
+  renderHudStatus();
+  fx.duck(.16);
+  fx.play('charge');
+  const panel = spawn('fx-decisive-focus', { x: 0, y: 0, size: 0 }, {
+    x: (to.x + from.x) / 2 + 'px', y: (to.y + from.y) / 2 + 'px',
+    radius: Math.max(100, Math.hypot(to.x - from.x, to.y - from.y) / 2 + to.width * .8) + 'px',
+  }, impactDelay + 240);
+  const mark = () => {
+    spawn('fx-decisive-crack', { x: to.x, y: to.y, size: to.width * 3.3 }, {}, reduced ? 580 : 920);
+    fx.play('decisive');
+  };
+  if (reduced) { mark(); return impactDelay; }
+
+  const focus = tokenClone(target, to, 'fx-decisive-target', impactDelay + 150);
+  movingPieces.add(target.id);
+  if (event.nearby) {
+    const striker = tokenClone(victor, from, 'fx-decisive-striker', impactDelay + 360);
+    striker.style.setProperty('--dx', (to.x - from.x) * .67 + 'px');
+    striker.style.setProperty('--dy', (to.y - from.y) * .67 + 'px');
+    movingPieces.add(victor.id);
+    later(impactDelay + 260, () => {
+      movingPieces.delete(victor.id);
+      renderBoard();
+      striker.remove();
+    });
+  } else {
+    const shot = spawn('fx-decisive-shot', { x: from.x, y: from.y, size: 23 }, {
+      dx: to.x - from.x + 'px', dy: to.y - from.y + 'px',
+    }, impactDelay);
+    later(impactDelay, () => shot.remove());
+  }
+  renderBoard();
+  later(DECISIVE_PREP_MS, () => {
+    panel.classList.add('freeze');
+    mark();
+  });
+  later(impactDelay, () => {
+    movingPieces.delete(target.id);
+    focus.remove();
+  });
+  return impactDelay;
+}
+const SHOT_DELAY = 220, SHOT_FLIGHT = 720;
 // Ataque especial: la pantalla se oscurece, la ficha queda destacada,
 // las partículas del poder se concentran en ella y aparece el nombre y lo que hace.
 const SPECIAL_MS = 2300;
@@ -429,7 +416,6 @@ function specialCall(event) {
 }
 function attackSequence(event) {
   const fromCell = pieceCell(event.piece), toCell = pieceCell(event.target);
-  speech(fromCell, event.special ? '¡' + rules.SPECIALS[event.special].name + '!' : '¡Al ataque!', event.side, 1200);
   fx.play('charge');
   later(SHOT_DELAY, () => fireShell(fromCell, toCell, event.side));
 }
@@ -590,12 +576,11 @@ function effectFor(event) {
     case 'pass':
       showcase(event);
       return;
-    case 'combo-card':
-    case 'combo-ready': {
+    case 'combo-card': {
       fx.play('combo');
       const point = fighterPoint(event.side);
       if (point) spawn('fx-local-card combo', point, { color: '#ecc75c', glow: '#fff0a0' }, 1100);
-      floatNumber(event.side, event.type === 'combo-card' ? '+1' : 'Combo decisivo', event.type === 'combo-card' ? 'up' : 'decisive');
+      floatNumber(event.side, '+1', 'up');
       return;
     }
     case 'reward':
@@ -604,15 +589,27 @@ function effectFor(event) {
       renderCoins();
       return;
     case 'battle': {
-      const big = event.decisiveCombo || Math.abs(event.force[0] - event.force[1]) >= 3;
-      event.removed.length > 1 ? fx.play('draw') : fx.play('explosion', big);
+      const big = event.decisiveWin || event.decisiveCombo || Math.abs(event.force[0] - event.force[1]) >= 3;
       // El duelo se retira justo antes de la explosión para no tapar las fichas.
       duelHold = false;
       renderDuel();
-      event.removed.forEach((id, i) => later(i * KNOCKOUT_STAGGER_MS, () => defeatPiece(id, big, event.winner)));
-      later(knockoutDuration(event), () => syncCounters(true));
-      if (event.winner) flash(event.winner === 'I' ? '#235f82' : '#9d312f', '#ffe3a3');
-      shake(big || event.removed.length > 1);
+      const lead = event.decisiveWin ? decisiveImpact(event) : 0;
+      const impact = () => {
+        event.removed.length > 1 ? fx.play('draw') : fx.play('explosion', big);
+        event.removed.forEach((id, i) => {
+          const defeat = () => defeatPiece(id, big, event.winner, event.decisiveWin);
+          if (i) later(i * KNOCKOUT_STAGGER_MS, defeat);
+          else defeat();
+        });
+        if (event.winner && !reducedMotion()) flash(event.winner === 'I' ? '#235f82' : '#9d312f', '#ffe3a3');
+        shake(big || event.removed.length > 1);
+      };
+      if (lead) later(lead, impact);
+      else impact();
+      later(lead + knockoutDuration(event), () => {
+        if (lead) { decisivePlaying = false; fx.duck(1); renderHudStatus(); }
+        syncCounters(true);
+      });
       return;
     }
     case 'double-ready':
@@ -670,10 +667,10 @@ function effectFor(event) {
       spawn('fx-rays', centerPoint(), {}, 1600);
   }
 }
-// Duración de cada animación: el siguiente evento y los banners esperan a que termine.
+// Cada evento conserva su turno visual antes del siguiente.
 const fxDurations = { move: DRIVE_MS + 800, bonus: DRIVE_MS + 800, advance: DRIVE_MS + 800,
-  attack: SHOT_DELAY + SHOT_FLIGHT + 500, reveal: SHOWCASE_MS, pass: 900, 'combo-card': 700,
-  'combo-ready': 700, combo: KNOCKOUT_MS + 60, double: KNOCKOUT_MS + 60, 'double-ready': 700, summon: 1100, rescue: 1100,
+  attack: SHOT_DELAY + SHOT_FLIGHT + 230, reveal: SHOWCASE_MS, pass: 340, 'combo-card': 480,
+  combo: KNOCKOUT_MS + 60, double: KNOCKOUT_MS + 60, 'double-ready': 700, summon: 1100, rescue: 1100,
   reward: 700, 'time-cannon': SHOT_FLIGHT + 500, end: 1400, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
 const knockoutDuration = event => KNOCKOUT_MS + (event.removed.length - 1) * KNOCKOUT_STAGGER_MS;
 function playEffects(events) {
@@ -681,7 +678,9 @@ function playEffects(events) {
   for (const event of events) {
     if (delay) later(delay, () => effectFor(event));
     else effectFor(event);
-    delay += event.type === 'battle' ? knockoutDuration(event) + 60 : (fxDurations[event.type] ?? 0);
+    delay += event.type === 'battle'
+      ? knockoutDuration(event) + (event.decisiveWin ? decisiveLead() : 0) + 60
+      : (fxDurations[event.type] ?? 0);
   }
   return delay;
 }
@@ -1456,7 +1455,7 @@ function nextTurn() {
   cardMenuNode.hidden = true;
   // El resultado queda sobre el dock hasta el próximo combate.
   duel = null;
-  if (!rules.nextTurn(game)) return; // El banner de inicio del siguiente turno basta.
+  if (!rules.nextTurn(game)) return;
   render();
 }
 function renderControls() {
@@ -1695,7 +1694,7 @@ function renderDuel(fresh = null) {
   positionDuel();
 }
 // === Temporizador de decisión ===
-// Cuenta solo en las decisiones humanas y se detiene durante animaciones y banners.
+// Cuenta solo durante las decisiones humanas.
 const TIMER_SECONDS = { turn: 40, reveal: 20, bonus: 15, combo: 15, rescue: 20 };
 let timerKey = null;
 let timerLeft = 0;
@@ -1750,7 +1749,7 @@ function timeOut() {
   cardMenu = null;
   cardMenuNode.hidden = true;
   fx.play('pass');
-  bannerQueue.push({ kind: 'endturn', title: '¡TIEMPO!', subtitle: 'Se acabó el tiempo de ' + rules.SIDE[game.phase === 'reveal' ? rules.actor(game) : game.turn] });
+  showHudNotice('Tiempo agotado');
   switch (game.phase) {
     case 'turn': nextTurn(); return;
     case 'reveal': play(); return;
@@ -1779,11 +1778,6 @@ function updateMatchClock() {
   visibleCoins = { I: game.players.I.coins, R: game.players.R.coins };
   ended = matchDeadline;
   clearTimeout(progressTimer);
-  clearTimeout(bannerTimer);
-  bannerQueue = [];
-  bannerShowing = false;
-  byId('phase-banner').hidden = true;
-  document.body.classList.remove('banner-on');
   clearEffects();
   pending = null;
   for (const node of [dialog, searchDialog, rescueDialog, ...matchDialogs]) if (node.open) node.close();
@@ -1793,7 +1787,6 @@ function updateMatchClock() {
   selection = null;
   duel = null;
   combatIntro = false;
-  introEffects = [];
   document.body.classList.remove('combat-intro');
   battleResult = null;
   clearSpecial();
@@ -1832,7 +1825,7 @@ setInterval(() => {
 // === Pantallas de victoria o derrota y estadísticas ===
 let endShown = false;
 function maybeShowEnd() {
-  if (!game || game.phase !== 'end' || endShown || fxBusy || bannerShowing || bannerQueue.length) return;
+  if (!game || game.phase !== 'end' || endShown || fxBusy) return;
   endShown = true;
   const winner = game.winner;
   const screen = byId('end-screen');
@@ -1969,13 +1962,27 @@ function renderCoins() {
 }
 function renderHudStatus() {
   const hint = byId('special-hint'), result = byId('battle-result'), instructions = byId('instructions');
+  const notice = byId('hud-notice');
+  const message = decisivePlaying ? 'Golpe decisivo' : combatIntro
+    ? (mode === 'ai' && game.battle?.attacker === 'R' ? 'Defiéndete…' : 'Ataque en curso…')
+    : hudNotice;
+  notice.hidden = !message;
+  if (notice.textContent !== message) notice.textContent = message;
   const hasHint = !hint.hidden;
-  const showResult = Boolean(battleResult && game.phase === 'turn' && !selection && !hasHint);
+  const showResult = Boolean(!message && battleResult && !fxBusy && game.phase === 'turn' && !selection && !hasHint);
   result.hidden = !showResult;
-  instructions.hidden = hasHint || showResult;
+  instructions.hidden = Boolean(message) || hasHint || showResult;
   if (!instructions.hidden && game.phase === 'turn' && !selection && !isAITurn() && !shouldAutoEndTurn()) {
     instructions.textContent = game.moved.length ? 'Puedes atacar.' : game.attacked ? 'Puedes mover.' : 'Elige una ficha.';
   }
+}
+function showHudNotice(message) {
+  clearTimeout(hudNoticeTimer);
+  hudNotice = message;
+  hudNoticeTimer = setTimeout(() => {
+    hudNotice = '';
+    if (game) renderHudStatus();
+  }, 1500);
 }
 function render() {
   const newEvents = game.events.slice(announcedEvents);
@@ -2035,7 +2042,6 @@ function render() {
   renderHands();
   renderControls();
   renderSpecialFire();
-  renderHudStatus();
   syncTimer();
   layoutScene();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
@@ -2046,7 +2052,8 @@ function render() {
   // El duelo sigue a la vista mientras se animan las cartas de una batalla recién resuelta.
   duelHold ||= newEvents.some(event => event.type === 'battle');
   renderDuel();
-  announceNewEvents();
+  announceNewEvents(newEvents);
+  renderHudStatus();
   // Los contadores de fichas cambian después de la explosión, no antes.
   if (!fxBusy) syncCounters();
   scheduleProgress();
@@ -2135,16 +2142,13 @@ function scheduleProgress() {
 function resetPresentation() {
   visibleCoins = { I: 0, R: 0 };
   clearTimeout(progressTimer);
-  clearTimeout(bannerTimer);
-  bannerQueue = [];
-  bannerShowing = false;
   announcedEvents = 0;
+  clearTimeout(hudNoticeTimer);
+  hudNotice = '';
   clearEffects();
-  byId('phase-banner').hidden = true;
   if (searchDialog.open) searchDialog.close();
   if (rescueDialog.open) rescueDialog.close();
   combatIntro = false;
-  introEffects = [];
   document.body.classList.remove('combat-intro');
   drag?.ghost?.remove();
   drag = null;
@@ -2218,10 +2222,6 @@ function showPlayOptions(open) {
 }
 byId('play-local').addEventListener('click', () => startGame('local'));
 byId('play-ai').addEventListener('click', () => startGame('ai'));
-byId('play-back').addEventListener('click', () => showPlayOptions(false));
-playOptions.addEventListener('keydown', event => {
-  if (event.key === 'Escape') showPlayOptions(false);
-});
 byId('match-menu').addEventListener('click', () => {
   gameMenu.close();
   confirmRestart('¿Volver al menú?', 'Volver al menú', returnToMenu);
@@ -2247,7 +2247,7 @@ byId('export').addEventListener('click', () => {
 const STARTUP_MIN_MS = 5000;
 const STARTUP_MAX_MS = 8000;
 const startupImages = [
-  'assets/logo.webp', 'assets/clay/portada-jardin.webp',
+  'assets/logo.webp', 'assets/clay/portada-vertical.webp',
   'assets/clay/terracota.webp', 'assets/clay/campo-jardin.webp',
   'assets/clay/flor.webp', 'assets/clay/relieve.webp', 'assets/clay/jardin-izquierdo.webp',
   'assets/clay/jardin-derecho.webp', 'assets/clay/cordon.webp',
@@ -2311,12 +2311,10 @@ function beginStartup() {
   fx.music('menu');
   const start = performance.now();
   const intro = byId('startup');
-  const cover = byId('inicio');
   const progress = byId('startup-progress');
   const percent = byId('startup-percent');
   const status = byId('startup-status');
-  document.body.classList.add('booting');
-  cover.hidden = true;
+  playMenu.hidden = true;
   intro.hidden = false;
   intro.focus({ preventScroll: true });
   intro.setAttribute('aria-busy', 'true');
@@ -2344,8 +2342,6 @@ function beginStartup() {
     requestAnimationFrame(() => {
       intro.hidden = true;
       intro.removeAttribute('aria-busy');
-      document.body.classList.remove('booting');
-      cover.hidden = false;
       showPlayOptions(true);
     });
   };

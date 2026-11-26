@@ -333,8 +333,9 @@
     }
     b.winner = winner?.side ?? null;
     const decisiveCombo = Boolean(winner && b.played[winner.side].filter(card => card === 'decisive').length === 2);
+    const decisiveWin = Boolean(decisive && winner && !b.played[loser.side].includes('decisive'));
     record(s, 'battle', { attacker: a.side, defender: d.side, nearby: b.nearby, advantage: decisive,
-      force: [af, df], combos: { I: comboBonus(b.played.I), R: comboBonus(b.played.R) },
+      decisiveWin, force: [af, df], combos: { I: comboBonus(b.played.I), R: comboBonus(b.played.R) },
       decisiveCombo, winner: b.winner, removed: removed.map(p => p.id),
       text: winner ? 'Vence ' + winner.id + '. Sale ' + loser.id + '.' : 'Empate. Salen ' + a.id + ' y ' + d.id + '.' });
     for (const [index, fighter] of attackers.entries()) {

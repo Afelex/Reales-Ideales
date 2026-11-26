@@ -305,28 +305,18 @@ dialog::backdrop { background: #35231893; }
   font: 800 clamp(.95rem, 2.45vw, 1.2rem)/1.2 Georgia, serif;
 }
 #play-menu { width: min(15rem, 100%); min-height: 3.45rem; font-size: 1.45rem; }
-.menu-back {
-  grid-column: 1 / -1; justify-self: center; min-width: 5.5rem; min-height: 2.55rem;
-  border-color: #f1d39a9e; color: #fff4d8; background: #2c1d2adb; box-shadow: none;
-}
-.menu-back:focus-visible { outline-color: #fff2b7; }
 @media (orientation: portrait) {
-  .cover::before {
-    content: ''; position: absolute; inset: -1rem;
-    background: url('assets/clay/portada-jardin.webp') 50% 65% / cover;
-    filter: blur(14px) brightness(.7);
-  }
-  .cover-art {
-    inset: 46% 0 auto; height: min(110vw, 82dvh); translate: 0 -50%;
-    mask-image: linear-gradient(transparent, #000 16%, #000 90%, transparent);
-  }
-  #cover-title { width: min(60vw, 30dvh, 17rem); }
+  #cover-title { width: min(60vw, 29dvh, 17rem); }
   .play-options { width: min(100%, 25rem); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.menu-play.secondary {
-  background: var(--clay-grain), var(--blue-clay); color: #fff4da;
-  border-color: #e0b368;
-  box-shadow: inset 0 2px 2px #88c3de9c, inset 0 -3px 3px #0e304b9e, 0 3px #163849, 0 5px 7px #4d260c55;
+.menu-play, .menu-play.secondary, .menu-play:active {
+  border: 0; box-shadow: none;
+  background: var(--menu-art, url('assets/ui/boton-azul.webp')) center / 100% 100% no-repeat;
+  color: #fff5da; text-shadow: 0 1px 3px #100c0d;
+}
+#play-menu {
+  --menu-art: url('assets/ui/boton-dorado.webp');
+  color: #38210f; text-shadow: 0 1px 1px #fff5c0;
 }
 .menu-play:focus-visible { outline-color: #fff2b7; }
 .drawer-toggle { --button-icon: url('assets/clay/dorso-idealista.webp'); }
@@ -412,60 +402,10 @@ dialog::backdrop { background: #35231893; }
   border: 0; border-radius: .18rem;
 }
 #search-info { color: var(--quiet); margin-top: .55rem; }
-.phase-banner {
-  position: fixed; z-index: 1000; inset: 0; display: grid; align-items: center; justify-items: center;
-  padding: 1rem; background: #130e16a8; pointer-events: auto;
-}
-.banner-content {
-  --banner-main: #a84b38; --banner-glow: #f8cf82;
-  position: relative; display: grid; justify-items: center; gap: .3rem;
-  width: min(95vw, 45rem); padding: 1.25rem max(1.5rem, 7%);
-  border-top: 3px solid var(--banner-glow); border-bottom: 3px solid var(--banner-glow);
-  background: linear-gradient(90deg, transparent, var(--banner-main) 15%, var(--banner-main) 85%, transparent);
-  color: #fff7e6; text-align: center;
-  box-shadow: 0 9px 35px #160a179c;
-  animation: banner-arrives .42s ease-out both;
-}
-.banner-content::before, .banner-content::after {
-  content: ''; position: absolute; top: .35rem;
-  width: clamp(1.85rem, 9vw, 4.5rem); height: 1.7rem;
-  background: var(--floral-ornament) center / contain no-repeat;
-  pointer-events: none;
-}
-.banner-content::before { left: 1.5%; }
-.banner-content::after { right: 1.5%; }
-.banner-title { font: 900 clamp(1.45rem, 4vw, 2.7rem)/1.08 Georgia, serif; text-shadow: 0 3px 2px #261223; letter-spacing: .035em; }
-.banner-subtitle { font: 650 clamp(.8rem, 1.9vw, 1rem)/1.25 system-ui, sans-serif; }
-.banner-symbol {
-  width: 2.65rem; height: 2.65rem;
-  background: var(--banner-icon, url('assets/clay/emblemas/idealista.webp')) center / contain no-repeat;
-  filter: drop-shadow(0 2px 2px #21101c8c);
-}
-.phase-banner[data-kind="R"] { --banner-icon: url('assets/clay/emblemas/realista.webp'); }
-.phase-banner[data-kind="move"] { --banner-icon: url('assets/clay/emblemas/boost.webp'); }
-.phase-banner[data-kind="attack"], .phase-banner[data-kind="combo"] { --banner-icon: url('assets/clay/emblemas/decisive.webp'); }
-.phase-banner[data-kind="summon"] { --banner-icon: url('assets/clay/emblemas/cannon.webp'); }
-.phase-banner[data-kind="rescue"] { --banner-icon: url('assets/clay/emblemas/rescate.webp'); }
-.phase-banner[data-kind="draw"] { --banner-icon: url('assets/clay/dorso-idealista.webp'); }
-.phase-banner[data-kind="end"] { --banner-icon: url('assets/clay/flor.webp'); }
-.phase-banner[data-kind="I"] .banner-content, .phase-banner[data-kind="draw"] .banner-content,
-.phase-banner[data-kind="move"] .banner-content { --banner-main: #235f82; }
-.phase-banner[data-kind="R"] .banner-content, .phase-banner[data-kind="attack"] .banner-content { --banner-main: #9d312f; }
-.phase-banner[data-kind="combo"] .banner-content { --banner-main: #673b97; --banner-glow: #fff0a0; }
-.phase-banner[data-kind="summon"] .banner-content { --banner-main: #6c5938; }
-.phase-banner[data-kind="rescue"] .banner-content { --banner-main: #306a57; }
-.phase-banner[data-kind="endturn"] .banner-content { --banner-main: #564b61; }
-@keyframes banner-arrives {
-  from { opacity: 0; transform: translateY(-18px) scale(.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
 @media (max-width: 790px) {
   .seat .hand { gap: .18rem; }
   .seat .hand .card { min-height: 4.9rem; }
   .deck-count { font-size: .6rem; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .banner-content { animation: none; }
 }
 
 /* === v0.13 F1: interfaz de partida móvil sin desplazamiento ===
@@ -1159,9 +1099,9 @@ body.playing .duelist .duel-force-value { font-size: 1.3rem; }
 
 /* === v0.16: secuencia, temporizador, botón de fuego, cartas del rival, pantallas finales === */
 /* Mientras corre una animación o un banner, las cartas y menús esperan su turno. */
-body.fx-busy .hand-drawer, body.banner-on .hand-drawer,
-body.fx-busy .card-menu, body.banner-on .card-menu,
-body.fx-busy .special-fire, body.banner-on .special-fire { visibility: hidden; }
+body.fx-busy .hand-drawer,
+body.fx-busy .card-menu,
+body.fx-busy .special-fire { visibility: hidden; }
 
 /* Temporizador circular. */
 .turn-timer {
@@ -1341,7 +1281,7 @@ body.playing .special-fire-label, body.playing .special-fire-power { display: no
   border: .7rem solid transparent; border-bottom-color: #e8431c; border-top: 0;
 }
 @keyframes hint-bounce { 50% { transform: translateY(-5px); } }
-body.fx-busy .special-hint, body.banner-on .special-hint { visibility: hidden; }
+body.fx-busy .special-hint { visibility: hidden; }
 
 /* Fichas que pueden lanzar su ataque especial: anillo de fuego. */
 .hex .token.ss-glow { position: relative; filter: drop-shadow(0 0 6px #ff7a2a) drop-shadow(0 0 2px #fff3a0); animation: ss-pulse 1s ease-in-out infinite; }
@@ -1352,7 +1292,6 @@ body.fx-busy .special-hint, body.banner-on .special-hint { visibility: hidden; }
 }
 @keyframes ss-pulse { 50% { transform: translateY(-3px); } }
 @keyframes ss-ring { 50% { inset: -15%; opacity: .55; } }
-.phase-banner[data-kind="special"] .banner-content { --banner-main: #b3361c; --banner-glow: #ffd34d; }
 
 /* Exploración: cuadrícula de cartas, sin lista desplazable. */
 #search-choice { width: min(34rem, calc(100vw - 1.2rem)); max-height: calc(100dvh - 1.2rem); overflow: hidden; }
@@ -1729,7 +1668,7 @@ body.playing .battle-dock .special-fire:disabled {
   background: #352a24; opacity: 1; filter: none; cursor: default;
 }
 body.playing .battle-dock .special-fire:disabled .special-flame { animation: none; opacity: .55; }
-body.fx-busy .battle-dock .special-fire, body.banner-on .battle-dock .special-fire { visibility: visible; }
+body.fx-busy .battle-dock .special-fire { visibility: visible; }
 .battle-dock .special-flame { width: 1.65rem; height: 1.65rem; }
 body.playing .battle-dock .special-fire:not(:disabled) .special-flame { filter: drop-shadow(0 0 5px #ffc34b); }
 .ss-ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; rotate: -90deg; }
@@ -1823,22 +1762,12 @@ body.playing .battle-dock .end-turn svg { width: 22px; height: 22px; }
 @media (prefers-reduced-motion: reduce) { .health-change { animation: none; } }
 
 
-/* Precarga después de pulsar ¡Jugar! por primera vez. */
-body.booting { min-height: 100dvh; overflow: hidden; background: #151719; }
-body.booting::before, body.booting::after { content: none; }
-.startup {
-  position: fixed; z-index: 2000; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: clamp(1.3rem, 5vh, 2.4rem);
-  padding: max(1rem,env(safe-area-inset-top)) max(1rem,env(safe-area-inset-right))
-    max(1rem,env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left));
-  background: radial-gradient(ellipse at 50% 40%,#34383a,#151719 72%);
-  color: #fff1d7; text-align: center;
+/* La carga conserva la portada a la vista. */
+.startup-loading {
+  width: min(78vw, 22rem); display: grid; gap: .35rem;
+  padding: .6rem 1.2rem; text-align: center; color: #fff1d7;
+  border-radius: .65rem; background: #1e232ceb;
 }
-.startup-logo {
-  display: block; width: min(76vw, 25rem, 63dvh); height: auto;
-  filter: drop-shadow(0 6px 16px #0008);
-}
-.startup-loading { width: min(78vw, 22rem); display: grid; gap: .6rem; }
 .startup-loading p { font: 650 .9rem/1.3 system-ui,sans-serif; }
 .startup-loading progress {
   appearance: none; width: 100%; height: .85rem; border: 1px solid #ad8c57;
@@ -1848,10 +1777,6 @@ body.booting::before, body.booting::after { content: none; }
 .startup-loading progress::-webkit-progress-value { background: linear-gradient(90deg,#ae6d2d,#f8cf73); border-radius: 999px; }
 .startup-loading progress::-moz-progress-bar { background: linear-gradient(90deg,#ae6d2d,#f8cf73); border-radius: 999px; }
 #startup-percent { color: #f1cc85; font: 750 .85rem/1 system-ui,sans-serif; font-variant-numeric: tabular-nums; }
-@media (orientation:landscape) and (max-height:420px) {
-  .startup { gap: .9rem; }
-  .startup-logo { width: min(50vw,56dvh); }
-}
 
 
 /* HUD 029: la cabecera de partida deja paso al cielo y a las vidas. */
@@ -2051,18 +1976,6 @@ body.scene-full .llama-clock::after {
 }
 
 
-/* 033: bienvenida de tonos pastel, monedas y efectos locales. */
-body.booting { background: #f1dce4; }
-.startup {
-  background:
-    radial-gradient(ellipse at 50% 45%,#fff6e9e8 0%,#fff4e51a 55%,transparent 75%),
-    radial-gradient(ellipse at 8% 15%,#f7b8b4 0%,transparent 57%),
-    radial-gradient(ellipse at 95% 90%,#a9cce9 0%,transparent 58%),
-    linear-gradient(135deg,#efaaa9 0%,#f7dfd3 46%,#b6d3ed 100%);
-  color: #49363b;
-}
-.startup-loading p, #startup-percent { color: #594352; text-shadow: none; }
-.startup-logo { filter: drop-shadow(0 6px 10px #865e6260); }
 body.scene-full .llama-clock { z-index: 7; }
 body.playing .llama-clock .clock-label,body.playing .llama-clock .clock-value { display: block; }
 body.playing .llama-clock { min-width: 3.2rem; padding-inline: .32rem; }
@@ -2136,6 +2049,7 @@ body.playing .hud-toolbar .hud-menu-button {
   padding: .15rem .22rem; border-radius: .42rem; background: #142c31;
   border: 1px solid #9d906b; text-align: center; color: #fff1d7;
 }
+body.playing .controls .hud-status-line .hud-notice,
 body.playing .controls .hud-status-line .instructions,
 body.playing .controls .hud-status-line .battle-result,
 body.playing .controls .hud-status-line .special-hint,
@@ -2191,6 +2105,7 @@ body.playing .seat .seat-stat img, body.playing .seat .seat-stat svg { width: 16
 body.playing .round-count { font-size: .82rem; }
 #coin-current { font-size: .88rem; }
 /* Estado del dock: hasta dos líneas a 12-13 px en lugar de 9,4 px. */
+body.playing .controls .hud-status-line .hud-notice,
 body.playing .controls .hud-status-line .instructions,
 body.playing .controls .hud-status-line .battle-result,
 body.playing .controls .hud-status-line .special-hint,
@@ -2249,3 +2164,77 @@ canvas.combat-fx { position: fixed; inset: 0; z-index: 1100; width: 100%; height
 }
 
 @keyframes fx-ko-fade { 0%, 65% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Piezas de interfaz de plastilina bajo los controles reales. */
+body.playing .hud-toolbar, body.playing .battle-dock {
+  background: url('assets/ui/hud-placa.webp') center / 100% 100% no-repeat;
+  padding-inline: .65rem;
+}
+body.playing .battle-dock { border: 0; box-shadow: none; }
+body.playing .hud-toolbar .hud-menu-button, body.playing .battle-dock .hud-card,
+body.playing .battle-dock .end-turn {
+  background: url('assets/ui/boton-azul.webp') center / 100% 100% no-repeat;
+  border: 0; box-shadow: none;
+}
+body.playing .hud-toolbar #coin-button {
+  background: url('assets/ui/boton-dorado.webp') center / 100% 100% no-repeat;
+  border: 0;
+}
+body.playing .hud-toolbar .action-token {
+  background: #263d42 url('assets/ui/boton-azul.webp') center / 100% 100% no-repeat;
+}
+.hud-status-line:has(.hud-notice:not([hidden])) .special-hint { display: none; }
+body.playing .controls .hud-status-line .hud-notice { color: #ffe2a4; }
+
+/* Remate decisivo en el tablero real. */
+.fx-decisive-focus {
+  inset: 0; width: auto; height: auto; margin: 0; border-radius: 0;
+  background: radial-gradient(circle at var(--x) var(--y), transparent, transparent calc(var(--radius) * .55), #191622b9 var(--radius), #14111ce8);
+  animation: decisive-focus .45s ease-out both;
+}
+.fx-decisive-focus.freeze { backdrop-filter: grayscale(.88); }
+@keyframes decisive-focus { from { opacity: 0; } to { opacity: 1; } }
+.fx-decisive-striker, .fx-decisive-target {
+  width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2);
+  border-radius: 0; z-index: 1;
+}
+.fx-decisive-striker > .token, .fx-decisive-target > .token { width: 100%; height: 100%; }
+.fx-decisive-striker { animation: decisive-lunge 1.5s both; }
+.fx-decisive-target { animation: decisive-target .82s ease-in forwards; }
+.fx-decisive-focus.freeze ~ .fx-decisive-target { filter: grayscale(.88) contrast(1.15); }
+@keyframes decisive-lunge {
+  0% { transform: scale(1); }
+  23% { transform: scale(1.2,.88) rotate(-9deg); }
+  54%, 83% { transform: translate(var(--dx),var(--dy)) scale(1.34) rotate(10deg); }
+  100% { transform: scale(1); }
+}
+@keyframes decisive-target { to { transform: scale(1.24); } }
+.fx-decisive-shot {
+  background: #fff6dc; box-shadow: 0 0 12px 6px #ffae79, 0 0 26px 11px #fa6237;
+  animation: decisive-shot .82s cubic-bezier(.38,.02,.58,1) forwards;
+}
+@keyframes decisive-shot { from { opacity: 0; transform: scale(.35); } 25% { opacity: 1; } to { transform: translate(var(--dx),var(--dy)) scale(1.15); } }
+.fx-decisive-crack {
+  z-index: 2; border-radius: 0;
+  background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cpath fill='none' stroke='%23fff5df' stroke-width='2' stroke-linejoin='round' d='M80 80 67 50 79 36 71 8M80 80 99 59 96 38 115 18M80 80 113 77 128 63 153 65M80 80 105 92 109 108 139 127M80 80 84 108 74 132 82 155M80 80 59 97 51 115 23 131M80 80 48 80 40 66 8 64M80 80 61 65 57 48 32 32M67 50 51 41M109 108 125 104M51 115 55 131M113 77 127 89'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 5px #ffc771) drop-shadow(0 0 9px #fb642f);
+  animation: decisive-crack .88s ease-out forwards;
+}
+@keyframes decisive-crack { 0% { opacity: 0; scale: .55; } 12%, 55% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: 1.18; } }
+.fx-ko.fx-ko-shatter { animation: none; }
+.fx-ko-shatter > .token {
+  position: absolute; inset: 0; filter: none; animation: decisive-fragment 1.05s ease-out forwards;
+}
+.fx-ko-shatter > .token:nth-child(1) { clip-path: polygon(0 0, 55% 0, 49% 45%, 0 58%); --fx: -64%; --fy: -105%; --spin: -80deg; }
+.fx-ko-shatter > .token:nth-child(2) { clip-path: polygon(55% 0, 100% 0, 100% 56%, 49% 45%); --fx: 77%; --fy: -90%; --spin: 90deg; }
+.fx-ko-shatter > .token:nth-child(3) { clip-path: polygon(0 58%, 49% 45%, 58% 100%, 0 100%); --fx: -85%; --fy: 21%; --spin: -65deg; }
+.fx-ko-shatter > .token:nth-child(4) { clip-path: polygon(49% 45%, 100% 56%, 100% 100%, 58% 100%); --fx: 94%; --fy: 36%; --spin: 78deg; }
+@keyframes decisive-fragment {
+  from { transform: scale(1.24); opacity: 1; }
+  40% { opacity: 1; }
+  to { transform: translate(var(--fx),var(--fy)) rotate(var(--spin)) scale(.64); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx.fx-decisive-focus { opacity: .7; animation: none !important; }
+  .fx.fx-decisive-crack { animation: fx-ko-fade .56s ease-out forwards !important; }
+}
