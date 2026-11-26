@@ -1,26 +1,33 @@
 # Reales Ideales
 
-Prototipo v0.15 (propuesta de reglas v0.15) de un juego táctico de mesa para dos personas. Edad objetivo: 8 años en adelante. Duración objetivo: 15 minutos, pendiente de validar en mesa.
+Juego táctico de mesa para dos personas, con demo web para un dispositivo o contra la IA. Reglas vigentes: **Fuego Especial universal** (ver abajo). Edad objetivo: 8 años en adelante. Duración: hasta 10 minutos por partida, pendiente de validar en mesa.
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. Pulsa **Continuar** en la pantalla de bienvenida para iniciar la música del menú y la precarga (mínimo 5 segundos, máximo 8 si hay recursos lentos). En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** (la IA juega con los realistas). Arrastra una ficha o tócala y luego el destino válido para mover o atacar directamente. La reserva propia se mantiene visible; durante el combate se muestran solo las cartas activadas del rival. En ambos modos, el turno avanza automáticamente al concluir los efectos y agotarse las jugadas legales, con un botón de fin de turno voluntario. El botón de engranaje abre los **ajustes**: música, efectos, temporizador (sin tiempo, relajado o normal) y velocidad de animación; se guardan en el navegador. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
+Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. Pulsa **Continuar** en la pantalla de bienvenida: habilita la música y termina la precarga (mínimo 5 segundos, máximo 8 si hay recursos lentos). En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** (la IA juega con los realistas).
 
-`game.js` contiene las reglas. `ai.js` decide las jugadas de la IA. `app.js` conecta las reglas con la interfaz y `fx.js` genera sonidos y música. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript y puede servirse desde alojamiento estático.
+Toca una ficha propia y luego un destino marcado para mover o atacar; también se puede arrastrar. El turno avanza solo cuando se agotan las jugadas legales, y el botón de fin de turno permite pasar antes. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
 
-## Interfaz adaptable (GitHub Pages)
+`game.js` contiene las reglas, `ai.js` decide las jugadas de la IA, `app.js` conecta las reglas con la interfaz y `fx.js` genera sonidos y música. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript sin dependencias y se publica como sitio estático en GitHub Pages.
 
-La partida ocupa **una sola pantalla** sin desplazamientos: cabecera compacta, marcadores de las dos facciones (fichas, rescates, mazo y barra de ataque especial), tablero, dock de acciones y cajón de cartas. El cajón nunca tapa el tablero (ver *Interfaz de partida v0.17*). Al cambiar de jugador en partidas locales, las cartas vuelven a ocultarse. En Versus IA se muestran las cartas de ambos bandos durante el combate.
+## Interfaz de partida
 
-### Verificación visual recomendada
+En móvil vertical la partida ocupa **una sola pantalla, sin desplazamientos**: el escenario en video cubre todo el fondo y el HUD flota encima.
 
-Revisar **360×740**, **390×844**, **412×915**, **850×384**, **1024×768** y **1366×768**: las 27 casillas visibles, ningún panel con desplazamiento interno y el dock utilizable. Probar la privacidad de las cartas en modo local, combates, Exploración, combos, ataques especiales, cambios de turno, temporizador y el registro.
+- **Arriba:** retrato de cada bando, barra de vida de ocho segmentos (una por ficha viva), rescates y cartas en el mazo. En el centro, el reloj de la decisión, la ronda (1/12) y el aviso **TU TURNO** o **TURNO DEL RIVAL** (en modo local, el bando activo). El reloj general de 10 minutos («Faltan») aparece en un globo junto a la llama alada.
+- **Dock inferior, fila superior:** llave inglesa (opciones), botón de moneda con tu saldo (al pulsarlo muestra ambos), línea de estado con la instrucción o el resultado del momento, e iconos de **mover** (verde si está disponible) y **atacar** (rojo anaranjado); apagados cuando ya se usaron.
+- **Dock inferior, fila de abajo:** anillo del **Fuego Especial** con sus tres cargas, las **tres cartas** de la reserva y el botón de fin de turno. Al tocar una carta se ve su ilustración y su efecto, con Cancelar y Activar. En modo local cada jugador descubre su mano con «Ver mano de…», y se vuelve a ocultar al cambiar de jugador.
+- **Combate:** primero terminan el anuncio y las animaciones del ataque; después aparecen sobre el tablero dos ranuras por bando (realistas a la izquierda, idealistas a la derecha) con las cartas activadas y la fuerza total. Las reservas privadas nunca se muestran al rival. El resultado queda en la línea de estado hasta el siguiente combate.
+- **Rescates guardados:** si se guarda una estrella, aparece un botón para usarla desde el siguiente turno propio.
+- **Animaciones antes que avisos:** fichas que avanzan como vehículos, disparo en arco, explosiones, globos, banners y temporizadores esperan a que termine cada animación. Con `prefers-reduced-motion` se sustituyen por fundidos en el sitio.
+- **Opciones:** escenario (Campo andino o Plaza), música y efectos por separado, temporizador (sin tiempo, relajado ×2 o normal) y velocidad de animación. Se guardan en el navegador.
+- **Legibilidad:** ningún texto del HUD baja de unos 12 px en móvil; la línea de estado admite dos líneas.
+
+En escritorio y en horizontal, el escenario se muestra en una columna central con el HUD alrededor. Verificación recomendada: **360×640**, **390×844**, **412×915**, **850×384** y **1366×768**. Comprobar que las 27 casillas responden, que nada se desplaza ni tapa fichas, la privacidad de las cartas en modo local, el combate completo, los rescates, el Fuego Especial, el fin por tiempo y la exportación JSON.
 
 ## Identidad visual
 
-Usa el arte propio de Reales Ideales: portada, logotipo, jardín y fichas de plastilina. El **tablero se dibuja en SVG** (`buildBoardArt()` en `app.js`): baldosas de piedra incrustadas en el empedrado de la plaza, borde continuo, textura de arcilla, estrellas de rescate y guirnaldas de flores, sin códigos de casilla pintados. Cambiar colores o materiales del tablero es cuestión de CSS (`.board-tiles`, `.board-rim-*`) y abre la puerta a mapas temáticos.
-
-Cada bando tiene ocho animales distintos (mono, llama, guacamayo, rana, tigrillo, gallo, cuy y gato), por eso los textos los nombran como «Tigrillo idealista» en vez de usar códigos como I5 o C6. Los códigos solo se conservan en el JSON exportado y en las etiquetas de accesibilidad de las casillas. Evita los emojis en toda la interfaz.
+Arte propio en estilo plastilina: portada, logotipo, escenario andino, fichas, cartas y emblemas. Evita los emojis en toda la interfaz. Cada bando tiene ocho animales distintos (mono, llama, guacamayo, rana, tigrillo, gallo, cuy y gato), por eso los textos los nombran como «Tigrillo idealista» en vez de usar códigos como I5 o C6. Los códigos solo se conservan en el JSON exportado y en las etiquetas de accesibilidad de las casillas.
 
 ## Preparación
 
@@ -56,7 +63,7 @@ En el tablero físico se aplica el mismo bono de +3 al calcular la fuerza y se r
 
 ## Combate
 
-1. **Todas las fichas empiezan con 0 de fuerza**, ataquen o defiendan. Un **cañón** suma +2 cuando ataca. El ataque especial añade su bono al atacante. Ya no existe la ficha de vanguardia.
+1. **Todas las fichas empiezan con 0 de fuerza**, ataquen o defiendan. Un **cañón** suma +2 cuando ataca y el **Fuego Especial** suma +3 al atacante (no se acumulan: el cañón no puede lanzarlo).
 2. Cada jugador conserva **tres cartas** en su reserva, pero puede activar como máximo **dos** durante cada combate. Las cuatro oportunidades se alternan: defensor, atacante, defensor, atacante. Pasar conserva la siguiente oportunidad. Las cartas reveladas se ven antes de decidir.
 3. **COMBO:** dos cartas iguales activadas por un mismo jugador durante el combate conceden +1 extra a su fuerza. **Golpe decisivo** tiene prioridad sobre los valores de fuerza: un golpe contra uno se anula, mientras que dos contra uno prevalecen. Si el ganador usó dos Golpes decisivos, activa **COMBO DECISIVO** y puede elegir una segunda ficha enemiga del tablero para eliminar, además del objetivo principal. Puede omitir la segunda eliminación. Si hay igual cantidad de Golpes decisivos, decide la fuerza; si ambos tienen dos, el ganador también puede reclamar el combo.
 4. La ficha con más fuerza vence y se retira la otra. En empate se retiran ambas. Comprueba inmediatamente si termina la partida.
@@ -82,29 +89,17 @@ Al entrar en una estrella del extremo rival, puedes gastar un marcador y colocar
 
 ## Victoria y empate
 
-Si un bando se queda sin fichas, gana el otro de inmediato. Si ambos pierden su última ficha en el mismo combate, empatan. Al acabar la ronda 12, gana quien tenga más fichas en el tablero. Con el mismo número, hay empate. Un cañón cuenta como una ficha.
+Si un bando se queda sin fichas, gana el otro de inmediato. Si ambos pierden su última ficha en el mismo combate, empatan. Un cañón cuenta como una ficha.
 
-## Avisos de fase y mazo visible
+La partida dura como máximo **10 minutos** (reloj «Faltan» junto a la llama) o **12 rondas**, lo que llegue antes.
+- **Al cumplirse los 10 minutos** suena el cañón y se decide, en este orden: más fichas en el tablero, más cartas activadas y más cartas potentes activadas (Refuerzo mayor, Golpe decisivo e Invocar cañón). Si todo coincide, es empate.
+- **Al acabar la ronda 12** gana quien tenga más fichas; con el mismo número, empate.
 
-La interfaz muestra banners de pantalla completa para los cambios principales: comienzo/fin de turno, movimiento, declaración de ataque, robo de cartas, invocación, rescate y combos. Un rótulo más pequeño indica la fase actual. Cada facción tiene un contador de **cartas restantes en su mazo**, sin contar las cartas en reserva ni el descarte. La reserva de cada jugador solo se descubre cuando le corresponde elegir.
+## Monedas
 
-## Interfaz de partida v0.17
+Cada partida empieza con cero monedas por bando. Un combate potente da **10 monedas** a cada participante que cumpla la condición: fuerza final de 3 o más, usar el Fuego Especial o activar un Golpe decisivo. Cada baja causada por una victoria, incluida la segunda baja de un combo, da **20 más**; los empates no dan monedas por bajas. Los saldos se ven en el HUD (botón de moneda) y en las estadísticas. No influyen en la victoria, no se compran con dinero real y todavía no hay cartera permanente ni tienda.
 
-- **Escena única:** el tablero se apoya sobre el empedrado de la plaza, con inclinación leve y sombra de contacto, sin recuadro propio.
-- **Las fichas siempre a la vista:** en escritorio el duelo ocupa la columna izquierda y las cartas la derecha. En móvil vertical el cajón entra en el flujo y el tablero se ajusta para caber entero. En horizontal, el duelo y las cartas usan la columna derecha.
-- **Sin desplazamientos:** el cajón, la elección de Exploración (cuadrícula de cartas) y la ayuda caben en pantalla.
-- **Guía del ataque especial:** aviso "¡ATAQUE ESPECIAL LISTO!" al llenarse la barra, fichas con anillo de fuego, botón redondo de fuego en el dock y un globo con flecha que indica cada paso. Paso 1: ficha con fuego. Paso 2: botón. Paso 3: objetivo con mira.
-- **Música:** *Clan Quest* en el menú principal y *Clan Charge* durante la partida, con transición suave. Se silencia con el botón de sonido. El botón Continuar habilita la reproducción de música mediante un gesto del usuario; se respetan los ajustes de silencio guardados. Pistas creadas por el autor con Suno, en `assets/audio/`.
-
-## Fase 1 y tablero SVG (v0.18)
-
-- **Sin códigos visibles:** registro, resultado, banners, diálogos y estadísticas usan el nombre del animal y su bando.
-- **Vista previa del combate** en el diálogo de ataque: fuerza inicial, qué pasa si nadie juega cartas y cuántas cartas útiles tienes.
-- **Ajustes:** música y efectos por separado, temporizador (sin tiempo, relajado ×2 o normal) y velocidad de animación (normal o rápida).
-- **Tablero SVG integrado** con la plaza.
-- **Recursos más ligeros:** WebP para cartas y cañón; arte sin uso movido a `assets/reserva/`.
-
-## Escenario «Campo andino» (v0.21)
+## Escenario «Campo andino»
 
 El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.mp4`, 9 s, sin audio, 1,2 MB) con exactamente 27 casillas en relieve (azules para los Idealistas, verdes neutrales y rojas para los Realistas), cuya grilla hexagonal, inclinada en perspectiva, **es** el tablero: no se dibuja ninguna grilla encima.
 
@@ -112,9 +107,9 @@ El tablero por defecto es un **video en bucle** (`assets/escenario/campo-andino.
   - las zonas táctiles son polígonos con la forma real de cada hexágono;
   - las fichas se apoyan con la base sobre el centro, con sombra en el suelo y un tamaño proporcional a la profundidad;
   - las fichas de delante tapan a las de atrás.
-- **Pantalla completa en móvil vertical:** el video cubre el 100 % de la pantalla, sin bordes ni desplazamiento. `layoutScene()` calcula la misma escala y el mismo recorte para el video y para la capa interactiva; si sobra alto, recorta cielo y nunca terreno. La interfaz flota encima. Durante el combate, los marcadores se apartan y las cartas ocupan la franja del cielo, hasta justo encima de las fichas (`--grid-top`). En escritorio y en horizontal, el video va en su columna recortando el cielo.
+- **Pantalla completa en móvil vertical:** el video cubre el 100 % de la pantalla, sin bordes ni desplazamiento. `layoutScene()` calcula la misma escala y el mismo recorte para el video y para la capa interactiva; si sobra alto, recorta cielo y nunca terreno. La interfaz flota encima. En escritorio y en horizontal, el video va en su columna recortando el cielo.
 - **Bucle sin salto:** el último segundo se funde con el inicio. Con animaciones reducidas se muestra la imagen fija.
-- **Ajustes → Escenario:** permite volver a la **Plaza** (tablero SVG). Cada escenario se define en `BOARD_THEMES`.
+- **Opciones → Escenario:** la **Plaza** (tablero dibujado en SVG por `buildBoardArt()`) sigue disponible como alternativa secundaria. Cada escenario se define en `BOARD_THEMES`.
 
 **Medición y cambio de video.** `tools/medir_escenario.py` mide la grilla del video y escribe `campo-andino-casillas.js`. El video actual (27 casillas en relieve) se mide con `--metodo bordes`:
 1. localiza las cuatro estrellas doradas (B1, D1, B11, D11) fotograma a fotograma para obtener una perspectiva inicial;
@@ -128,40 +123,9 @@ python3 tools/medir_escenario.py assets/escenario/campo-andino.mp4 assets/escena
 
 Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.png` (`tools/guia_escenario.py`): 27 casillas, columnas de 5-6-5-6-5 y estrellas en B1, D1, B11 y D11. Anímala con la cámara fija y en bucle, optimízala con `ffmpeg` (sin audio, fundido de 1 s entre el final y el inicio) y mídela. Revisa siempre la imagen de verificación antes de publicar.
 
-## HUD limpio (v0.27)
-
-- Retratos circulares de los bandos con contorno dorado para el actor y ocho segmentos que representan las fichas vivas; se actualizan tras bajas y rescates. Se conservan los pequeños contadores de rescates y mazo.
-- Indicadores de mover y atacar a la derecha del dock: encendido = legal, borde discontinuo = sin destino válido, apagado = consumido. Se conservan las acciones especiales de combos, rescates y avances.
-- Movimiento y ataque directos sobre destinos válidos, sin confirmación ordinaria; cierre automático al resolver los efectos, en ambos modos. La flecha permite pasar voluntariamente.
-- Al tocar una carta se muestra su ilustración aprobada, efecto y botones de cancelar/activar. La activación sigue restringida al turno de revelado correspondiente.
-
-## HUD de turno y reloj de la llama (v0.29)
-
-En combate se oculta la cabecera del menú, se elevan las barras de vida y las opciones pasan al icono de llave inglesa del dock. El tiempo total aparece en un globo junto a la llama del escenario andino; en otras vistas se muestra junto a los indicadores. Versus IA muestra TU TURNO o TURNO DEL RIVAL según quién puede actuar; el modo local identifica el bando activo. Se ilumina la vida y el retrato de ese bando.
-
-## HUD de cartas públicas (v0.30)
-
-En móvil vertical, el cronómetro de decisión va entre las vidas, seguido de la ronda (1–12) y el marcador de turno. El reloj general de diez minutos sigue junto a la llama. Durante el combate se muestran dos ranuras por bando sobre el tablero: realistas a la izquierda, idealistas a la derecha. Se utiliza el arte aprobado, recortado como PNG transparente en el navegador; una ranura pendiente dice Por jugar y un pase dice Sin carta. Los totales incluyen base, Fuego Especial, cañón, cartas, combos y debilitamientos. Las reservas privadas nunca aparecen en este marcador. Se retira al resolver el combate para liberar el tablero. El resultado queda encima del dock hasta el siguiente combate.
-
-## Secuencia de combate y estrellas guardadas (v0.31)
-
-Los espacios de cartas y la fase de batalla aparecen después de completar el anuncio y las animaciones iniciales del ataque normal o especial. Los efectos posteriores de carta conservan los espacios activos. El rescate abre una ventana con los retratos de las bajas y Guardar; después de elegir una ficha se marcan los destinos legales. Las oportunidades guardadas están separadas de los dos marcadores iniciales, no caducan durante la partida y no se pueden usar en el turno en que se obtienen.
-
-## HUD limpio y reloj de la llama (v0.32)
-
-Se retira el indicador visual de fase para evitar superposiciones con el marcador de turno. Se conservan los anuncios de ataque, las animaciones y las instrucciones necesarias sobre el dock. El reloj general muestra «Faltan» y la cuenta regresiva en dos líneas, con un globo arriba a la derecha de la llama alada y una cola hacia el personaje. La posición se adapta al ancho y alto del visor.
-
-## Monedas y presentación (v0.33)
-
-Cada partida comienza con cero monedas por bando. Un combate potente (fuerza final ≥3, Fuego Especial o uso de Golpe decisivo) otorga 10 monedas por participante que cumpla la condición; cada baja causada por una victoria, incluida la segunda baja de un combo, da 20 adicionales. Los empates no otorgan monedas por bajas. Se muestran los saldos en el dock y el total en estadísticas; no intervienen en la victoria, no se compran con dinero real y todavía no hay cartera permanente ni tienda. Los efectos de cartas y combos se anclan a la ficha que actúa o a la que recibe el debilitamiento. La entrada utiliza fondo pastel rojo/azul. Los diálogos ajustan su contenido al espacio disponible sin scroll, reduciendo la escala si es necesario. El reloj de la llama se sitúa en el extremo derecho con dos líneas.
-
-## Barra compacta del HUD (v0.34)
-
-La fila superior del dock integra opciones, botón de moneda y saldo propio (bando activo en local), estado contextual e iconos de movimiento y ataque. El botón de moneda muestra ambos saldos. Movimiento disponible en verde, ataque disponible en rojo/anaranjado, acciones agotadas en gris. Se conserva la fila inferior con Fuego Especial, tres cartas y acción de turno, así como el botón de rescate cuando está disponible. El estado prioriza instrucciones de fuego o decisiones activas y muestra el resultado al volver al turno sin selección.
-
 ## Pruebas automatizadas
 
-El archivo `game.test.js` comprueba fuerza base 0, cañón inmediato, carga y poder universal de los ocho animales, límites de movimiento, combos, búsqueda diferida y reserva de tres. Ejecuta `node --test` para comprobar la regresión.
+El archivo `game.test.js` (38 casos) comprueba fuerza base 0, cañón inmediato, carga y Fuego Especial universal (incluida la aproximación a dos casillas), límites de movimiento, combos, búsqueda diferida, reserva de tres, rescates guardados, monedas y fin por tiempo. Ejecuta `node --test` para comprobar la regresión.
 
 ### Simulación histórica de equilibrio v0.15 (antes del Fuego Especial universal)
 
@@ -186,3 +150,13 @@ Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique
 - `assets/v014/cartas-aprobadas.webp` (lámina 3×2 de cartas) y `canon.webp`: convertidos de PNG a WebP (de 5 MB a 0,8 MB).
 - `assets/audio/`: *Clan Quest* (menú) y *Clan Charge* (partida), creadas por el autor con Suno.
 - `assets/reserva/`: arte sin uso actual guardado para futuras opciones (tablero ilustrado anterior, plazas alternativas y animales candidatos: cóndor, puma, vicuña, anaconda, tortuga gigante y gallo de las rocas).
+
+## Historial de versiones
+
+- **v0.12–v0.14:** reglas tácticas base, cartas y arte de plastilina aprobado.
+- **v0.15:** fuerza base 0, barra de ataque especial y poderes por animal (simulación arriba).
+- **v0.16–v0.18:** temporizador, pantallas de fin y estadísticas, ajustes, textos sin códigos y vista previa del combate.
+- **v0.19–v0.21:** escenario «Campo andino» en video, medido en perspectiva y a pantalla completa en móvil.
+- **v0.22–v0.28:** HUD táctico, límite de 10 minutos y **Fuego Especial universal** (+3, alcance de dos casillas) en lugar de los poderes por animal.
+- **v0.29–v0.34:** HUD compacto (turno, reloj de la llama, cartas públicas en combate, rescates guardados, monedas, barra superior del dock).
+- **v0.35:** legibilidad del HUD en móvil y documentación al estado actual.
