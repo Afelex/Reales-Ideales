@@ -1,6 +1,6 @@
 # Reales Ideales
 
-Lee [el reglamento y la guía de ejecución](README.md) antes de editar. Este repositorio contiene la demo (reglas con Fuego Especial universal, HUD v0.35) para dos jugadores en un dispositivo o contra la IA. El README describe el estado actual; su historial resume las versiones anteriores.
+Lee [el reglamento y la guía de ejecución](README.md) antes de editar. Este repositorio contiene la demo para dos jugadores en un dispositivo o contra la IA, con Fuego Especial universal. El README describe el estado actual y su historial resume las versiones anteriores.
 
 - `index.html` contiene el tablero y los controles. `styles.css` da estilo al tablero, las fichas, las cartas y los botones. `app.js` conecta la interfaz con el motor, coloca el escenario y dibuja el HUD. `fx.js` genera sonidos y música. `game.js` aplica las reglas. `ai.js` decide las jugadas de la IA.
 - Para pulir la interfaz, trabaja en una rama visual y concentra los cambios en HTML, CSS y la presentación de `app.js`. Los cambios del reglamento van en una propuesta aparte.

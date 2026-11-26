@@ -4,9 +4,9 @@ Juego táctico de mesa para dos personas, con demo web para un dispositivo o con
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. Pulsa **Continuar** en la pantalla de bienvenida: habilita la música y termina la precarga (mínimo 5 segundos, máximo 8 si hay recursos lentos). En el menú, elige **Jugar con una persona** para compartir el dispositivo o **Versus IA** (la IA juega con los realistas).
+Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. La portada del gato y la llama ocupa toda la pantalla. Pulsa **¡Jugar!** para habilitar la música y abrir el menú después de la primera precarga. Elige **Tutorial**, **Multijugador** para compartir el dispositivo, **Vs IA** para jugar contra los realistas u **Opciones**.
 
-Toca una ficha propia y luego un destino marcado para mover o atacar; también se puede arrastrar. El turno avanza solo cuando se agotan las jugadas legales, y el botón de fin de turno permite pasar antes. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
+Arrastra tu ficha a una casilla libre marcada para moverla o suéltala sobre una ficha enemiga marcada para atacar. También puedes tocar la ficha propia y luego su destino. El turno avanza solo cuando se agotan las jugadas legales y el botón de fin de turno permite pasar antes. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
 
 `game.js` contiene las reglas, `ai.js` decide las jugadas de la IA, `app.js` conecta las reglas con la interfaz y `fx.js` genera sonidos y música. Ejecuta `node --test` para comprobar el motor. La demo usa HTML, CSS y JavaScript sin dependencias y se publica como sitio estático en GitHub Pages.
 
@@ -19,7 +19,7 @@ En móvil vertical la partida ocupa **una sola pantalla, sin desplazamientos**: 
 - **Dock inferior, fila de abajo:** anillo del **Fuego Especial** con sus tres cargas, las **tres cartas** de la reserva y el botón de fin de turno. Al tocar una carta se ve su ilustración y su efecto, con Cancelar y Activar. En modo local cada jugador descubre su mano con «Ver mano de…», y se vuelve a ocultar al cambiar de jugador.
 - **Combate:** primero terminan el anuncio y las animaciones del ataque; después aparecen sobre el tablero dos ranuras por bando (realistas a la izquierda, idealistas a la derecha) con las cartas activadas y la fuerza total. Las reservas privadas nunca se muestran al rival. El resultado queda en la línea de estado hasta el siguiente combate.
 - **Rescates guardados:** si se guarda una estrella, aparece un botón para usarla desde el siguiente turno propio.
-- **Combate con partículas (PixiJS):** chispas, trozos de plastilina del color del bando, ondas, polvo, quemaduras y brasas del Fuego Especial en una capa WebGL transparente (`combat-fx.js`). Solo usa texturas generadas por código, así que funciona también abriendo el archivo local. Sin WebGL quedan los efectos CSS. La ficha vencida sale despedida girando y las fichas respiran en reposo.
+- **Combate con partículas (PixiJS):** chispas, trozos de plastilina del color del bando, ondas, polvo, quemaduras y brasas del Fuego Especial en una capa WebGL transparente (`combat-fx.js`). Sin WebGL quedan los efectos CSS. La ficha vencedora sigue en su casilla hasta el avance. Cada ficha vencida permanece hasta que el impacto da paso a su animación de derrota.
 - **Cartas legibles:** el dueño de la carta se ilumina con el color de su bando y la carta aparece de su lado (realistas a la izquierda, idealistas a la derecha) con su nombre. Luego viaja hasta la ficha afectada, donde el número aparece al costado con un anillo del color de la carta.
 - **Animaciones antes que avisos:** fichas que avanzan como vehículos, disparo en arco, explosiones, globos, banners y temporizadores esperan a que termine cada animación. Con `prefers-reduced-motion` se sustituyen por fundidos en el sitio.
 - **Opciones:** escenario (Campo andino o Plaza), música y efectos por separado, temporizador (sin tiempo, relajado ×2 o normal) y velocidad de animación. Se guardan en el navegador.
@@ -161,7 +161,7 @@ Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique
 ## Recursos gráficos y de audio
 
 - `assets/clay/`: escena de la plaza, fichas, dorsos, emblemas, adornos y texturas de plastilina.
-- `assets/v014/cartas-aprobadas.webp` (lámina 3×2 de cartas) y `canon.webp`: convertidos de PNG a WebP (de 5 MB a 0,8 MB).
+- `assets/v014/`: lámina de cartas y fichas del cañón realista rojo (`canon.webp`) e idealista azul (`canon-idealista.webp`).
 - `assets/audio/`: *Clan Quest* (menú) y *Clan Charge* (partida), creadas por el autor con Suno.
 - `assets/reserva/`: arte sin uso actual guardado para futuras opciones (tablero ilustrado anterior, plazas alternativas y animales candidatos: cóndor, puma, vicuña, anaconda, tortuga gigante y gallo de las rocas).
 
@@ -175,3 +175,4 @@ Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique
 - **v0.29–v0.34:** HUD compacto (turno, reloj de la llama, cartas públicas en combate, rescates guardados, monedas, barra superior del dock).
 - **v0.35:** legibilidad del HUD en móvil y documentación al estado actual.
 - **v0.36:** combate de muestra con PixiJS y, en el juego, partículas WebGL, cartas legibles, fichas que respiran y salen despedidas.
+- **v0.37:** portada a pantalla completa, menú de juego, ataque al arrastrar sobre la ficha rival, cañones por facción y continuidad de las fichas durante la resolución del combate.
