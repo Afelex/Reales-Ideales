@@ -151,6 +151,10 @@ Los espacios de cartas y la fase de batalla aparecen después de completar el an
 
 Se retira el indicador visual de fase para evitar superposiciones con el marcador de turno. Se conservan los anuncios de ataque, las animaciones y las instrucciones necesarias sobre el dock. El reloj general muestra «Faltan» y la cuenta regresiva en dos líneas, con un globo arriba a la derecha de la llama alada y una cola hacia el personaje. La posición se adapta al ancho y alto del visor.
 
+## Monedas y presentación (v0.33)
+
+Cada partida comienza con cero monedas por bando. Un combate potente (fuerza final ≥3, Fuego Especial o uso de Golpe decisivo) otorga 10 monedas por participante que cumpla la condición; cada baja causada por una victoria, incluida la segunda baja de un combo, da 20 adicionales. Los empates no otorgan monedas por bajas. Se muestran los saldos en el dock y el total en estadísticas; no intervienen en la victoria, no se compran con dinero real y todavía no hay cartera permanente ni tienda. Los efectos de cartas y combos se anclan a la ficha que actúa o a la que recibe el debilitamiento. La entrada utiliza fondo pastel rojo/azul. Los diálogos ajustan su contenido al espacio disponible sin scroll, reduciendo la escala si es necesario. El reloj de la llama se sitúa en el extremo derecho con dos líneas.
+
 ## Pruebas automatizadas
 
 El archivo `game.test.js` comprueba fuerza base 0, cañón inmediato, carga y poder universal de los ocho animales, límites de movimiento, combos, búsqueda diferida y reserva de tres. Ejecuta `node --test` para comprobar la regresión.
