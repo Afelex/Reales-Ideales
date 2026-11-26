@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=031-rescates">
-  <script defer src="game.js?v=031-rescates"></script>
-  <script defer src="ai.js?v=031-rescates"></script>
+  <link rel="stylesheet" href="styles.css?v=032-reloj">
+  <script defer src="game.js?v=032-reloj"></script>
+  <script defer src="ai.js?v=032-reloj"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="fx.js?v=031-rescates"></script>
-  <script defer src="app.js?v=031-rescates"></script>
+  <script defer src="fx.js?v=032-reloj"></script>
+  <script defer src="app.js?v=032-reloj"></script>
 </head>
 <body class="booting">
   <section id="startup" class="startup" aria-label="Bienvenida a Reales Ideales">
@@ -80,8 +80,10 @@
         <span id="round" class="round-count" title="Ronda actual"><span class="sr-only">Ronda </span><b id="round-value">1</b><span aria-hidden="true">/</span><span class="sr-only"> de </span>12</span>
         <span id="active-side" class="turn-marker" role="status">TU TURNO</span>
       </div>
-      <time id="match-clock" class="match-clock llama-clock" aria-label="Tiempo restante de partida" hidden>10:00</time>
-      <div id="phase-indicator" class="phase-indicator" role="status">Movimiento / ataque</div>
+      <time id="match-clock" class="match-clock llama-clock" datetime="PT600S" aria-label="Tiempo restante de partida" hidden>
+        <span class="clock-label">Faltan</span>
+        <span id="match-clock-value" class="clock-value">10:00</span>
+      </time>
       <div class="board-stage"><div class="board-viewport"><div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div><div id="duel" class="duel battle-cards" aria-label="Cartas activadas y fuerza de combate" hidden></div></div></div>
       <div class="legend">
         <span><img src="assets/clay/emblemas/rescate.webp" alt="" width="18" height="18"> Rescate</span>
