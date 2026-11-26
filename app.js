@@ -972,7 +972,7 @@ function layoutScene() {
     const clock = byId('match-clock');
     const rect = board.getBoundingClientRect();
     const halfW = clock.offsetWidth / 2, halfH = clock.offsetHeight / 2;
-    const cx = Math.max(rect.left + rect.width * .97, vw - halfW - 8);
+    const cx = vw - halfW - 8;
     const cy = rect.top + rect.height * .145;
     const safeRight = vw - halfW - 8;
     const minX = Math.min(safeRight, Math.max(halfW + 8, heading.getBoundingClientRect().right + halfW + 6));
@@ -2244,7 +2244,7 @@ function fitPanel(panel) {
   const limit = Math.max(50, viewport - inset - 32);
   let scale = 1;
   for (let pass = 0; pass < 4; pass++) {
-    const height = inner.getBoundingClientRect().height;
+    const height = Math.max(inner.getBoundingClientRect().height, inner.scrollHeight * scale);
     if (height <= limit + 1) break;
     scale *= limit / height;
     inner.style.zoom = String(scale);
