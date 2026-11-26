@@ -480,3 +480,31 @@ test('rescate guardado restaura ficha normal y es simétrico para los realistas'
   assert.equal(G.piece(s,'R1').cannon,false);
   assert.equal(s.players.R.rescues,1);
 });
+
+
+test('monedas: victoria normal da 20, ataque potente añade 10, no cambia el resultado', () => {
+  const s=setup(['major','boost']); stage(s);
+  reveal(s,null,0,null,1);
+  assert.equal(result(s).winner,'I');
+  assert.equal(s.players.I.coins,30);
+  assert.equal(s.players.R.coins,0);
+  assert.equal(s.events.filter(e=>e.type==='reward').reduce((n,e)=>n+e.amount,0),30);
+});
+test('empate sin cartas no produce monedas; golpe decisivo y segunda baja sí', () => {
+  const tie=setup(); stage(tie); reveal(tie);
+  assert.equal(tie.players.I.coins,0); assert.equal(tie.players.R.coins,0);
+  const s=setup(['decisive','decisive']); stage(s); reveal(s,null,0,null,1);
+  assert.equal(s.players.I.coins,30);
+  const target=G.comboTargets(s)[0];
+  assert.equal(G.comboEliminate(s,target),true);
+  assert.equal(s.players.I.coins,50);
+  assert.equal(G.comboEliminate(s,target),false);
+  assert.equal(s.players.I.coins,50);
+});
+test('ambos bandos pueden ganar premio potente aunque pierdan; defensa ganadora obtiene monedas', () => {
+  const s=setup(['major','boost'],['major','major']); stage(s);
+  reveal(s,0,0,1,1);
+  assert.equal(result(s).winner,'R');
+  assert.equal(s.players.I.coins,10);
+  assert.equal(s.players.R.coins,30);
+});
