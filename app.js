@@ -1,6 +1,8 @@
 'use strict';
 
 const rules = window.RealesIdeales;
+const hudArt = name => 'assets/ui/hud/' + name + '.png';
+const searchArt = hudArt('lupa');
 const ai = window.RealesIdealesAI;
 const byId = id => document.getElementById(id);
 const board = byId('board');
@@ -766,6 +768,13 @@ function renderCardFace(parent, card, preview = false) {
   const title = span(parent, 'card-title', rules.CARDS[card].name);
   const art = span(parent, 'card-art', '');
   art.setAttribute('aria-hidden', 'true');
+  if (card === 'search') {
+    const icon = document.createElement('img');
+    icon.src = searchArt;
+    icon.alt = '';
+    art.append(icon);
+    span(art, 'search-card-label', title.textContent);
+  }
   span(parent, 'card-type', cardTypes[card]);
   if (preview) {
     parent.setAttribute('aria-label', rules.CARDS[card].name + ': ' + rules.CARDS[card].description);
@@ -1458,7 +1467,7 @@ function renderHands() {
     node.setAttribute('aria-label', node.title);
     if (!card) continue;
     const icon = document.createElement('img');
-    icon.src = card === 'search' ? 'assets/clay/dorso-idealista.webp' : 'assets/clay/emblemas/' + card + '.webp';
+    icon.src = card === 'search' ? searchArt : 'assets/clay/emblemas/' + card + '.webp';
     icon.alt = '';
     node.append(icon);
   }
@@ -1492,7 +1501,11 @@ function renderControls() {
       }, 'secondary end-turn');
       end.title = 'Fin de turno';
       end.setAttribute('aria-label', 'Fin de turno');
-      end.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h13m-5-5 5 5-5 5M20 5v14"/></svg>';
+      const arrow = document.createElement('img');
+      arrow.className = 'hud-icon';
+      arrow.src = hudArt('fin-turno');
+      arrow.alt = '';
+      end.append(arrow);
       if (specialMode && selection) {
         const power = rules.FIRE_POWER;
         say(power.name, power.description + ' ' + (specialView().destinations.length && !specialAt
@@ -1607,7 +1620,7 @@ function forceSummary() {
 const playedCardPngs = new Map();
 let playedCardAtlas = null;
 let playedCardAtlasLoading = false;
-const playedCardOrder = ['boost','weaken','major','decisive','cannon','search'];
+const playedCardOrder = ['boost','weaken','major','decisive','cannon'];
 function preparePlayedCardPngs() {
   if (playedCardAtlasLoading || playedCardPngs.size) return;
   playedCardAtlasLoading = true;
@@ -2265,6 +2278,7 @@ byId('export').addEventListener('click', () => {
 const STARTUP_MIN_MS = 5000;
 const STARTUP_MAX_MS = 8000;
 const startupImages = [
+  ...['opciones', 'moneda', 'mover', 'atacar', 'fuego', 'fin-turno', 'lupa', 'marco', 'casilla-azul', 'casilla-verde', 'casilla-roja'].map(hudArt),
   'assets/logo.webp', 'assets/clay/portada-vertical.webp',
   'assets/clay/terracota.webp', 'assets/clay/campo-jardin.webp',
   'assets/clay/flor.webp', 'assets/clay/relieve.webp', 'assets/clay/jardin-izquierdo.webp',
