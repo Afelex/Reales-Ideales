@@ -147,6 +147,10 @@ En móvil vertical, el cronómetro de decisión va entre las vidas, seguido de l
 
 Los espacios de cartas y la fase de batalla aparecen después de completar el anuncio y las animaciones iniciales del ataque normal o especial. Los efectos posteriores de carta conservan los espacios activos. El rescate abre una ventana con los retratos de las bajas y Guardar; después de elegir una ficha se marcan los destinos legales. Las oportunidades guardadas están separadas de los dos marcadores iniciales, no caducan durante la partida y no se pueden usar en el turno en que se obtienen.
 
+## HUD limpio y reloj de la llama (v0.32)
+
+Se retira el indicador visual de fase para evitar superposiciones con el marcador de turno. Se conservan los anuncios de ataque, las animaciones y las instrucciones necesarias sobre el dock. El reloj general muestra «Faltan» y la cuenta regresiva en dos líneas, con un globo arriba a la derecha de la llama alada y una cola hacia el personaje. La posición se adapta al ancho y alto del visor.
+
 ## Pruebas automatizadas
 
 El archivo `game.test.js` comprueba fuerza base 0, cañón inmediato, carga y poder universal de los ocho animales, límites de movimiento, combos, búsqueda diferida y reserva de tres. Ejecuta `node --test` para comprobar la regresión.

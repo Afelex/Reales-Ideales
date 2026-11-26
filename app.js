@@ -608,7 +608,6 @@ const gameMenuButton = byId('game-menu-button');
 const coverHeaderActions = document.querySelector('.header-actions');
 const seats = [...document.querySelectorAll('.seat')];
 let handOwner = null;
-const phaseIndicator = byId('phase-indicator');
 gameMenuButton.addEventListener('click', () => gameMenu.showModal());
 byId('help-button').addEventListener('click', () => helpDialog.showModal());
 byId('match-help').addEventListener('click', () => {
@@ -654,13 +653,6 @@ for (const node of matchDialogs) {
   node.addEventListener('close', () => { if (game) scheduleProgress(); });
 }
 // La música del menú empieza únicamente con el botón Continuar.
-function currentPhase() {
-  if (game.phase === 'turn') return 'Movimiento / ataque';
-  if (game.phase === 'reveal') return 'Fase de batalla';
-  return { combo: 'Combo decisivo', bonus: 'Avance adicional', rescue: 'Rescate',
-    end: 'Partida terminada' }[game.phase] ?? 'Preparación';
-}
-
 function renderCardFace(parent, card, preview = false) {
   parent.classList.add('illustrated');
   parent.dataset.card = card;
@@ -955,13 +947,19 @@ function layoutScene() {
       width: W * scale + 'px', height: H * scale + 'px' });
     boardViewport.style.removeProperty('--scene-aspect');
     document.body.style.setProperty('--grid-top', top * scale + y + 'px');
-    // Coordenadas del globo respecto al fotograma, con límites para móviles estrechos.
+    // Globo arriba y a la derecha de la cabeza de la llama alada.
+    // Su cola inferior izquierda señala al personaje; el globo queda dentro del visor.
     const clock = byId('match-clock');
     const rect = board.getBoundingClientRect();
-    const cx = Math.max(rect.left + rect.width * .71, heading.getBoundingClientRect().right + clock.offsetWidth / 2 + 5);
-    const cy = rect.top + rect.height * .205;
-    clock.style.setProperty('--clock-x', Math.max(clock.offsetWidth / 2 + 8, Math.min(vw - clock.offsetWidth / 2 - 8, cx)) + 'px');
-    clock.style.setProperty('--clock-y', Math.max(heading.getBoundingClientRect().top + 25, Math.min(top * scale + y - 35, cy)) + 'px');
+    const halfW = clock.offsetWidth / 2, halfH = clock.offsetHeight / 2;
+    const cx = rect.left + rect.width * .91;
+    const cy = rect.top + rect.height * .17;
+    const safeRight = vw - halfW - 8;
+    const minX = Math.min(safeRight, Math.max(halfW + 8, heading.getBoundingClientRect().right + halfW + 6));
+    const safeTop = Math.max(...seats.map(seat => seat.getBoundingClientRect().bottom)) + halfH + 5;
+    const safeBottom = Math.max(halfH + 8, Math.min(vh - halfH - 8, top * scale + y - halfH - 12));
+    clock.style.setProperty('--clock-x', Math.max(minX, Math.min(safeRight, cx)) + 'px');
+    clock.style.setProperty('--clock-y', Math.max(Math.min(safeTop, safeBottom), Math.min(safeBottom, cy)) + 'px');
   } else {
     byId('match-clock').style.removeProperty('--clock-x');
     byId('match-clock').style.removeProperty('--clock-y');
@@ -976,7 +974,7 @@ const sceneResize = new ResizeObserver(() => {
   if (document.body.classList.contains('scene-full')) layoutScene();
 });
 sceneResize.observe(controls);
-sceneResize.observe(phaseIndicator);
+sceneResize.observe(byId('active-side').closest('.field-heading'));
 // El escenario se prepara durante la pantalla de carga inicial.
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
@@ -1655,9 +1653,11 @@ function updateMatchClock() {
   const seconds = Math.max(0, Math.ceil((matchDeadline - Date.now()) / 1000));
   const clock = byId('match-clock');
   const label = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
-  if (clock.textContent !== label) {
-    clock.textContent = label;
+  const value = byId('match-clock-value');
+  if (value.textContent !== label) {
+    value.textContent = label;
     clock.dateTime = 'PT' + seconds + 'S';
+    clock.setAttribute('aria-label', 'Faltan ' + Math.floor(seconds / 60) + ' minutos y ' + seconds % 60 + ' segundos');
   }
   if (seconds > 0) return false;
   if (!rules.finishOnTime(game)) return false;
@@ -1876,8 +1876,6 @@ function render() {
   }
   renderActionStatus();
   renderSavedRescue();
-  phaseIndicator.textContent = currentPhase();
-  phaseIndicator.dataset.phase = game.phase;
   byId('turn-info').textContent = game.phase === 'reveal' ? 'Carta o pase ' + (game.battle.slot + 1) + ' de 4'
     : game.phase === 'turn' ? 'Acciones: ' + game.actions + ' de 2' : '';
   const result = byId('battle-result');
