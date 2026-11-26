@@ -180,3 +180,4 @@ Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique
 - **v0.38:** portada vertical 9:16, arte de botones y HUD, combate inmediato al elegir objetivo y remate de Golpe decisivo en partida.
 - **v0.39:** video en bucle para el menú vertical, con portada fija como alternativa.
 - **v0.40:** HUD inferior con marco textil de plastilina, controles e indicadores PNG y una lupa para Exploración en la reserva, la vista previa y el combate.
+- **v0.41:** ranuras horizontales con emblemas sin deformación, lupa con ornamentos andinos e indicadores opacos con símbolo de prohibido para las acciones no disponibles.

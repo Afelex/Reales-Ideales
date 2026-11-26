@@ -1738,8 +1738,6 @@ body.playing .seat .seat-turn { display: none; }
   background: #172f36df; border: 1px solid #d5a262; border-radius: .5rem;
 }
 .action-token svg { width: 15px; height: 15px; }
-.action-token[data-state="waiting"] { opacity: .72; border-style: dashed; }
-.action-token[data-state="spent"] { opacity: .42; filter: grayscale(1); }
 body.playing .battle-dock .end-turn { width: 44px; min-width: 44px; padding: 0; display: grid; place-items: center; }
 body.playing .battle-dock .end-turn svg { width: 22px; height: 22px; }
 .card-menu { width: min(17rem,calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; }
@@ -2067,8 +2065,6 @@ body.playing .hud-toolbar .action-token {
 }
 .hud-toolbar .action-token svg { width: 19px; height: 19px; }
 .hud-toolbar .action-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-body.playing .hud-toolbar .action-token[data-state="waiting"] { border-style: dashed; opacity: .62; }
-body.playing .hud-toolbar .action-token[data-state="spent"] { opacity: .35; filter: grayscale(1); }
 body.playing .battle-dock { grid-template-columns: auto minmax(0,1fr) auto; }
 body.playing .battle-dock .hud-card { flex: 0 1 58px; }
 body.playing .controls > .saved-rescue-button:not([hidden]) { justify-self: start; margin: 0; }
@@ -2177,17 +2173,38 @@ body.playing .hud-toolbar .action-token {
   height: var(--hud-tile);
   border: 0;
   border-radius: .38rem;
-  background: var(--hud-blue) center / 100% 100% no-repeat;
+  background: var(--action-tile, var(--hud-blue)) center / 100% 100% no-repeat;
   box-shadow: none;
 }
 body.playing .hud-toolbar #move-status {
-  background: var(--hud-green) center / 100% 100% no-repeat;
+  --action-tile: var(--hud-green);
 }
 body.playing .hud-toolbar #attack-status {
-  background: var(--hud-red) center / 100% 100% no-repeat;
+  --action-tile: var(--hud-red);
 }
-body.playing .hud-toolbar .action-token[data-state="waiting"] { opacity: .73; }
-body.playing .hud-toolbar .action-token[data-state="spent"] { opacity: .43; }
+body.playing .hud-toolbar .action-token:not([data-state="ready"]) {
+  position: relative;
+  border: 2px solid #95999f;
+  border-radius: .57rem;
+  background: linear-gradient(150deg, #525961, #30363d);
+  box-shadow: inset 0 1px 2px #21262c;
+}
+body.playing .hud-toolbar .action-token[data-state="spent"] {
+  background: linear-gradient(150deg, #41464d, #262b32);
+}
+.hud-toolbar .action-token:not([data-state="ready"]) .hud-icon {
+  filter: grayscale(1) brightness(.84);
+}
+.hud-toolbar .action-token:not([data-state="ready"])::after {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border: 2px solid #ff5456;
+  border-radius: 50%;
+  background: linear-gradient(47deg, transparent calc(50% - 1.3px), #ff5456 50%, transparent calc(50% + 1.3px));
+  box-shadow: 0 0 0 1px #51282c;
+  pointer-events: none;
+}
 #coin-button {
   display: flex;
   align-items: center;
@@ -2235,9 +2252,20 @@ body.playing .battle-dock .end-turn {
   background: var(--hud-blue) center / 100% 100% no-repeat;
   box-shadow: none;
 }
-body.playing .battle-dock .hud-card { min-width: 0; flex: 1 1 0; }
+body.playing .battle-dock .hud-card {
+  min-width: 0;
+  flex: 1 1 0;
+  border: 1px solid transparent;
+  border-image: url('assets/ui/hud/ranura-carta.png') 26 fill / 12px / 0 stretch;
+  background: none;
+}
 body.playing .battle-dock .end-turn { min-width: 0; width: clamp(42px, 12vw, 67px); }
-body.playing .battle-dock .hud-card img { width: 74%; height: clamp(24px, 8vw, 43px); }
+body.playing .battle-dock .hud-card img {
+  width: min(80%, clamp(24px, 8vw, 43px));
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
 body.playing .battle-dock .actions button:not(.end-turn), .battle-dock .hand-handoff {
   min-height: 38px;
   color: #fff1d7;

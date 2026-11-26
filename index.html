@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · v0.40</title>
-  <link rel="stylesheet" href="styles.css?v=040-hud-plastilina">
+  <title>Reales Ideales · v0.41</title>
+  <link rel="stylesheet" href="styles.css?v=041-cartas-hud">
   <script defer src="game.js?v=038-arte-combate"></script>
   <script defer src="ai.js?v=038-arte-combate"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
   <script defer src="assets/vendor/pixi-8.19.0.min.js"></script>
   <script defer src="combat-fx.js?v=038-arte-combate"></script>
   <script defer src="fx.js?v=038-arte-combate"></script>
-  <script defer src="app.js?v=040-hud-plastilina"></script>
+  <script defer src="app.js?v=041-cartas-hud"></script>
 </head>
 <body>
   <section id="inicio" class="cover" aria-labelledby="cover-title">
@@ -107,10 +107,10 @@
           <p id="special-hint" class="special-hint" aria-live="polite" hidden></p>
         </div>
         <div id="action-status" class="action-status" role="group" aria-label="Acciones de turno" hidden>
-          <span id="move-status" class="action-token" data-state="waiting">
+          <span id="move-status" class="action-token" role="img" data-state="waiting">
             <img class="hud-icon" src="assets/ui/hud/mover.png" alt="" width="96" height="96">
           </span>
-          <span id="attack-status" class="action-token" data-state="waiting">
+          <span id="attack-status" class="action-token" role="img" data-state="waiting">
             <img class="hud-icon" src="assets/ui/hud/atacar.png" alt="" width="96" height="96">
           </span>
         </div>
