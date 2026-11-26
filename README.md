@@ -50,7 +50,7 @@ Haz hasta dos acciones en el orden que prefieras: **solo un movimiento normal** 
 
 Cada bando acumula un segmento al comenzar cada turno propio, hasta tres. El primer Fuego Especial está disponible en el turno 3. Al usarlo la carga vuelve a cero.
 
-**Todas las fichas normales de los ocho animales comparten el mismo poder: +3 de fuerza al atacar a un enemigo adyacente.** Sustituye el ataque normal, no modifica el movimiento ni el alcance, y deja disponibles las dos cartas de cada combatiente. Los cañones no pueden usarlo. No requiere elegir comandante.
+**Todas las fichas normales de los ocho animales comparten el mismo poder: +3 de fuerza al atacar a un enemigo adyacente o a dos hexágonos de distancia.** Si está a dos, la ficha da un paso por una casilla libre adyacente a ambos, consume su movimiento y ataque del turno e inicia el combate. Si ya movió, solo puede usar fuego contra un enemigo vecino. La aproximación no activa rescates intermedios; el avance tras el combate conserva las reglas ordinarias. Ambos combatientes conservan sus dos cartas. Los cañones no pueden usarlo. No requiere elegir comandante.
 
 En el tablero físico se aplica el mismo bono de +3 al calcular la fuerza y se reinicia el contador de tres cargas. En la aplicación se utiliza el botón con icono de fuego y tres segmentos radiales, sin las letras SS.
 
@@ -134,6 +134,10 @@ Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.
 - Indicadores de mover y atacar a la derecha del dock: encendido = legal, borde discontinuo = sin destino válido, apagado = consumido. Se conservan las acciones especiales de combos, rescates y avances.
 - Movimiento y ataque directos sobre destinos válidos, sin confirmación ordinaria; cierre automático al resolver los efectos, en ambos modos. La flecha permite pasar voluntariamente.
 - Al tocar una carta se muestra su ilustración aprobada, efecto y botones de cancelar/activar. La activación sigue restringida al turno de revelado correspondiente.
+
+## HUD de turno y reloj de la llama (v0.29)
+
+En combate se oculta la cabecera del menú, se elevan las barras de vida y las opciones pasan al icono de llave inglesa del dock. El tiempo total aparece en un globo junto a la llama del escenario andino; en otras vistas se muestra junto a los indicadores. Versus IA muestra TU TURNO o TURNO DEL RIVAL según quién puede actuar; el modo local identifica el bando activo. Se ilumina la vida y el retrato de ese bando.
 
 ## Pruebas automatizadas
 
