@@ -1926,3 +1926,9 @@ body.playing[data-turn-side="R"] .battle-dock { border-color: #d79985; }
   body.playing .battle-dock .hud-menu-button { width: 32px; }
   body.playing .battle-dock .hud-card { min-width: 30px; }
 }
+
+/* El globo es hermano de la cabecera, no hijo de su elemento transformado. */
+body.playing .seat[data-prompt="true"] .seat-turn { display: none; }
+body.playing:not(.scene-full) .field > .llama-clock { flex: 0 0 auto; margin: .05rem auto .2rem; }
+body.scene-full #rival-played { top: var(--rival-strip-top,10.8rem); }
+body.scene-full .field { overflow: visible; }
