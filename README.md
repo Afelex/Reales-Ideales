@@ -19,6 +19,8 @@ En móvil vertical la partida ocupa **una sola pantalla, sin desplazamientos**: 
 - **Dock inferior, fila de abajo:** anillo del **Fuego Especial** con sus tres cargas, las **tres cartas** de la reserva y el botón de fin de turno. Al tocar una carta se ve su ilustración y su efecto, con Cancelar y Activar. En modo local cada jugador descubre su mano con «Ver mano de…», y se vuelve a ocultar al cambiar de jugador.
 - **Combate:** primero terminan el anuncio y las animaciones del ataque; después aparecen sobre el tablero dos ranuras por bando (realistas a la izquierda, idealistas a la derecha) con las cartas activadas y la fuerza total. Las reservas privadas nunca se muestran al rival. El resultado queda en la línea de estado hasta el siguiente combate.
 - **Rescates guardados:** si se guarda una estrella, aparece un botón para usarla desde el siguiente turno propio.
+- **Combate con partículas (PixiJS):** chispas, trozos de plastilina del color del bando, ondas, polvo, quemaduras y brasas del Fuego Especial en una capa WebGL transparente (`combat-fx.js`). Solo usa texturas generadas por código, así que funciona también abriendo el archivo local. Sin WebGL quedan los efectos CSS. La ficha vencida sale despedida girando y las fichas respiran en reposo.
+- **Cartas legibles:** el dueño de la carta se ilumina con el color de su bando y la carta aparece de su lado (realistas a la izquierda, idealistas a la derecha) con su nombre. Luego viaja hasta la ficha afectada, donde el número aparece al costado con un anillo del color de la carta.
 - **Animaciones antes que avisos:** fichas que avanzan como vehículos, disparo en arco, explosiones, globos, banners y temporizadores esperan a que termine cada animación. Con `prefers-reduced-motion` se sustituyen por fundidos en el sitio.
 - **Opciones:** escenario (Campo andino o Plaza), música y efectos por separado, temporizador (sin tiempo, relajado ×2 o normal) y velocidad de animación. Se guardan en el navegador.
 - **Legibilidad:** ningún texto del HUD baja de unos 12 px en móvil; la línea de estado admite dos líneas.
@@ -172,3 +174,4 @@ Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique
 - **v0.22–v0.28:** HUD táctico, límite de 10 minutos y **Fuego Especial universal** (+3, alcance de dos casillas) en lugar de los poderes por animal.
 - **v0.29–v0.34:** HUD compacto (turno, reloj de la llama, cartas públicas en combate, rescates guardados, monedas, barra superior del dock).
 - **v0.35:** legibilidad del HUD en móvil y documentación al estado actual.
+- **v0.36:** combate de muestra con PixiJS y, en el juego, partículas WebGL, cartas legibles, fichas que respiran y salen despedidas.

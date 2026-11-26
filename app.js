@@ -218,6 +218,8 @@ function busy() {
 // banners, registro y resultado aunque la animación esté desactivada.
 const fx = window.RealesIdealesFX;
 const fxLayer = byId('fx-layer');
+// Partículas WebGL (PixiJS). Sin WebGL, cada llamada es inofensiva y quedan los efectos CSS.
+const cfx = window.RealesIdealesCombatFX ?? new Proxy({}, { get: () => () => {} });
 const cardColors = {
   boost: ['#62c46a', '#f7ffd9'], weaken: ['#7b4bb0', '#e6d4ff'], major: ['#f0b52e', '#fff3c4'],
   decisive: ['#d8312a', '#fff0e6'], cannon: ['#a0703c', '#ffd9a0'], search: ['#2c9fa4', '#d8fffb'],
@@ -254,6 +256,7 @@ function clearEffects() {
   document.body.classList.remove('fx-busy');
   fxHidden.clear();
   fxLayer.replaceChildren();
+  cfx.clear();
   lastCells = new Map();
   document.querySelector('.field')?.classList.remove('fx-shake', 'fx-shake-strong');
 }
@@ -349,13 +352,24 @@ function drive(event) {
     });
   }
   later(DRIVE_MS, () => {
+    cfx.dust(to, 12);
     showToken(event.piece);
     fx.play('ok');
     speech(event.to, '¡Ok!', piece.side, 950);
   });
 }
-function explodeAt(cell, big = false) {
+function explodeAt(cell, big = false, id = null, attackerSide = null) {
   const point = cellPoint(cell);
+  const piece = id && rules.piece(game, id);
+  if (point) {
+    cfx.impact({ ...point, y: point.y - point.size * .1 }, piece?.side ?? 'R', big ? 2 : 1);
+    // La ficha vencida sale despedida girando, en dirección contraria al atacante.
+    if (piece && !reducedMotion()) {
+      const dir = attackerSide === 'I' ? 1 : attackerSide === 'R' ? -1 : (Math.random() < .5 ? -1 : 1);
+      const ko = tokenClone({ ...piece, cannon: false }, point, { width: point.size * .78, height: point.size * .78 }, 'fx-ko', 1100);
+      ko?.style.setProperty('--dir', String(dir));
+    }
+  }
   spawn('fx-explosion' + (big ? ' big' : ''), point, {}, 1200);
   spawn('fx-shockwave', point, {}, 900);
   if (!reducedMotion()) for (let i = 0; i < 8; i++) {
@@ -397,6 +411,8 @@ function specialCall(event) {
       }, SPECIAL_MS);
     }
   }
+  cfx.fireCharge(point, SPECIAL_MS);
+  later(SPECIAL_MS * .55, () => cfx.fireBurst(point, 30));
   numberAt(point, signed(power.bonus), 'up');
   const title = point && spawn('fx-power-name fx-power-local side-' + event.side,
     { ...point, x: Math.max(75, Math.min(window.innerWidth - 75, point.x)), y: point.y - point.size * .65 },
@@ -431,6 +447,7 @@ function launchShell(from, to, side) {
   inner.style.setProperty('--peak', (dy / 2 - arc) + 'px');
   shell.append(inner);
   later(SHOT_FLIGHT, () => {
+    cfx.sparks(to, 14, .8); cfx.dust(to, 8);
     spawn('fx-impact', to, {}, 700);
     spawn('fx-lock', to, {}, 1400);
     fx.play('explosion');
@@ -438,7 +455,7 @@ function launchShell(from, to, side) {
   });
 }
 // Cada activación o pase entra directamente en su espacio, sin ventana central.
-const SHOWCASE_MS = 850;
+const SHOWCASE_MS = 1400;
 function showcase(event) {
   if (!duel) return;
   if (event.type === 'pass') {
@@ -470,6 +487,59 @@ function cardAura(side, card, kind) {
   const [color, glow] = cardColors[card];
   spawn('fx-local-card ' + kind, point, { color, glow }, 1050);
 }
+// === Cartas legibles en combate ===
+// El dueño de la carta brilla con el color de su bando, la carta aparece junto a él con su
+// nombre y viaja hasta la ficha afectada; el número sale al costado de esa ficha (nunca
+// entre las dos) con un anillo del color de la carta.
+const CARD_THROW_MS = 1300;
+const SIDE_ADJ = { I: 'idealista', R: 'realista' };
+function fighterOf(side) { return duel?.find(p => p.side === side) ?? null; }
+function besidePoint(side) {
+  const point = fighterPoint(side), other = fighterPoint(side === 'I' ? 'R' : 'I');
+  if (!point) return null;
+  let dir = other ? Math.sign(point.x - other.x) : 0;
+  if (!dir || Math.abs(point.x - other.x) < point.size * .3) dir = side === 'I' ? 1 : -1;
+  const x = Math.max(36, Math.min(window.innerWidth - 36, point.x + dir * point.size * .62));
+  return { ...point, x, y: point.y - point.size * .55 };
+}
+function cardThrow(ownerSide, card, effects) {
+  const owner = fighterPoint(ownerSide), fighter = fighterOf(ownerSide);
+  if (!owner || !fighter) { effects.forEach(e => floatNumber(e.side, e.label, e.kind)); return; }
+  const [color] = cardColors[card];
+  const reduced = reducedMotion();
+  spawn('fx-owner-ring side-' + ownerSide, owner, {}, 900);
+  // Carta junto al dueño, del mismo lado que sus ranuras de combate (realistas a la
+  // izquierda, idealistas a la derecha) y siempre dentro de la pantalla.
+  const dir = ownerSide === 'I' ? 1 : -1;
+  const holdX = Math.max(70, Math.min(window.innerWidth - 70, owner.x + dir * owner.size * 1.25));
+  const holdY = Math.max(110, owner.y - owner.size * .9);
+  const node = spawn('fx-thrown side-' + ownerSide, { x: holdX, y: holdY, size: 0 }, { color }, CARD_THROW_MS);
+  if (node) {
+    span(node, 'fx-thrown-owner', animals[character(fighter)] + ' ' + SIDE_ADJ[ownerSide]);
+    const face = span(node, 'card front fx-thrown-card', '');
+    renderCardFace(face, card);
+  }
+  const main = effects[0];
+  const target = main ? fighterPoint(main.side) : owner;
+  if (node && target && !reduced) {
+    later(780, () => {
+      node.style.setProperty('--tx', (target.x - holdX) + 'px');
+      node.style.setProperty('--ty', (target.y - holdY) + 'px');
+      node.classList.add('travel');
+      for (let i = 0; i < 6; i++) later(i * 45, () => cfx.trail({ ...owner, x: holdX + (target.x - holdX) * i / 6, y: holdY + (target.y - holdY) * i / 6 }, parseInt(color.slice(1), 16)));
+    });
+  }
+  later(reduced ? 400 : 1080, () => {
+    for (const e of effects) {
+      const point = fighterPoint(e.side);
+      if (!point) continue;
+      spawn('fx-hit-ring', point, { color }, 900);
+      cfx.cardHit(point, parseInt(color.slice(1), 16));
+      numberAt(besidePoint(e.side), e.label, e.kind);
+      cardAura(e.side, card, e.kind);
+    }
+  });
+}
 function applyCardForce(side, card) {
   if (!duel) return;
   const index = duel[0].side === side ? 0 : 1;
@@ -482,9 +552,11 @@ function applyCardForce(side, card) {
   const after = [forceOf(0).total, forceOf(1).total];
   const own = after[index] - before[index], rival = after[1 - index] - before[1 - index];
   const rule = rules.CARDS[card];
-  if (card === 'decisive') { floatNumber(side, 'Decisivo', 'decisive'); cardAura(side,card,'up'); }
-  else if (rule.own) { floatNumber(side, signed(rule.own), 'up'); cardAura(side,card,'up'); }
-  if (rule.rival) { floatNumber(rivalSide, signed(rule.rival), 'down'); cardAura(rivalSide,card,'down'); }
+  const effects = [];
+  if (card === 'decisive') effects.push({ side, label: 'Decisivo', kind: 'decisive' });
+  else if (rule.own) effects.push({ side, label: signed(rule.own), kind: 'up' });
+  if (rule.rival) effects.push({ side: rivalSide, label: signed(rule.rival), kind: 'down' });
+  cardThrow(side, card, effects);
   for (const [i, delta] of [[index, own], [1 - index, rival]]) {
     if (!delta) continue;
     const value = byId('duel').querySelector('[data-force="' + duel[i].side + '"] .duel-force-value');
@@ -539,7 +611,7 @@ function effectFor(event) {
       // El duelo se retira justo antes de la explosión para no tapar las fichas.
       duelHold = false;
       renderDuel();
-      event.removed.forEach((id, i) => later(i * 170, () => explodeAt(pieceCell(id), big)));
+      event.removed.forEach((id, i) => later(i * 170, () => explodeAt(pieceCell(id), big, id, event.removed.length > 1 ? null : event.winner)));
       later(event.removed.length * 170 + 250, () => syncCounters(true));
       if (event.winner) flash(event.winner === 'I' ? '#235f82' : '#9d312f', '#ffe3a3');
       shake(big || event.removed.length > 1);
@@ -552,7 +624,7 @@ function effectFor(event) {
     case 'double':
     case 'combo':
       fx.play('explosion', true);
-      explodeAt(pieceCell(event.target), true);
+      explodeAt(pieceCell(event.target), true, event.target, event.side);
       later(300, () => syncCounters(true));
       shake(true);
       return;
@@ -664,7 +736,7 @@ settingsForm.addEventListener('change', event => {
     timerKey = null;
     if (game) syncTimer();
   }
-  if (name === 'speed') settings.speed = Number(value);
+  if (name === 'speed') { settings.speed = Number(value); cfx.setSpeed(settings.speed); }
   if (name === 'board') {
     settings.board = value;
     applyBoardTheme();
@@ -2068,6 +2140,8 @@ function resetPresentation() {
 }
 function startGame(nextMode) {
   resetPresentation();
+  cfx.start();
+  cfx.setSpeed(settings.speed);
   fx.music('battle');
   if (!sceneGeometry) applyBoardTheme();
   const video = board.querySelector('.board-video');
