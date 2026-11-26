@@ -155,6 +155,10 @@ Se retira el indicador visual de fase para evitar superposiciones con el marcado
 
 Cada partida comienza con cero monedas por bando. Un combate potente (fuerza final ≥3, Fuego Especial o uso de Golpe decisivo) otorga 10 monedas por participante que cumpla la condición; cada baja causada por una victoria, incluida la segunda baja de un combo, da 20 adicionales. Los empates no otorgan monedas por bajas. Se muestran los saldos en el dock y el total en estadísticas; no intervienen en la victoria, no se compran con dinero real y todavía no hay cartera permanente ni tienda. Los efectos de cartas y combos se anclan a la ficha que actúa o a la que recibe el debilitamiento. La entrada utiliza fondo pastel rojo/azul. Los diálogos ajustan su contenido al espacio disponible sin scroll, reduciendo la escala si es necesario. El reloj de la llama se sitúa en el extremo derecho con dos líneas.
 
+## Barra compacta del HUD (v0.34)
+
+La fila superior del dock integra opciones, botón de moneda y saldo propio (bando activo en local), estado contextual e iconos de movimiento y ataque. El botón de moneda muestra ambos saldos. Movimiento disponible en verde, ataque disponible en rojo/anaranjado, acciones agotadas en gris. Se conserva la fila inferior con Fuego Especial, tres cartas y acción de turno, así como el botón de rescate cuando está disponible. El estado prioriza instrucciones de fuego o decisiones activas y muestra el resultado al volver al turno sin selección.
+
 ## Pruebas automatizadas
 
 El archivo `game.test.js` comprueba fuerza base 0, cañón inmediato, carga y poder universal de los ocho animales, límites de movimiento, combos, búsqueda diferida y reserva de tres. Ejecuta `node --test` para comprobar la regresión.

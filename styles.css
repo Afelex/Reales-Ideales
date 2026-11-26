@@ -2119,3 +2119,80 @@ dialog::before { display: none; }
   .stats-actions button { min-height: 2rem; }
   .rescue-pieces { grid-template-columns: repeat(4,minmax(0,1fr)); }
 }
+
+
+/* 034: herramientas superiores dentro del HUD, sin una fila extra de monedas. */
+body.playing .controls:has(.hud-toolbar) {
+  width: min(100%,34rem); justify-self: center; gap: .22rem; padding: .24rem;
+  border: 1px solid #d5a262; border-radius: .85rem;
+  background: linear-gradient(160deg,#204047f5,#10282ff5); box-shadow: 0 2px 6px #20140960;
+}
+.hud-toolbar {
+  display: grid; grid-template-columns: auto auto minmax(0,1fr) auto;
+  align-items: center; width: 100%; gap: clamp(.16rem,1vw,.4rem); min-height: 34px;
+}
+body.playing .hud-toolbar .hud-menu-button {
+  position: static; width: 30px; height: 32px; min-width: 0; padding: 0;
+  border-radius: .45rem; border: 1px solid #d5a262; background: #29484e;
+  color: #ffe6b2; pointer-events: auto;
+}
+.hud-toolbar .hud-menu-button svg { width: 18px; height: 18px; }
+.hud-balance { display: flex; align-items: center; gap: .18rem; color: #ffe1a0; }
+#coin-button {
+  display: grid; place-items: center; min-width: 27px; height: 32px; padding: 0;
+  background: #45371c; border: 1px solid #d5a262; border-radius: .45rem; pointer-events: auto;
+}
+#coin-button .coin-icon { width: 16px; height: 16px; }
+#coin-current { font: 850 .76rem/1 system-ui,sans-serif; font-variant-numeric: tabular-nums; color: #b5e4ff; }
+#coin-current[data-side="R"] { color: #ffbeb0; }
+.hud-status-line {
+  min-width: 0; display: grid; place-items: center; min-height: 32px;
+  padding: .15rem .22rem; border-radius: .42rem; background: #142c31;
+  border: 1px solid #9d906b; text-align: center; color: #fff1d7;
+}
+body.playing .controls .hud-status-line .instructions,
+body.playing .controls .hud-status-line .battle-result,
+body.playing .controls .hud-status-line .special-hint,
+body.playing .play-layout[data-phase="turn"] .hud-status-line .instructions,
+body.playing.drawer-visible .controls .hud-status-line .instructions {
+  position: static; inset: auto; translate: none; transform: none; clip-path: none;
+  width: 100%; max-width: 100%; height: auto; min-height: 0; padding: 0; margin: 0;
+  border: 0; background: none; box-shadow: none; border-radius: 0;
+  overflow: visible; overflow-wrap: anywhere; white-space: normal;
+  font: 750 clamp(.59rem,2.4vw,.76rem)/1.16 system-ui,sans-serif;
+  color: #fff2d8; text-align: center; animation: none;
+}
+body.playing .controls .hud-status-line .battle-result { color: #ffe4a4; }
+body.playing .controls .hud-status-line .special-hint { color: #ffcf76; }
+.hud-status-line .special-hint::before,.hud-status-line .special-hint::after { content: none; }
+body.playing .hud-toolbar .action-status {
+  display: flex; width: auto; margin: 0; gap: .2rem; justify-content: flex-end;
+}
+body.playing .hud-toolbar .action-token {
+  width: 30px; height: 32px; display: grid; place-items: center; padding: 0;
+  border-radius: .45rem; border: 1px solid #bba987; background: #243b40;
+  color: #a3b6ba; opacity: 1;
+}
+.hud-toolbar .action-token svg { width: 19px; height: 19px; }
+.hud-toolbar .action-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+body.playing .hud-toolbar #move-status[data-state="ready"] {
+  color: #eaffc7; background: #34743d; border-color: #a9e58a; box-shadow: 0 0 7px #94de7b70;
+}
+body.playing .hud-toolbar #attack-status[data-state="ready"] {
+  color: #fff0ca; background: #a9412d; border-color: #ffb66a; box-shadow: 0 0 7px #ff986b80;
+}
+body.playing .hud-toolbar .action-token[data-state="waiting"] { border-style: dashed; opacity: .62; }
+body.playing .hud-toolbar .action-token[data-state="spent"] { opacity: .35; filter: grayscale(1); }
+body.playing .battle-dock { grid-template-columns: auto minmax(0,1fr) auto; }
+body.playing .battle-dock .hud-card { flex: 0 1 58px; }
+body.playing .controls > .saved-rescue-button:not([hidden]) { justify-self: start; margin: 0; }
+.coin-breakdown { display: grid; gap: .5rem; margin: .8rem 0; }
+.coin-breakdown .coin-side {
+  display: grid; grid-template-columns: auto 1fr auto; padding: .45rem .6rem; gap: .5rem;
+  border-radius: .5rem; background: #283d40; text-align: left;
+}
+@media (max-width:340px) {
+  .hud-toolbar { gap: .12rem; }
+  body.playing .hud-toolbar .hud-menu-button,body.playing .hud-toolbar .action-token { width: 26px; }
+  #coin-button { min-width: 23px; }
+}

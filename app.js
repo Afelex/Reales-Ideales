@@ -623,7 +623,9 @@ const settingsForm = settingsDialog.querySelector('form');
 const gameMenu = byId('game-menu');
 const helpDialog = byId('help-dialog');
 const historyDialog = byId('history');
-const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog];
+const coinDialog = byId('coin-dialog');
+const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog, coinDialog];
+byId('coin-button').addEventListener('click', () => { if (game && !busy()) { renderCoins(); coinDialog.showModal(); } });
 const gameMenuButton = byId('game-menu-button');
 const coverHeaderActions = document.querySelector('.header-actions');
 const seats = [...document.querySelectorAll('.seat')];
@@ -955,8 +957,7 @@ function layoutScene() {
     const seatTop = Math.min(...seats.map(seat => seat.getBoundingClientRect().top));
     document.body.style.setProperty('--hud-turn-top', Math.max(0, seatTop) + 'px');
     hudBottom = Math.max(hudBottom, heading.getBoundingClientRect().bottom);
-    const hint = byId('special-hint');
-    const dockTop = hint.hidden ? controls.getBoundingClientRect().top : Math.min(controls.getBoundingClientRect().top, hint.getBoundingClientRect().top);
+    const dockTop = controls.getBoundingClientRect().top;
     const margin = 8;
     // Mantiene el terreno, las fichas y sus áreas táctiles en el mismo plano.
     const scale = Math.min(Math.max(vw / W, vh / H),
@@ -1867,6 +1868,21 @@ byId('stats-export').addEventListener('click', () => byId('export').click());
 
 function renderCoins() {
   for (const side of ['R','I']) byId('coins-' + side).textContent = String(visibleCoins[side]);
+  const side = mode === 'local' && game ? (ai.decisionSide(game,rules) ?? game.turn) : 'I';
+  const current = byId('coin-current');
+  current.textContent = String(visibleCoins[side]);
+  current.dataset.side = side;
+  current.setAttribute('aria-label', 'Monedas de ' + rules.SIDE[side] + ': ' + visibleCoins[side]);
+}
+function renderHudStatus() {
+  const hint = byId('special-hint'), result = byId('battle-result'), instructions = byId('instructions');
+  const hasHint = !hint.hidden;
+  const showResult = Boolean(battleResult && game.phase === 'turn' && !selection && !hasHint);
+  result.hidden = !showResult;
+  instructions.hidden = hasHint || showResult;
+  if (!instructions.hidden && game.phase === 'turn' && !selection && !isAITurn() && !shouldAutoEndTurn()) {
+    instructions.textContent = game.moved.length ? 'Puedes atacar.' : game.attacked ? 'Puedes mover.' : 'Elige una ficha.';
+  }
 }
 function render() {
   renderCoins();
@@ -1919,6 +1935,7 @@ function render() {
   renderHands();
   renderControls();
   renderSpecialFire();
+  renderHudStatus();
   syncTimer();
   layoutScene();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
@@ -1965,11 +1982,11 @@ function syncCounters(pulse = false) {
 }
 function renderActionStatus() {
   const group = byId('action-status');
-  group.hidden = game.phase !== 'turn';
+  group.hidden = false;
   const state = rules.turnActions(game);
   for (const [action, label] of [['move', 'Mover'], ['attack', 'Atacar']]) {
     const node = byId(action + '-status');
-    node.dataset.state = state[action];
+    node.dataset.state = game.phase === 'turn' ? state[action] : 'waiting';
     const description = { ready: 'disponible', waiting: 'sin destino válido por ahora', spent: 'usado' }[state[action]];
     node.setAttribute('aria-label', label + ': ' + description);
     node.title = label + ': ' + description;
