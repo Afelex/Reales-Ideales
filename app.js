@@ -45,7 +45,7 @@ const rescueDialog = byId('rescue-dialog');
 const controls = actions.closest('.controls');
 // === Ajustes del jugador (se guardan en este navegador) ===
 const SETTINGS_KEY = 'reales-ideales-ajustes';
-const settings = { timer: 'normal', speed: 1, board: 'andes' };
+const settings = { timer: 'normal', speed: 1, board: 'andes', coverMotion: 'on' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch { /* sin almacenamiento */ }
 settings.speed = Number(settings.speed) || 1;
 const saveSettings = () => {
@@ -695,6 +695,23 @@ byId('coin-button').addEventListener('click', () => { if (game && !busy()) { ren
 const gameMenuButton = byId('game-menu-button');
 const playMenu = byId('play-menu');
 const playOptions = byId('play-options');
+const cover = byId('inicio');
+const coverVideo = byId('cover-video');
+const animatedCover = window.matchMedia('(orientation: portrait) and (prefers-reduced-motion: no-preference)');
+function syncCoverVideo() {
+  const enabled = settings.coverMotion === 'on' && animatedCover.matches && !navigator.connection?.saveData;
+  coverVideo.hidden = !enabled;
+  if (!enabled || cover.hidden || document.hidden) {
+    coverVideo.pause();
+    return;
+  }
+  if (!coverVideo.hasAttribute('src')) coverVideo.src = coverVideo.dataset.src;
+  if (coverVideo.paused) coverVideo.play().catch(() => {});
+}
+coverVideo.addEventListener('playing', () => coverVideo.classList.add('ready'));
+coverVideo.addEventListener('error', () => coverVideo.classList.remove('ready'));
+animatedCover.addEventListener?.('change', syncCoverVideo);
+document.addEventListener('visibilitychange', syncCoverVideo);
 const seats = [...document.querySelectorAll('.seat')];
 let handOwner = null;
 gameMenuButton.addEventListener('click', () => gameMenu.showModal());
@@ -709,12 +726,13 @@ byId('match-history').addEventListener('click', () => {
 });
 function syncSettingsForm() {
   const values = { music: fx.musicOn() ? 'on' : 'off', effects: fx.effectsOn() ? 'on' : 'off',
-    timer: settings.timer, speed: String(settings.speed), board: settings.board };
+    timer: settings.timer, speed: String(settings.speed), board: settings.board, coverMotion: settings.coverMotion };
   for (const [name, value] of Object.entries(values))
     settingsForm.querySelector('input[name="' + name + '"][value="' + value + '"]').checked = true;
 }
 function openSettings() {
   syncSettingsForm();
+  byId('cover-motion-setting').hidden = cover.hidden;
   settingsDialog.showModal();
 }
 byId('settings-button').addEventListener('click', openSettings);
@@ -736,12 +754,12 @@ settingsForm.addEventListener('change', event => {
     settings.board = value;
     applyBoardTheme();
   }
+  if (name === 'coverMotion') { settings.coverMotion = value; syncCoverVideo(); }
   saveSettings();
 });
 for (const node of matchDialogs) {
   node.addEventListener('close', () => { if (game) scheduleProgress(); });
 }
-// La música del menú empieza únicamente con el botón Continuar.
 function renderCardFace(parent, card, preview = false) {
   parent.classList.add('illustrated');
   parent.dataset.card = card;
@@ -951,11 +969,6 @@ const BOARD_THEMES = {
       video.setAttribute('playsinline', '');
       video.setAttribute('aria-hidden', 'true');
       video.preload = 'auto';
-      // Con animaciones reducidas queda la imagen fija del escenario.
-      if (!reducedMotion()) {
-        video.autoplay = true;
-        video.play?.().catch(() => {});
-      }
       return video;
     },
   },
@@ -985,7 +998,9 @@ function applyBoardTheme() {
   board.dataset.geometry = 'true';
   document.body.dataset.theme = name;
   board.querySelector('.board-art, .board-video')?.remove();
-  board.prepend(theme.art());
+  const art = theme.art();
+  board.prepend(art);
+  if (game && art instanceof HTMLVideoElement && !reducedMotion()) art.play().catch(() => {});
   for (const [id, hex] of hexButtons) {
     const g = cells[id];
     hex.style.left = g.left / W * 100 + '%';
@@ -2185,7 +2200,8 @@ function startGame(nextMode) {
   handOwner = 'I';
   byId('match-clock').hidden = false;
   updateMatchClock();
-  byId('inicio').hidden = true;
+  cover.hidden = true;
+  syncCoverVideo();
   byId('partida').hidden = false;
   document.body.classList.add('playing');
   layoutScene();
@@ -2198,10 +2214,12 @@ function startGame(nextMode) {
 function returnToMenu() {
   resetPresentation();
   fx.music('menu');
+  board.querySelector('.board-video')?.pause();
   game = null;
   mode = null;
   byId('match-clock').hidden = true;
-  byId('inicio').hidden = false;
+  cover.hidden = false;
+  syncCoverVideo();
   byId('partida').hidden = true;
   document.body.classList.remove('playing', 'revealing');
   layoutScene();
@@ -2302,6 +2320,7 @@ function startupTasks() {
 }
 let startupStarted = false;
 function beginStartup() {
+  syncCoverVideo();
   if (startupStarted) {
     showPlayOptions(true);
     return;
@@ -2349,6 +2368,7 @@ function beginStartup() {
 }
 playMenu.addEventListener('click', beginStartup);
 playMenu.disabled = false;
+syncCoverVideo();
 
 
 // Contenedores completos sin desplazamiento: adapta el contenido real a la altura visible.

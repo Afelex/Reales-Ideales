@@ -4,7 +4,7 @@ Juego táctico de mesa para dos personas, con demo web para un dispositivo o con
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. La portada del gato y la llama ocupa toda la pantalla. Pulsa **¡Jugar!** para habilitar la música y abrir el menú después de la primera precarga. Elige **Tutorial**, **Multijugador** para compartir el dispositivo, **Vs IA** para jugar contra los realistas u **Opciones**.
+Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. En vertical, el menú reproduce en bucle el video del gato y la llama. La portada estática se usa en horizontal y cuando se desactiva el movimiento. Pulsa **¡Jugar!** para habilitar la música y abrir el menú después de la primera precarga. Elige **Tutorial**, **Multijugador** para compartir el dispositivo, **Vs IA** para jugar contra los realistas u **Opciones**. En las opciones del menú se puede desactivar la animación de portada.
 
 Arrastra tu ficha a una casilla libre marcada para moverla o suéltala sobre una ficha enemiga marcada para atacar. También puedes tocar la ficha propia y luego su destino. El turno avanza solo cuando se agotan las jugadas legales y el botón de fin de turno permite pasar antes. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
 
@@ -178,3 +178,4 @@ Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique
 - **v0.36:** combate de muestra con PixiJS y, en el juego, partículas WebGL, cartas legibles, fichas que respiran y salen despedidas.
 - **v0.37:** portada a pantalla completa, menú de juego, ataque al arrastrar sobre la ficha rival, cañones por facción y continuidad de las fichas durante la resolución del combate.
 - **v0.38:** portada vertical 9:16, arte de botones y HUD, combate inmediato al elegir objetivo y remate de Golpe decisivo en partida.
+- **v0.39:** video en bucle para el menú vertical, con portada fija como alternativa.

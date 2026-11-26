@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · v0.38</title>
-  <link rel="stylesheet" href="styles.css?v=038-arte-combate">
+  <title>Reales Ideales · v0.39</title>
+  <link rel="stylesheet" href="styles.css?v=039-video-menu">
   <script defer src="game.js?v=038-arte-combate"></script>
   <script defer src="ai.js?v=038-arte-combate"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
   <script defer src="assets/vendor/pixi-8.19.0.min.js"></script>
   <script defer src="combat-fx.js?v=038-arte-combate"></script>
   <script defer src="fx.js?v=038-arte-combate"></script>
-  <script defer src="app.js?v=038-arte-combate"></script>
+  <script defer src="app.js?v=039-video-menu"></script>
 </head>
 <body>
   <section id="inicio" class="cover" aria-labelledby="cover-title">
@@ -20,6 +20,8 @@
       <source media="(orientation: landscape)" srcset="assets/clay/portada-jardin.webp">
       <img class="cover-art" src="assets/clay/portada-vertical.webp" alt="El gato idealista y la llama realista en un jardín andino de plastilina" width="1080" height="1920" fetchpriority="high">
     </picture>
+    <video id="cover-video" class="cover-art cover-video" data-src="assets/escenario/menu-principal.mp4"
+      muted loop playsinline preload="none" aria-hidden="true" hidden></video>
     <h1 id="cover-title"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></h1>
     <div class="cover-actions">
       <button id="play-menu" type="button" class="primary menu-play" aria-controls="play-options" aria-expanded="false" disabled>¡Jugar!</button>
@@ -210,6 +212,8 @@
         <label><input type="radio" name="timer" value="off"> Sin tiempo</label><label><input type="radio" name="timer" value="relaxed"> Relajado</label><label><input type="radio" name="timer" value="normal"> Normal</label></fieldset>
       <fieldset><legend>Velocidad de animación</legend>
         <label><input type="radio" name="speed" value="1"> Normal</label><label><input type="radio" name="speed" value="1.8"> Rápida</label></fieldset>
+      <fieldset id="cover-motion-setting"><legend>Animación de portada</legend>
+        <label><input type="radio" name="coverMotion" value="on"> Sí</label><label><input type="radio" name="coverMotion" value="off"> No</label></fieldset>
       <div class="dialog-actions"><button class="primary" value="ok">Listo</button></div>
     </form>
   </dialog>
