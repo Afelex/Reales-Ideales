@@ -30,6 +30,7 @@ let pending = null;
 let drag = null;
 let suppressClick = false;
 let battleResult = null;
+let visibleCoins = { I: 0, R: 0 };
 let duel = null;
 let combatIntro = false;
 let introEffects = [];
@@ -189,6 +190,8 @@ function releaseEffects() {
   fxBusyTimer = null;
   document.body.classList.remove('fx-busy');
   if (!game) return;
+  visibleCoins = { I: game.players.I.coins, R: game.players.R.coins };
+  renderCoins();
   syncCounters();
   maybeShowEnd();
   if (duelHold) {
@@ -394,12 +397,11 @@ function specialCall(event) {
       }, SPECIAL_MS);
     }
   }
-  const title = spawn('fx-power-name side-' + event.side, { x: window.innerWidth / 2, y: window.innerHeight * .26, size: 0 },
+  numberAt(point, signed(power.bonus), 'up');
+  const title = point && spawn('fx-power-name fx-power-local side-' + event.side,
+    { ...point, x: Math.max(75, Math.min(window.innerWidth - 75, point.x)), y: point.y - point.size * .65 },
     { color: style.color, glow: style.glow }, SPECIAL_MS);
-  if (title) {
-    span(title, 'fx-power-title', event.power);
-    span(title, 'fx-power-desc', animals[event.animal] + ': ' + power.description);
-  }
+  if (title) span(title, 'fx-power-title', event.power);
   later(SPECIAL_MS * .55, () => { if (!reducedMotion()) shake(); });
 }
 function attackSequence(event) {
@@ -449,14 +451,24 @@ function showcase(event) {
   applyCardForce(event.side, event.card);
   fx.play(event.card);
 }
-// Suma la carta al marcador del duelo y hace volar el número ganado o perdido.
-function floatNumber(side, text, kind) {
-  const target = byId('duel').querySelector('[data-force="' + side + '"]');
-  const rect = target?.getBoundingClientRect();
-  const point = rect?.width ? { x: rect.left + rect.width / 2, y: rect.top, size: 0 }
-    : { x: window.innerWidth / 2, y: window.innerHeight * .6, size: 0 };
-  const node = spawn('fx-number ' + kind, point, {}, 1400);
+// Efectos sobre la ficha que actúa, nunca sobre el centro del tablero ni el marcador.
+function fighterPoint(side) {
+  const fighter = duel?.find(p => p.side === side);
+  return fighter ? cellPoint(fighter.cell ?? pieceCell(fighter.id)) : null;
+}
+function numberAt(point, text, kind) {
+  if (!point) return;
+  const node = spawn('fx-number ' + kind, { ...point, y: point.y - point.size * .24 }, {}, 1400);
   if (node) node.textContent = text;
+}
+function floatNumber(side, text, kind) {
+  numberAt(fighterPoint(side),text,kind);
+}
+function cardAura(side, card, kind) {
+  const point = fighterPoint(side);
+  if (!point) return;
+  const [color, glow] = cardColors[card];
+  spawn('fx-local-card ' + kind, point, { color, glow }, 1050);
 }
 function applyCardForce(side, card) {
   if (!duel) return;
@@ -469,9 +481,10 @@ function applyCardForce(side, card) {
   renderDuel({ side, slot });
   const after = [forceOf(0).total, forceOf(1).total];
   const own = after[index] - before[index], rival = after[1 - index] - before[1 - index];
-  if (card === 'decisive') floatNumber(side, 'Decisivo', 'decisive');
-  else if (own) floatNumber(side, signed(own), 'up');
-  if (rival) later(160, () => floatNumber(rivalSide, signed(rival), 'down'));
+  const rule = rules.CARDS[card];
+  if (card === 'decisive') { floatNumber(side, 'Decisivo', 'decisive'); cardAura(side,card,'up'); }
+  else if (rule.own) { floatNumber(side, signed(rule.own), 'up'); cardAura(side,card,'up'); }
+  if (rule.rival) { floatNumber(rivalSide, signed(rule.rival), 'down'); cardAura(rivalSide,card,'down'); }
   for (const [i, delta] of [[index, own], [1 - index, rival]]) {
     if (!delta) continue;
     const value = byId('duel').querySelector('[data-force="' + duel[i].side + '"] .duel-force-value');
@@ -508,10 +521,17 @@ function effectFor(event) {
       showcase(event);
       return;
     case 'combo-card':
-    case 'combo-ready':
+    case 'combo-ready': {
       fx.play('combo');
-      flash('#673b97', '#fff0a0');
-      spawn('fx-rays', centerPoint(), {}, 1100);
+      const point = fighterPoint(event.side);
+      if (point) spawn('fx-local-card combo', point, { color: '#ecc75c', glow: '#fff0a0' }, 1100);
+      floatNumber(event.side, event.type === 'combo-card' ? '+1' : 'Combo decisivo', event.type === 'combo-card' ? 'up' : 'decisive');
+      return;
+    }
+    case 'reward':
+      numberAt(cellPoint(event.cell), '+' + event.amount + ' monedas', 'coins');
+      visibleCoins[event.side] += event.amount;
+      renderCoins();
       return;
     case 'battle': {
       const big = event.decisiveCombo || Math.abs(event.force[0] - event.force[1]) >= 3;
@@ -572,7 +592,7 @@ function effectFor(event) {
 const fxDurations = { move: DRIVE_MS + 800, bonus: DRIVE_MS + 800, advance: DRIVE_MS + 800,
   attack: SHOT_DELAY + SHOT_FLIGHT + 500, reveal: SHOWCASE_MS, pass: 900, 'combo-card': 700,
   'combo-ready': 700, battle: 1100, combo: 1000, double: 1000, 'double-ready': 700, summon: 1100, rescue: 1100,
-  'time-cannon': SHOT_FLIGHT + 500, end: 1400, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
+  reward: 700, 'time-cannon': SHOT_FLIGHT + 500, end: 1400, special: SPECIAL_MS, leap: DRIVE_MS + 300 };
 function playEffects(events) {
   // Instantánea de casillas: las fichas eliminadas conservan su posición previa.
   const cells = new Map(lastCells);
@@ -952,11 +972,11 @@ function layoutScene() {
     const clock = byId('match-clock');
     const rect = board.getBoundingClientRect();
     const halfW = clock.offsetWidth / 2, halfH = clock.offsetHeight / 2;
-    const cx = rect.left + rect.width * .91;
-    const cy = rect.top + rect.height * .17;
+    const cx = Math.max(rect.left + rect.width * .97, vw - halfW - 8);
+    const cy = rect.top + rect.height * .145;
     const safeRight = vw - halfW - 8;
     const minX = Math.min(safeRight, Math.max(halfW + 8, heading.getBoundingClientRect().right + halfW + 6));
-    const safeTop = Math.max(...seats.map(seat => seat.getBoundingClientRect().bottom)) + halfH + 5;
+    const safeTop = Math.max(...seats.map(seat => seat.getBoundingClientRect().bottom)) + halfH + 8;
     const safeBottom = Math.max(halfH + 8, Math.min(vh - halfH - 8, top * scale + y - halfH - 12));
     clock.style.setProperty('--clock-x', Math.max(minX, Math.min(safeRight, cx)) + 'px');
     clock.style.setProperty('--clock-y', Math.max(Math.min(safeTop, safeBottom), Math.min(safeBottom, cy)) + 'px');
@@ -1290,6 +1310,7 @@ function openCardMenu(node, side, slot, card) {
   }, 'primary');
   activate.disabled = game.phase !== 'reveal' || isAITurn() || !rules.playable(game, side, card);
   cardMenuNode.hidden = false;
+  fitPanel(cardMenuNode);
   const rect = node.getBoundingClientRect();
   const width = cardMenuNode.offsetWidth;
   const left = Math.min(Math.max(8, rect.left + rect.width / 2 - width / 2), window.innerWidth - width - 8);
@@ -1661,6 +1682,7 @@ function updateMatchClock() {
   }
   if (seconds > 0) return false;
   if (!rules.finishOnTime(game)) return false;
+  visibleCoins = { I: game.players.I.coins, R: game.players.R.coins };
   ended = matchDeadline;
   clearTimeout(progressTimer);
   clearTimeout(bannerTimer);
@@ -1805,6 +1827,7 @@ function showStats() {
     return card ? rules.CARDS[card].name : '—';
   };
   const rows = [
+    ['Monedas ganadas', s => game.players[s].coins],
     ['Fichas en pie', s => stats[s].remaining],
     ['Bajas causadas', s => stats[s].kills],
     ['Batallas ganadas', s => stats[s].won],
@@ -1842,7 +1865,11 @@ byId('stats-again').addEventListener('click', () => startGame(mode));
 byId('stats-menu').addEventListener('click', returnToMenu);
 byId('stats-export').addEventListener('click', () => byId('export').click());
 
+function renderCoins() {
+  for (const side of ['R','I']) byId('coins-' + side).textContent = String(visibleCoins[side]);
+}
 function render() {
+  renderCoins();
   if (game.phase === 'end' && ended === null) ended = Date.now();
   byId('partida').dataset.phase = game.phase;
   byId('round-value').textContent = game.round;
@@ -1989,6 +2016,7 @@ function scheduleProgress() {
   }, game.phase === 'reveal' ? 650 : 440);
 }
 function resetPresentation() {
+  visibleCoins = { I: 0, R: 0 };
   clearTimeout(progressTimer);
   clearTimeout(bannerTimer);
   bannerQueue = [];
@@ -2196,3 +2224,38 @@ function beginStartup() {
 }
 byId('startup-continue').addEventListener('click', beginStartup);
 byId('startup-continue').disabled = false;
+
+
+// Contenedores completos sin desplazamiento: adapta el contenido real a la altura visible.
+function fitPanel(panel) {
+  if (!panel || !panel.getClientRects().length || panel.hidden || (panel.tagName === 'DIALOG' && !panel.open)) return;
+  let inner = panel.querySelector(':scope > .fit-content');
+  if (!inner) {
+    inner = document.createElement('div');
+    inner.className = 'fit-content';
+    inner.append(...panel.childNodes);
+    panel.append(inner);
+  }
+  inner.style.zoom = '1';
+  const viewport = window.visualViewport?.height ?? window.innerHeight;
+  const style = getComputedStyle(panel);
+  const inset = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+    + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+  const limit = Math.max(50, viewport - inset - 32);
+  let scale = 1;
+  for (let pass = 0; pass < 4; pass++) {
+    const height = inner.getBoundingClientRect().height;
+    if (height <= limit + 1) break;
+    scale *= limit / height;
+    inner.style.zoom = String(scale);
+  }
+}
+function fitOpenPanels() {
+  for (const panel of document.querySelectorAll('dialog[open], #stats-screen:not([hidden]) .stats-card, #end-screen:not([hidden]) .end-card, .card-menu:not([hidden])')) fitPanel(panel);
+}
+const fitObserver = new MutationObserver(fitOpenPanels);
+for (const panel of document.querySelectorAll('dialog, #stats-screen, #end-screen')) {
+  fitObserver.observe(panel, { attributes: true, attributeFilter: ['open','hidden'] });
+}
+window.addEventListener('resize',fitOpenPanels);
+window.visualViewport?.addEventListener('resize',fitOpenPanels);
