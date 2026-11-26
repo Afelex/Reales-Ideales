@@ -244,7 +244,7 @@ test('la barra se llena 1/3 por turno propio: el ataque especial llega en el tur
   assert.deepEqual(G.specialOptions(s, 'I5'), []);
   G.nextTurn(s); G.nextTurn(s);
   assert.equal(s.players.I.charge, 3);
-  assert.deepEqual(G.specialOptions(s, 'I5'), [{ target: 'R4', at: 'C6' }]);
+  assert.equal(G.specialOptions(s, 'I5').some(o => o.target === 'R4' && o.at === 'C6'), true);
   G.nextTurn(s); G.nextTurn(s);
   assert.equal(s.players.I.charge, 3);
 });
@@ -299,21 +299,55 @@ test('los ocho animales de ambos bandos tienen el mismo Fuego Especial +3', () =
   }
 });
 
-test('Fuego Especial no permite alcance extra, saltos ni teletransporte', () => {
-  for (const animal of G.ROSTER.I) {
+test('Fuego Especial a dos casillas consume movimiento y ataque con +3 para ambos bandos', () => {
+  for (const side of ['I', 'R']) for (const animal of G.ROSTER[side]) {
     const s = setup();
-    ready(s);
-    const p = s.pieces.find(p => p.side === 'I' && p.animal === animal);
-    const target = G.piece(s, 'R4');
+    s.turn = side;
+    ready(s, side);
+    const p = s.pieces.find(q => q.side === side && q.animal === animal);
+    const target = s.pieces.find(q => q.side !== side);
     for (const q of s.pieces) q.cell = null;
-    p.cell = 'C4';
-    target.cell = 'C8';
-    assert.deepEqual(G.specialOptions(s, p.id), []);
-    assert.equal(G.specialAttack(s, p.id, target.id, 'C6'), false);
-    assert.equal(G.specialAttack(s, p.id, target.id), false);
-    assert.equal(s.players.I.charge, 3);
-    assert.equal(p.cell, 'C4');
+    p.cell = 'C4'; target.cell = 'C8';
+    assert.deepEqual(G.specialOptions(s, p.id), [{ target: target.id, at: 'C6' }]);
+    assert.equal(G.turnActions(s).attack, 'ready');
+    assert.equal(G.specialAttack(s, p.id, target.id, 'C6'), true);
+    assert.equal(p.cell, 'C6');
+    assert.deepEqual(s.moved, [p.id]);
+    assert.equal(s.actions, 2);
+    assert.equal(s.attacked, true);
+    assert.equal(s.players[side].charge, 0);
+    assert.equal(G.cardLimit(s, target.side), 2);
+    reveal(s);
+    assert.deepEqual(result(s).force, [3, 0]);
   }
+});
+test('Fuego Especial lejano rechaza obstáculos, distancia mayor y movimiento consumido', () => {
+  const s = setup();
+  ready(s);
+  const p = G.piece(s,'I1'), target = G.piece(s,'R4'), block = G.piece(s,'I2');
+  for (const q of s.pieces) q.cell = null;
+  p.cell = 'C4'; target.cell = 'C8'; block.cell = 'C6';
+  assert.equal(G.specialAttack(s,p.id,target.id), false);
+  block.cell = null; target.cell = 'C10';
+  assert.equal(G.specialAttack(s,p.id,target.id), false);
+  target.cell = 'C8'; s.moved = ['I2']; s.actions = 1;
+  assert.equal(G.specialAttack(s,p.id,target.id), false);
+  assert.equal(s.players.I.charge, 3);
+  assert.equal(p.cell, 'C4');
+  p.cell = 'C6';
+  assert.equal(G.specialAttack(s,p.id,target.id), true);
+  assert.equal(s.actions, 2);
+});
+test('Fuego Especial permite elegir una aproximación legal o atacar directamente al objetivo', () => {
+  const s = setup(); ready(s);
+  const p = G.piece(s,'I1'), target = G.piece(s,'R4');
+  for (const q of s.pieces) q.cell = null;
+  p.cell = 'C4'; target.cell = 'D7';
+  const options = G.specialOptions(s,p.id);
+  assert.equal(options.length, 2);
+  assert.equal(G.specialAttack(s,p.id,target.id,'A2'), false);
+  assert.equal(G.specialAttack(s,p.id,target.id), true);
+  assert.equal(G.adjacent(p.cell,target.cell), true);
 });
 
 test('Fuego Especial respeta cartas y combos ordinarios del defensor', () => {

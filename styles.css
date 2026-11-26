@@ -1859,3 +1859,76 @@ body.booting::before, body.booting::after { content: none; }
   .startup { gap: .9rem; }
   .startup-logo { width: min(50vw,56dvh); }
 }
+
+
+/* HUD 029: la cabecera de partida deja paso al cielo y a las vidas. */
+body.playing { --game-header: env(safe-area-inset-top, 0px); }
+body.playing .masthead { display: none; }
+body.playing .play-layout { padding-top: max(.35rem,env(safe-area-inset-top)); height: 100dvh; }
+body.playing .seat[data-prompt="true"] .seat-health {
+  border-color: #ffe3a0; box-shadow: 0 0 0 1px #ffe3a0, 0 0 8px #f9c95b9c;
+}
+body.playing .seat .seat-turn { display: none; }
+body.playing .field-heading { flex-wrap: wrap; }
+.turn-marker {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: .28rem .7rem; border: 2px solid #f3cc7d; border-radius: .55rem;
+  background: #18374a; color: #fff4d9; font: 900 .8rem/1.15 system-ui,sans-serif;
+  letter-spacing: .035em; text-shadow: none; white-space: nowrap;
+  box-shadow: 0 2px 5px #15181380;
+}
+.turn-marker[data-side="R"] { background: #702f2b; }
+.turn-marker[data-mine="true"] {
+  color: #302111; background: linear-gradient(#fff1b5,#efbb5e);
+  border-color: #fff1bc; box-shadow: 0 0 9px #f9d16f9e, 0 2px 5px #15181380;
+}
+body.playing .llama-clock {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 3.5rem; padding: .3rem .6rem; border: 2px solid #714a32;
+  border-radius: 999px; background: #fff1d5; color: #352117;
+  text-shadow: none; font: 850 .95rem/1 system-ui,sans-serif;
+  font-variant-numeric: tabular-nums; box-shadow: 0 2px 4px #23150c7a;
+}
+body.playing .llama-clock[hidden] { display: none; }
+body.scene-full .llama-clock {
+  position: fixed; z-index: 6; left: var(--clock-x,72vw); top: var(--clock-y,18vh);
+  translate: -50% -50%; pointer-events: none;
+}
+body.scene-full .llama-clock::after {
+  content: ''; position: absolute; right: 5px; bottom: -7px;
+  width: 11px; height: 12px; background: #fff1d5;
+  border-right: 2px solid #714a32; border-bottom: 2px solid #714a32;
+  transform: skew(22deg) rotate(28deg); border-radius: 0 0 3px 0;
+}
+body.scene-full .field-heading, body.scene-full.revealing .field-heading {
+  top: var(--hud-turn-top,4.6rem); width: max-content; max-width: 48vw;
+  flex-direction: column; flex-wrap: nowrap; gap: .15rem;
+  height: auto; z-index: 6;
+}
+body.scene-full .field-heading .turn-marker { order: -2; font-size: clamp(.65rem,2.8vw,.84rem); }
+body.scene-full .field-heading .turn-timer { order: -1; }
+body.scene-full #rival-played { top: calc(var(--hud-turn-top,4.6rem) + 6.2rem); }
+body.playing .battle-dock { grid-template-columns: auto auto minmax(0,1fr) auto; gap: .25rem; }
+body.playing .battle-dock .hud-menu-button {
+  position: static; width: 36px; height: 44px; border-radius: .55rem;
+  color: #ffe6b2; background: #204047; border: 1px solid #d5a262;
+  pointer-events: auto;
+}
+body.playing .battle-dock .hud-menu-button svg { width: 20px; height: 20px; }
+body.playing .battle-dock .hud-card { min-width: 34px; }
+body.playing .battle-dock .special-fire { width: 44px; height: 44px; }
+body.playing .battle-dock .end-turn { width: 40px; min-width: 40px; }
+body.playing[data-turn-side="I"] .battle-dock { border-color: #8fc7df; }
+body.playing[data-turn-side="R"] .battle-dock { border-color: #d79985; }
+@media (max-width:360px) {
+  body.playing .battle-dock { gap: .18rem; padding-inline: .25rem; }
+  body.playing .hud-hand { gap: .16rem; }
+  body.playing .battle-dock .hud-menu-button { width: 32px; }
+  body.playing .battle-dock .hud-card { min-width: 30px; }
+}
+
+/* El globo es hermano de la cabecera, no hijo de su elemento transformado. */
+body.playing .seat[data-prompt="true"] .seat-turn { display: none; }
+body.playing:not(.scene-full) .field > .llama-clock { flex: 0 0 auto; margin: .05rem auto .2rem; }
+body.scene-full #rival-played { top: var(--rival-strip-top,10.8rem); }
+body.scene-full .field { overflow: visible; }

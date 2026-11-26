@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=028-inicio">
-  <script defer src="game.js?v=028-inicio"></script>
-  <script defer src="ai.js?v=028-inicio"></script>
+  <link rel="stylesheet" href="styles.css?v=029-turno-fuego">
+  <script defer src="game.js?v=029-turno-fuego"></script>
+  <script defer src="ai.js?v=029-turno-fuego"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="fx.js?v=028-inicio"></script>
-  <script defer src="app.js?v=028-inicio"></script>
+  <script defer src="fx.js?v=029-turno-fuego"></script>
+  <script defer src="app.js?v=029-turno-fuego"></script>
 </head>
 <body class="booting">
   <section id="startup" class="startup" aria-label="Bienvenida a Reales Ideales">
@@ -30,10 +30,6 @@
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
       </button>
     </div>
-    <time id="match-clock" class="match-clock" aria-label="Tiempo restante de partida" hidden>10:00</time>
-    <button id="game-menu-button" class="hud-menu-button" type="button" aria-label="Opciones de partida" title="Opciones de partida" aria-haspopup="dialog" hidden>
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 6h14M5 12h14M5 18h14"/></svg>
-    </button>
   </header>
   <section id="inicio" class="cover" aria-labelledby="cover-title" hidden>
     <div class="cover-scene">
@@ -82,8 +78,9 @@
       <div class="field-heading">
         <span id="round" class="round-count" title="Ronda actual"><span class="sr-only">Ronda </span><b id="round-value">1</b><span aria-hidden="true">/</span><span class="sr-only"> de </span>12</span>
         <span id="turn-timer" class="turn-timer" role="timer" aria-live="off" hidden><b><span id="turn-timer-value">40</span><small aria-hidden="true"> s</small></b></span>
-        <span id="active-side" class="sr-only" role="status">Turno idealista</span>
+        <span id="active-side" class="turn-marker" role="status">TU TURNO</span>
       </div>
+      <time id="match-clock" class="match-clock llama-clock" aria-label="Tiempo restante de partida" hidden>10:00</time>
       <div id="phase-indicator" class="phase-indicator" role="status">Movimiento / ataque</div>
       <div class="board-stage"><div class="board-viewport"><div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div></div></div>
 
@@ -106,6 +103,9 @@
         <span id="attack-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 3 16 16M3 4l2 7 4-4M16 17l4-4M18 21l3-3M20 3 4 19M21 4l-2 7-4-4M8 17l-4-4M6 21l-3-3"/></svg><span>Atacar</span></span>
       </div>
       <div class="battle-dock">
+        <button id="game-menu-button" class="hud-menu-button" type="button" aria-label="Opciones de partida" title="Opciones de partida" aria-haspopup="dialog" hidden>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14.7 6.3 18 3a6 6 0 0 0-7.9 7.9L3.8 17.2a2.1 2.1 0 0 0 3 3l6.3-6.3A6 6 0 0 0 21 6l-3.3 3.3-3-3Z"/></svg>
+        </button>
         <button id="special-fire" type="button" class="special-fire" disabled aria-pressed="false">
           <svg class="special-flame" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="flame-outer" d="M32 4c4 10 14 16 14 30a14 14 0 0 1-28 0c0-8 4-12 7-16 1 5 3 8 6 9-1-9 0-16 1-23z"/><path class="flame-inner" d="M32 30c2 5 7 8 7 14a7 7 0 0 1-14 0c0-4 2-6 4-8 0 2 1 3 3 4-1-4-1-7 0-10z"/></svg>
           <svg class="ss-ring" viewBox="0 0 44 44" aria-hidden="true">
@@ -169,7 +169,7 @@
       <p>En ambos modos, el turno cambia automáticamente al resolver los efectos y agotar las acciones legales. Puedes terminarlo antes con el botón de flecha. Los dos indicadores muestran qué acciones quedan.</p>
       <p><b>Fuerza:</b> todas las fichas empiezan con 0. El cañón suma +2 al atacar. En empate salen ambas fichas.</p>
       <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. Tu reserva permanece visible; toca una carta para ver su ilustración y efecto. Solo se muestran las cartas que el rival activa. En partidas locales, entrega el dispositivo antes de revelar la reserva del siguiente jugador.</p>
-      <p><b>Fuego Especial:</b> acumula un segmento al empezar cada turno propio. Con tres, selecciona una ficha normal junto a un enemigo, pulsa el fuego y elige el objetivo. Todas las fichas normales suman +3 de fuerza al atacar; ambos jugadores conservan sus dos cartas. La carga vuelve a cero y los cañones no pueden usarlo.</p>
+      <p><b>Fuego Especial:</b> acumula un segmento al empezar cada turno propio. Con tres, selecciona una ficha normal con enemigo a una o dos casillas, pulsa el fuego y elige el objetivo. Todas las fichas normales suman +3 de fuerza al atacar a un enemigo adyacente. Si está a dos casillas, puedes acercarte por una casilla libre y atacar, consumiendo también el movimiento. Ambos jugadores conservan sus dos cartas. La carga vuelve a cero y los cañones no pueden usarlo.</p>
       <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha.</p>
       <p><b>Victoria:</b> elimina todas las fichas rivales o conserva más al final de la ronda 12.</p>
     </div>

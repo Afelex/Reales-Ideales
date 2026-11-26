@@ -11,7 +11,7 @@
   // Barra por bando: +1 al empezar cada turno propio; con 3 se puede lanzar un ataque especial.
   const CHARGE_MAX = 3;
   // La especie solo identifica el arte y las animaciones; la regla es universal.
-  const FIRE_POWER = Object.freeze({ name: 'Fuego Especial', bonus: 3, reach: 'adjacent', description: '+3 de fuerza.' });
+  const FIRE_POWER = Object.freeze({ name: 'Fuego Especial', bonus: 3, reach: 2, description: '+3 de fuerza; a dos casillas, consume también el movimiento para acercarse.' });
   const SPECIALS = Object.freeze(Object.fromEntries(ROSTER.I.map(animal => [animal, FIRE_POWER])));
   const CARDS = {
     boost: { name: 'Refuerzo', count: 8, own: 1, description: 'Suma 1 a tu fuerza.' },
@@ -113,7 +113,7 @@
     const allies = s.pieces.filter(p => p.side === s.turn && p.cell);
     return {
       move: s.moved.length ? 'spent' : allies.some(p => moves(s, p.id).length) ? 'ready' : 'waiting',
-      attack: s.attacked ? 'spent' : allies.some(p => attacks(s, p.id).length) ? 'ready' : 'waiting',
+      attack: s.attacked ? 'spent' : allies.some(p => attacks(s, p.id).length || specialOptions(s, p.id).length) ? 'ready' : 'waiting',
     };
   }
   function entry(s, p, cell, after, type) {
@@ -173,17 +173,33 @@
     record(s, 'attack', { side: a.side, piece: a.id, target: d.id, nearby: s.battle.nearby, special,
       text: a.id + ' ataca a ' + d.id + '.' });
   }
-  // Fuego Especial: mismo alcance que un ataque normal, sin desplazamiento extra.
+  // Fuego Especial: combate adyacente o un paso legal de aproximación.
   function specialOptions(s, id) {
     const p = piece(s, id);
-    if (!p?.cell || p.cannon || s.players[p.side].charge < CHARGE_MAX) return [];
-    return attacks(s, id).map(target => ({ target, at: p.cell }));
+    if (s.phase !== 'turn' || !p?.cell || p.side !== s.turn || s.attacked || s.actions >= 2 ||
+        p.cannon || s.players[p.side].charge < CHARGE_MAX) return [];
+    const enemies = s.pieces.filter(q => q.cell && q.side !== p.side);
+    const options = attacks(s, id).map(target => ({ target, at: p.cell }));
+    for (const at of moves(s, id)) for (const q of enemies) {
+      if (distance(p.cell, q.cell) === 2 && adjacent(at, q.cell)) options.push({ target: q.id, at });
+    }
+    return options;
   }
   function specialAttack(s, id, target, at = null) {
     const p = piece(s, id);
-    const cell = at ?? p?.cell;
-    if (!specialOptions(s, id).some(o => o.target === target && o.at === cell)) return false;
+    const options = specialOptions(s, id).filter(o => o.target === target);
+    const option = at === null ? options[0] : options.find(o => o.at === at);
+    if (!option) return false;
     s.players[p.side].charge = 0;
+    if (option.at !== p.cell) {
+      const from = p.cell;
+      p.cell = option.at;
+      s.actions++;
+      s.moved.push(id);
+      // Aproximación integrada al ataque: no abre un rescate intermedio.
+      record(s, 'leap', { side: p.side, piece: id, from, to: p.cell, animal: p.animal,
+        text: id + ' se acerca a ' + p.cell + ' con el Fuego Especial.' });
+    }
     record(s, 'special', { side: p.side, piece: id, animal: p.animal, power: FIRE_POWER.name, target,
       text: id + ' lanza ' + FIRE_POWER.name + '.' });
     startBattle(s, p, piece(s, target), p.animal);

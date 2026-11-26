@@ -101,7 +101,7 @@ byId('search-cancel').addEventListener('click', () => searchDialog.close());
 
 function bannerFromEvent(event) {
   switch (event.type) {
-    case 'turn': return { kind: event.side, title: 'TURNO DE ' + rules.SIDE[event.side].toUpperCase(), subtitle: 'Prepara tu movimiento o ataque' };
+    case 'turn': return { kind: event.side, title: mode === 'ai' ? (event.side === 'I' ? 'TU TURNO' : 'TURNO DEL RIVAL') : 'TURNO ' + rules.SIDE[event.side].toUpperCase(), subtitle: 'Prepara tu movimiento o ataque' };
     case 'move': return null; // El desplazamiento y su sonido ya comunican la acción.
     case 'special': return { kind: 'special', title: event.power.toUpperCase(),
       subtitle: nameOf(event.piece) + ': ' + rules.FIRE_POWER.description };
@@ -694,7 +694,7 @@ function describe(event, index = game.events.indexOf(event)) {
     case 'move': return nameOf(event.piece) + ' avanza.';
     case 'bonus':
     case 'advance': return nameOf(event.piece) + ' avanza tras la victoria.';
-    case 'leap': return nameOf(event.piece) + ' salta al frente.';
+    case 'leap': return nameOf(event.piece) + ' se acerca con el Fuego Especial.';
     case 'rescue': return rules.SIDE[event.side] + ' rescatan a ' + nameOf(event.piece) + '.';
     case 'attack': return nameOf(event.piece) + ' ataca a ' + nameOf(event.target) + '.';
     case 'special': return nameOf(event.piece) + ' lanza ' + event.power + '.';
@@ -938,6 +938,10 @@ function layoutScene() {
     const top = Math.min(...cells.map(cell => Math.min(cell.top, cell.y + cell.h * .2 - cell.w * TOKEN_SCALE)));
     const bottom = Math.max(...cells.map(cell => cell.top + cell.h));
     let hudBottom = Math.max(...seats.map(seat => seat.getBoundingClientRect().bottom));
+    const heading = byId('active-side').closest('.field-heading');
+    document.body.style.setProperty('--hud-turn-top', (hudBottom + 4) + 'px');
+    hudBottom = Math.max(hudBottom, heading.getBoundingClientRect().bottom);
+    document.body.style.setProperty('--rival-strip-top', (hudBottom + 4) + 'px');
     const rivalStrip = byId('rival-played');
     if (!rivalStrip.hidden) hudBottom = Math.max(hudBottom, rivalStrip.getBoundingClientRect().bottom);
     const dockTop = controls.getBoundingClientRect().top;
@@ -951,7 +955,16 @@ function layoutScene() {
       width: W * scale + 'px', height: H * scale + 'px' });
     boardViewport.style.removeProperty('--scene-aspect');
     document.body.style.setProperty('--grid-top', top * scale + y + 'px');
+    // Coordenadas del globo respecto al fotograma, con límites para móviles estrechos.
+    const clock = byId('match-clock');
+    const rect = board.getBoundingClientRect();
+    const cx = Math.max(rect.left + rect.width * .71, heading.getBoundingClientRect().right + clock.offsetWidth / 2 + 5);
+    const cy = rect.top + rect.height * .205;
+    clock.style.setProperty('--clock-x', Math.max(clock.offsetWidth / 2 + 8, Math.min(vw - clock.offsetWidth / 2 - 8, cx)) + 'px');
+    clock.style.setProperty('--clock-y', Math.max(heading.getBoundingClientRect().top + 25, Math.min(top * scale + y - 35, cy)) + 'px');
   } else {
+    byId('match-clock').style.removeProperty('--clock-x');
+    byId('match-clock').style.removeProperty('--clock-y');
     boardViewport.style.setProperty('--scene-aspect', String(W / (H - crop)));
     Object.assign(board.style, { left: '0', width: '100%', top: -crop / (H - crop) * 100 + '%', height: H / (H - crop) * 100 + '%' });
   }
@@ -970,7 +983,7 @@ function isAITurn() {
 function selectable(id) {
   return rules.moves(game, id).length > 0 || rules.attacks(game, id).length > 0 || rules.specialOptions(game, id).length > 0;
 }
-// Fuego Especial: selecciona una ficha y un objetivo adyacente.
+// Fuego Especial: objetivo cercano o aproximación de una casilla.
 let specialMode = false;
 let specialAt = null;
 function specialView() {
@@ -979,7 +992,7 @@ function specialView() {
   const options = rules.specialOptions(game, selection);
   const at = specialAt ?? piece.cell;
   return {
-    targets: options.filter(o => o.at === at).map(o => o.target),
+    targets: [...new Set(options.filter(o => !specialAt || o.at === at).map(o => o.target))],
     destinations: specialAt ? [] : [...new Set(options.filter(o => o.at !== piece.cell).map(o => o.at))],
     at,
   };
@@ -1042,12 +1055,19 @@ function clickCell(cell) {
   const special = specialView();
   if (special) {
     const attacker = rules.piece(game, selection);
-    if (piece && special.targets.includes(piece.id)) {
-      startSpecial(attacker, piece, special.at);
+    if (special.destinations.includes(cell)) {
+      specialAt = cell;
+    } else if (piece && special.targets.includes(piece.id)) {
+      const options = rules.specialOptions(game, attacker.id).filter(o => o.target === piece.id);
+      const chosen = specialAt ? options.find(o => o.at === specialAt) : options[0];
+      if (chosen) startSpecial(attacker, piece, chosen.at);
       return;
+    } else if (specialAt) {
+      specialAt = null;
+    } else {
+      clearSpecial();
+      selection = null;
     }
-    clearSpecial();
-    selection = null;
     render();
     return;
   }
@@ -1175,7 +1195,8 @@ const specialFire = byId('special-fire');
 function renderSpecialFire() {
   const side = game.turn;
   const show = game.phase === 'turn' && !isAITurn() && !game.attacked && game.actions < 2
-    && game.players[side].charge >= rules.CHARGE_MAX;
+    && game.players[side].charge >= rules.CHARGE_MAX
+    && game.pieces.some(p => p.side === side && rules.specialOptions(game, p.id).length);
   const charge = game.players[handSide() ?? side].charge;
   specialFire.disabled = !show;
   [...specialFire.querySelectorAll('.ss-ring circle')].forEach((segment, index) => {
@@ -1186,7 +1207,10 @@ function renderSpecialFire() {
   document.body.classList.toggle('ss-ready', show);
   const hint = byId('special-hint');
   hint.hidden = !show;
-  if (!show) return;
+  if (!show) {
+    specialFire.classList.remove('armed', 'active');
+    return;
+  }
   const options = selection ? rules.specialOptions(game, selection) : [];
   const power = options.length ? rules.FIRE_POWER : null;
   // La guía cambia con la ficha y el objetivo seleccionados.
@@ -1199,7 +1223,7 @@ function renderSpecialFire() {
   specialFire.classList.toggle('active', specialMode);
   specialFire.setAttribute('aria-pressed', String(specialMode));
   specialFire.setAttribute('aria-label', specialMode ? 'Cancelar ' + power?.name
-    : power ? 'Activar Fuego Especial: +3 de fuerza' : 'Fuego Especial listo: elige una ficha junto a un enemigo');
+    : power ? 'Activar Fuego Especial: +3 de fuerza' : 'Fuego Especial listo: elige una ficha con enemigo a una o dos casillas');
 }
 specialFire.addEventListener('click', () => {
   if (!game || busy() || isAITurn()) return;
@@ -1711,8 +1735,14 @@ function render() {
   byId('partida').dataset.phase = game.phase;
   byId('round-value').textContent = game.round;
   const actor = ai.decisionSide(game, rules);
-  byId('active-side').textContent = actor === null ? 'Partida terminada'
-    : actor === 'R' && mode === 'ai' ? 'Turno de la IA' : 'Turno ' + SIDE_ADJECTIVE[actor];
+  const turnLabel = byId('active-side');
+  const turnText = actor === null ? 'PARTIDA TERMINADA'
+    : mode === 'ai' ? (actor === 'I' ? 'TU TURNO' : 'TURNO DEL RIVAL')
+    : 'TURNO ' + rules.SIDE[actor].toUpperCase();
+  if (turnLabel.textContent !== turnText) turnLabel.textContent = turnText;
+  turnLabel.dataset.side = actor ?? '';
+  turnLabel.dataset.mine = String(mode === 'ai' && actor === 'I');
+  document.body.dataset.turnSide = actor ?? '';
   for (const [side, color] of [['I', 'blue'], ['R', 'red']]) {
     const { rescues, deck, charge } = game.players[side];
     const seat = byId(color).closest('.seat');
