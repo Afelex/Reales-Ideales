@@ -71,7 +71,7 @@
     return drawn;
   }
   function makePlayer(deck) {
-    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, savedRescues: [], ownTurns: 0, charge: 0 };
+    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, savedRescues: [], coins: 0, ownTurns: 0, charge: 0 };
     draw(player);
     return player;
   }
@@ -91,6 +91,13 @@
   }
   function record(s, type, fields) {
     s.events.push({ type, round: s.round, turn: s.turn, ...fields });
+  }
+  const COIN_REWARDS = Object.freeze({ powerful: 10, defeat: 20 });
+  function awardCoins(s, fighter, reason) {
+    const amount = COIN_REWARDS[reason];
+    s.players[fighter.side].coins += amount;
+    record(s, 'reward', { side: fighter.side, piece: fighter.id, cell: fighter.cell, amount, reason,
+      text: SIDE[fighter.side] + ' reciben ' + amount + ' monedas.' });
   }
   const piece = (s, id) => s.pieces.find(p => p.id === id);
   const occupant = (s, cell) => s.pieces.find(p => p.cell === cell);
@@ -317,6 +324,8 @@
     const loser = winner === a ? d : a;
     const cleared = loser.cell;
     const removed = winner ? [loser] : [a, d];
+    // Guarda las posiciones originales para que los premios se animen sobre las fichas.
+    const attackers = [{ ...a }, { ...d }];
     for (const p of removed) {
       p.cell = null;
       p.cannon = false;
@@ -328,6 +337,12 @@
       force: [af, df], combos: { I: comboBonus(b.played.I), R: comboBonus(b.played.R) },
       decisiveCombo, winner: b.winner, removed: removed.map(p => p.id),
       text: winner ? 'Vence ' + winner.id + '. Sale ' + loser.id + '.' : 'Empate. Salen ' + a.id + ' y ' + d.id + '.' });
+    for (const [index, fighter] of attackers.entries()) {
+      const force = index === 0 ? af : df;
+      if (force >= 3 || (index === 0 && b.special) || b.played[fighter.side].includes('decisive'))
+        awardCoins(s, fighter, 'powerful');
+    }
+    if (winner) awardCoins(s, winner, 'defeat');
     if (!remaining(s, 'I') || !remaining(s, 'R')) {
       finish(s, remaining(s, 'I') ? 'I' : remaining(s, 'R') ? 'R' : null, 'eliminación');
       return;
@@ -358,6 +373,7 @@
       victim.ready = 0;
       record(s, kind === 'double' ? 'double' : 'combo', { side, target: targetId, text: (kind === 'double'
         ? '¡DOBLE IMPACTO! ' : '¡COMBO DECISIVO! ') + targetId + ' es eliminada como segunda ficha.' });
+      awardCoins(s, piece(s, winnerId), 'defeat');
     } else record(s, 'combo-skip', { side, text: SIDE[side] + ' omiten la segunda eliminación.' });
     s.battle.combo = null;
     if (!remaining(s, 'I') || !remaining(s, 'R')) {
@@ -431,7 +447,7 @@
     return true;
   }
 
-  const game = { SIDE, HAND_SIZE, ROSTER, FIRE_POWER, SPECIALS, CHARGE_MAX, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
+  const game = { SIDE, HAND_SIZE, ROSTER, FIRE_POWER, SPECIALS, CHARGE_MAX, COIN_REWARDS, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
     piece, occupant, remaining, moves, attacks, turnActions, move, attack, specialOptions, specialAttack, actor, cardLimit, playable,
     searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, rescueTargets, availableSavedRescues, canUseSavedRescue, startSavedRescue, skipBonus, nextTurn, finishOnTime };
   if (typeof module === 'object') module.exports = game;
