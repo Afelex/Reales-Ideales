@@ -104,10 +104,11 @@
     }
     if (game.phase === 'rescue') {
       const captured = game.pieces.find(piece => piece.side === side && !piece.cell);
-      const cell = rules.ZONES[side].find(id => !rules.occupant(game, id));
-      return { type: 'rescue', piece: captured?.id ?? null, cell };
+      const cell = rules.rescueTargets(game)[0];
+      return { type: 'rescue', piece: cell ? captured?.id ?? null : null, cell };
     }
     if (game.phase === 'turn') {
+      if (rules.canUseSavedRescue(game, side)) return { type: 'savedRescue' };
       const special = specialChoice(rules, game, allies, side);
       if (special) return special;
       // Con fuerza base 0, atacar sin cartas útiles suele acabar en empate y doble baja.
