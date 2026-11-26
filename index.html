@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · v0.42</title>
-  <link rel="stylesheet" href="styles.css?v=042-ventanas-andinas">
+  <title>Reales Ideales · v0.43</title>
+  <link rel="stylesheet" href="styles.css?v=043-ventanas-centradas">
   <script defer src="game.js?v=038-arte-combate"></script>
   <script defer src="ai.js?v=038-arte-combate"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
@@ -197,7 +197,7 @@
   </dialog>
   <dialog id="history" aria-labelledby="history-title">
     <h2 id="history-title">Registro de partida</h2>
-    <ol id="log" aria-label="Últimas jugadas"></ol>
+    <ol id="log" role="list" aria-label="Últimas jugadas"></ol>
     <form method="dialog" class="dialog-actions">
       <button id="export" class="secondary" type="button">Exportar JSON</button>
       <button class="primary" autofocus>Listo</button>
