@@ -139,6 +139,10 @@ Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.
 
 En combate se oculta la cabecera del menú, se elevan las barras de vida y las opciones pasan al icono de llave inglesa del dock. El tiempo total aparece en un globo junto a la llama del escenario andino; en otras vistas se muestra junto a los indicadores. Versus IA muestra TU TURNO o TURNO DEL RIVAL según quién puede actuar; el modo local identifica el bando activo. Se ilumina la vida y el retrato de ese bando.
 
+## HUD de cartas públicas (v0.30)
+
+En móvil vertical, el cronómetro de decisión va entre las vidas, seguido de la ronda (1–12) y el marcador de turno. El reloj general de diez minutos sigue junto a la llama. Durante el combate se muestran dos ranuras por bando sobre el tablero: realistas a la izquierda, idealistas a la derecha. Se utiliza el arte aprobado, recortado como PNG transparente en el navegador; una ranura pendiente dice Por jugar y un pase dice Sin carta. Los totales incluyen base, Fuego Especial, cañón, cartas, combos y debilitamientos. Las reservas privadas nunca aparecen en este marcador. Se retira al resolver el combate para liberar el tablero. El resultado queda encima del dock hasta el siguiente combate.
+
 ## Pruebas automatizadas
 
 El archivo `game.test.js` comprueba fuerza base 0, cañón inmediato, carga y poder universal de los ocho animales, límites de movimiento, combos, búsqueda diferida y reserva de tres. Ejecuta `node --test` para comprobar la regresión.
