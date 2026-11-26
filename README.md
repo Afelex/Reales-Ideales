@@ -123,6 +123,18 @@ python3 tools/medir_escenario.py assets/escenario/campo-andino.mp4 assets/escena
 
 Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.png` (`tools/guia_escenario.py`): 27 casillas, columnas de 5-6-5-6-5 y estrellas en B1, D1, B11 y D11. Anímala con la cámara fija y en bucle, optimízala con `ffmpeg` (sin audio, fundido de 1 s entre el final y el inicio) y mídela. Revisa siempre la imagen de verificación antes de publicar.
 
+## Combate de muestra (PixiJS)
+
+`muestra.html` es una escena aislada para validar la calidad visual y sonora antes de llevarla al juego. Abre https://afelex.github.io/Reales-Ideales/muestra.html, pulsa **Empezar** y elige **Ataque** (con cartas), **Fuego Especial** o **Golpe decisivo**. No modifica el juego ni sus reglas.
+
+- **Motor gráfico:** PixiJS 8.19 (WebGL 2D, licencia MIT), incluido en `assets/vendor/` para no depender de servidores externos. Escenario, fichas y efectos comparten una cámara con zoom y temblor.
+- **Animación de las fichas de plastilina:** respiración en reposo, anticipación al aplastarse antes de saltar, salto en arco con sombra que se encoge, aterrizaje con rebote elástico, destello al recibir el golpe y caída girando. No necesita arte nuevo.
+- **Sensación de golpe:** pausa de impacto, zoom y temblor de cámara, cámara lenta y fotograma congelado con grietas en el Golpe decisivo, y destello de pantalla.
+- **Efectos:** partículas de brasas, chispas, polvo, humo y trozos de plastilina del color del bando, ondas expansivas, marca de quemado, estela con imágenes residuales, runa de carga y tres segmentos del Fuego Especial.
+- **Sonido:** síntesis por capas (chasquido, cuerpo y golpe grave) con reverberación generada. La música de batalla baja durante los momentos clave.
+- **Accesibilidad:** con `prefers-reduced-motion` no hay temblor, zoom, cámara lenta ni pausas, y hay menos partículas.
+- **Prueba local:** WebGL no puede usar imágenes ni video abiertos como archivo (`file://`). Sirve la carpeta con `python3 -m http.server` y abre `http://localhost:8000/muestra.html`.
+
 ## Pruebas automatizadas
 
 El archivo `game.test.js` (38 casos) comprueba fuerza base 0, cañón inmediato, carga y Fuego Especial universal (incluida la aproximación a dos casillas), límites de movimiento, combos, búsqueda diferida, reserva de tres, rescates guardados, monedas y fin por tiempo. Ejecuta `node --test` para comprobar la regresión.
