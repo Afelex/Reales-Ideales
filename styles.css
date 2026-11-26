@@ -2035,3 +2035,24 @@ body.playing .saved-rescue-button:not([hidden]) { margin-right: auto; }
 .rescue-piece .token { position: static; display: block; width: min(100%,4.1rem); aspect-ratio: 1; height: auto; }
 .rescue-piece .token img { display: block; width: 100%; height: auto; }
 .rescue-dialog #rescue-save { min-height: 42px; min-width: 8rem; }
+
+
+/* 032: se elimina el indicador redundante de fase y la llama anuncia el tiempo. */
+body.playing .llama-clock {
+  flex-direction: column; gap: .12rem; min-width: 3.65rem; padding: .3rem .45rem .34rem;
+  border-radius: .85rem; line-height: 1; white-space: nowrap;
+}
+.llama-clock .clock-label {
+  font: 700 clamp(.58rem,2.3vw,.73rem)/1 system-ui,sans-serif;
+}
+.llama-clock .clock-value {
+  font: 900 clamp(.95rem,3.9vw,1.2rem)/1 system-ui,sans-serif;
+  font-variant-numeric: tabular-nums; min-width: 2.7ch; text-align: center;
+}
+body.scene-full .llama-clock { left: var(--clock-x,88vw); top: var(--clock-y,18vh); }
+body.scene-full .llama-clock::after {
+  right: auto; left: 10px; top: auto; bottom: -7px;
+  width: 11px; height: 12px; background: #fff1d5;
+  border: 0; border-left: 2px solid #714a32; border-bottom: 2px solid #714a32;
+  border-radius: 0 0 0 2px; transform: skew(-22deg) rotate(-28deg);
+}
