@@ -182,3 +182,4 @@ Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique
 - **v0.40:** HUD inferior con marco textil de plastilina, controles e indicadores PNG y una lupa para Exploración en la reserva, la vista previa y el combate.
 - **v0.41:** ranuras horizontales con emblemas sin deformación, lupa con ornamentos andinos e indicadores opacos con símbolo de prohibido para las acciones no disponibles.
 - **v0.42:** ventanas centradas, botones de plastilina y marco dorado con adornos florales en la vista previa de cartas.
+- **v0.43:** paneles y botones con bordes de proporción constante, contenido alineado al eje central y recortes de las cartas centrados sobre el arte original.

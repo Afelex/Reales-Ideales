@@ -1272,7 +1272,7 @@ body.fx-busy .special-hint { visibility: hidden; }
   display: grid; justify-items: center; align-content: start; gap: .12rem; width: auto; padding: .3rem .25rem .35rem;
   border-radius: .7rem; border: 2px solid #c9995f; background: #fff2d8; text-align: center; color: #2c1a12; box-shadow: 0 3px 0 #a5784a;
 }
-.search-option:hover, .search-option:focus-visible { border-color: #f0b52e; transform: translateY(-2px); }
+.search-option:hover, .search-option:focus-visible { border-color: #f0b52e; }
 .search-option .search-face.card { width: min(100%, 6.6rem, calc((100dvh - 16rem) / 2 * .89)); pointer-events: none; }
 .search-name { font: 800 .78rem/1.1 Georgia, serif; }
 .search-count { font: 650 .68rem/1.1 system-ui, sans-serif; color: var(--quiet); }
@@ -1961,12 +1961,13 @@ dialog {
   width: min(24rem, calc(100vw - 1.5rem));
   max-height: calc(100dvh - 1.5rem);
   max-width: calc(100vw - 1.5rem);
-  padding: clamp(.85rem, 3vw, 1.2rem);
-  border: 2px solid #e3ad54;
-  border-radius: 1rem;
+  padding: clamp(1rem, 4vw, 1.35rem);
+  border: 2px solid #dca452;
+  border-radius: .95rem;
   color: #fff0d5;
-  background: linear-gradient(158deg, #234662f0, #15283bef), var(--clay-grain) #15283b;
-  box-shadow: inset 0 0 0 1px #ffdd8c55, 0 3px #80501f, 0 1rem 2.6rem #080d17b8;
+  text-align: center;
+  background: radial-gradient(ellipse at top, #294861, #142639 74%);
+  box-shadow: inset 0 0 0 1px #ffdc8b66, inset 0 0 0 5px #f6c77816, 0 3px #785025, 0 1rem 2.6rem #080d17b8;
 }
 dialog::backdrop { background: #0e1726a6; }
 dialog h2 {
@@ -1978,44 +1979,95 @@ dialog h2 {
 }
 dialog :is(.help-content, #decision-text, #search-info, #log) { color: #f5e5c9; }
 dialog a { color: #ffda85; }
-.dialog-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem; }
+.dialog-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: .52rem;
+  width: min(100%, 17.8rem);
+  margin-inline: auto;
+}
+.dialog-actions:has(> button:only-child) { width: min(100%, 14rem); }
 dialog :is(.dialog-actions, .game-menu-actions) > button,
 dialog #rescue-save {
-  --dialog-button: url('assets/ui/boton-azul.webp');
+  --button-rim: #dbad62;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
   min-height: 44px;
-  padding: .42rem 1.35rem;
-  border: 1px solid transparent;
-  border-image: var(--dialog-button) 42 94 fill / 13px 23px / 0 stretch;
+  padding: .5rem 1rem;
+  border: 1.5px solid var(--button-rim);
+  border-radius: .68rem;
   color: #fff3d7;
-  background: none;
-  box-shadow: none;
+  background: linear-gradient(180deg, #346083e8, #1b3c5ae8), var(--clay-grain) 0 0 / 7rem #274c6b;
+  box-shadow: inset 0 1px 0 #ffe0a659, inset 0 -3px 0 #0a1e344d, 0 2px 3px #081421b3;
   text-shadow: 0 1px 2px #0e2033;
-  font-size: clamp(.78rem, 3.4vw, .97rem);
-  line-height: 1.12;
+  text-align: center;
+  font-size: clamp(.82rem, 3.4vw, .97rem);
+  line-height: 1.16;
 }
+dialog :is(.dialog-actions, .game-menu-actions) > button::before,
+dialog :is(.dialog-actions, .game-menu-actions) > button::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  width: .32rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--button-rim);
+  transform: translateY(-50%) rotate(45deg);
+  pointer-events: none;
+}
+dialog :is(.dialog-actions, .game-menu-actions) > button::before { inset-inline-start: .38rem; }
+dialog :is(.dialog-actions, .game-menu-actions) > button::after { inset-inline-end: .38rem; }
 dialog .dialog-actions > .primary {
-  --dialog-button: url('assets/ui/boton-dorado.webp');
+  --button-rim: #a86c2a;
   color: #38210f;
+  background: linear-gradient(180deg, #ffd982e8, #eaa747e8), var(--clay-grain) 0 0 / 7rem #efbd61;
+  box-shadow: inset 0 1px 1px #fff0b9, inset 0 -3px 0 #98541b3b, 0 2px 3px #081421b3;
   text-shadow: 0 1px #ffe1a1;
 }
 dialog :is(.dialog-actions, .game-menu-actions) > button:focus-visible,
 dialog #rescue-save:focus-visible { outline: 2px solid #fff2b7; outline-offset: 2px; }
-dialog .dialog-actions > button:disabled { filter: grayscale(.85) brightness(.77); }
-#game-menu .game-menu-actions { gap: .45rem; margin-block: .75rem; }
-#history #log { padding-left: 1.55rem; text-align: left; }
+dialog .dialog-actions > button:disabled {
+  --button-rim: #777e86;
+  color: #dfe0e4;
+  background: linear-gradient(#505962, #373e47);
+  text-shadow: none;
+}
+#game-menu .game-menu-actions { gap: .5rem; margin-block: .8rem; }
+#match-menu { width: min(100%, 14rem); justify-self: center; }
+#history #log {
+  display: grid;
+  gap: .3rem;
+  margin: .7rem 0 .85rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: history-entry;
+}
 #history #log li {
-  padding: .32rem .48rem;
+  position: relative;
+  margin: 0;
+  padding: .38rem 1.65rem;
   border-radius: .34rem;
-  background: #0e233433;
+  background: #102438;
+  text-align: center;
+  counter-increment: history-entry;
   overflow-wrap: anywhere;
   font-size: clamp(.82rem, 3.5vw, .95rem);
 }
-#history #log li::marker { color: #efc878; font-weight: 750; }
+#history #log li::before {
+  content: counter(history-entry) '.';
+  position: absolute;
+  inset-inline-start: .55rem;
+  color: #efc878;
+  font-weight: 750;
+}
 #card-menu {
   width: min(20rem, calc(100vw - 1.5rem));
-  padding: .95rem 1rem .85rem;
+  padding: 1.1rem 1rem 1rem;
   border: 3px solid #e9b754;
-  background: radial-gradient(ellipse at 50% 34%, #2c4d69, #192e43 68%, #132639);
+  background: radial-gradient(ellipse at 50% 34%, #294861, #152a3e 72%);
   box-shadow: inset 0 0 0 1px #ffdd8e9e, inset 0 0 0 4px #b77c3850, 0 4px #895423, 0 1rem 2.6rem #080d17b8;
 }
 #card-menu[open] { animation: card-menu-in .17s ease-out; }
@@ -2030,15 +2082,34 @@ dialog .dialog-actions > button:disabled { filter: grayscale(.85) brightness(.77
 }
 #card-menu::before { inset-inline-start: .3rem; transform: rotate(-17deg); }
 #card-menu::after { inset-inline-end: .3rem; transform: rotate(17deg); }
-.card-menu-preview { display: grid; gap: .55rem; align-items: center; text-align: center; }
-.card-menu-art.card.illustrated { width: min(100%, 11.3rem, 37dvh); margin: 0 auto; }
+.card-menu-preview { display: grid; gap: .6rem; justify-items: center; text-align: center; }
+.card-menu-art.card.illustrated { width: min(100%, 10.6rem, 36dvh); margin: 0; }
 .card-menu-copy { display: grid; gap: .3rem; }
-.card-menu-text { color: #f5e5cb; font-size: clamp(.85rem, 3.6vw, .96rem); line-height: 1.32; }
+.card-menu-text { max-width: 30ch; margin-inline: auto; color: #f5e5cb; font-size: clamp(.85rem, 3.6vw, .96rem); line-height: 1.32; text-wrap: pretty; }
 #card-menu .dialog-actions { margin-top: .65rem; }
+/* Ventana de 424×536 sobre el atlas 1448×1086. Los bordes siguen el arte real de cada carta. */
+dialog .card.illustrated:not([data-card="search"]) { aspect-ratio: 424 / 536; }
+dialog .illustrated:not([data-card="search"]) .card-art {
+  aspect-ratio: 424 / 536;
+  background-size: 341.509% 202.612%;
+  background-position: var(--art-x) var(--art-y, -1.45%);
+}
+dialog .illustrated:is([data-card="boost"], [data-card="decisive"]) { --art-x: 6.4%; }
+dialog .illustrated:is([data-card="weaken"], [data-card="cannon"]) { --art-x: 49.95%; }
+dialog .illustrated[data-card="major"] { --art-x: 93.51%; }
+dialog .illustrated:is([data-card="decisive"], [data-card="cannon"]) { --art-y: 96.91%; }
+.settings-form legend { text-align: center; }
+.settings-form label:not(:has(input:checked)) { color: #f9e8ce; background: #203d57; border-color: #b58d55; }
+.settings-form label:has(input:focus-visible) { outline-color: #fff2b7; }
+dialog .decision-card .card-effect { justify-content: center; text-align: center; }
+#search-choice .search-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#search-choice .search-option { flex: 0 0 calc((100% - .9rem) / 3); min-width: 0; }
 @media (orientation: landscape) and (max-height: 560px) {
-  #card-menu { width: min(25rem, calc(100vw - 1.5rem)); }
-  .card-menu-preview { grid-template-columns: minmax(0, .8fr) minmax(0, 1fr); }
-  .card-menu-art.card.illustrated { width: min(100%, 9rem, 46dvh); }
+  .card-menu-art.card.illustrated { width: min(100%, 9rem, 30dvh); }
 }
 @media (prefers-reduced-motion: reduce) { #card-menu[open] { animation: none; } }
 #log,.search-options { max-height: none; }
