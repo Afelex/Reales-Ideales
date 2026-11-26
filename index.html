@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
   <title>Reales Ideales · Prototipo v0.14</title>
-  <link rel="stylesheet" href="styles.css?v=029-turno-fuego">
-  <script defer src="game.js?v=029-turno-fuego"></script>
-  <script defer src="ai.js?v=029-turno-fuego"></script>
+  <link rel="stylesheet" href="styles.css?v=030-cartas">
+  <script defer src="game.js?v=030-cartas"></script>
+  <script defer src="ai.js?v=030-cartas"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="fx.js?v=029-turno-fuego"></script>
-  <script defer src="app.js?v=029-turno-fuego"></script>
+  <script defer src="fx.js?v=030-cartas"></script>
+  <script defer src="app.js?v=030-cartas"></script>
 </head>
 <body class="booting">
   <section id="startup" class="startup" aria-label="Bienvenida a Reales Ideales">
@@ -76,17 +76,13 @@
     </section>
     <section class="field" aria-label="Campo de juego">
       <div class="field-heading">
-        <span id="round" class="round-count" title="Ronda actual"><span class="sr-only">Ronda </span><b id="round-value">1</b><span aria-hidden="true">/</span><span class="sr-only"> de </span>12</span>
         <span id="turn-timer" class="turn-timer" role="timer" aria-live="off" hidden><b><span id="turn-timer-value">40</span><small aria-hidden="true"> s</small></b></span>
+        <span id="round" class="round-count" title="Ronda actual"><span class="sr-only">Ronda </span><b id="round-value">1</b><span aria-hidden="true">/</span><span class="sr-only"> de </span>12</span>
         <span id="active-side" class="turn-marker" role="status">TU TURNO</span>
       </div>
       <time id="match-clock" class="match-clock llama-clock" aria-label="Tiempo restante de partida" hidden>10:00</time>
       <div id="phase-indicator" class="phase-indicator" role="status">Movimiento / ataque</div>
-      <div class="board-stage"><div class="board-viewport"><div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div></div></div>
-
-      <p id="battle-result" class="battle-result" role="status" hidden></p>
-      <div id="rival-played" class="rival-played" hidden></div>
-      <div id="duel" class="duel" hidden></div>
+      <div class="board-stage"><div class="board-viewport"><div id="board" class="board" role="group" aria-label="Tablero de 27 hexágonos"></div><div id="duel" class="duel battle-cards" aria-label="Cartas activadas y fuerza de combate" hidden></div></div></div>
       <div class="legend">
         <span><img src="assets/clay/emblemas/rescate.webp" alt="" width="18" height="18"> Rescate</span>
         <span><img src="assets/clay/emblemas/cannon.webp" alt="" width="18" height="18"> Cañón</span>
@@ -98,6 +94,7 @@
         <h2 id="phase-title"></h2>
       </div>
       <p id="instructions" class="instructions" role="status"></p>
+      <p id="battle-result" class="battle-result" role="status" hidden></p>
       <div id="action-status" class="action-status" role="group" aria-label="Acciones de turno" hidden>
         <span id="move-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg><span>Mover</span></span>
         <span id="attack-status" class="action-token" data-state="waiting"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 3 16 16M3 4l2 7 4-4M16 17l4-4M18 21l3-3M20 3 4 19M21 4l-2 7-4-4M8 17l-4-4M6 21l-3-3"/></svg><span>Atacar</span></span>
@@ -168,7 +165,7 @@
       <p>La partida tiene un máximo de 10 minutos. Al agotarse, se comparan las fichas vivas, las cartas activadas y las cartas poderosas activadas, en ese orden.</p>
       <p>En ambos modos, el turno cambia automáticamente al resolver los efectos y agotar las acciones legales. Puedes terminarlo antes con el botón de flecha. Los dos indicadores muestran qué acciones quedan.</p>
       <p><b>Fuerza:</b> todas las fichas empiezan con 0. El cañón suma +2 al atacar. En empate salen ambas fichas.</p>
-      <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. Tu reserva permanece visible; toca una carta para ver su ilustración y efecto. Solo se muestran las cartas que el rival activa. En partidas locales, entrega el dispositivo antes de revelar la reserva del siguiente jugador.</p>
+      <p><b>Cartas:</b> tienes tres en reserva y activas hasta dos por combate. Dos iguales dan COMBO +1. Tu reserva permanece visible; toca una carta para ver su ilustración y efecto. Sobre el tablero se muestran las dos oportunidades de carta por bando y su fuerza acumulada; un pase aparece como Sin carta. Nunca se muestra la reserva rival. En partidas locales, entrega el dispositivo antes de revelar la reserva del siguiente jugador.</p>
       <p><b>Fuego Especial:</b> acumula un segmento al empezar cada turno propio. Con tres, selecciona una ficha normal con enemigo a una o dos casillas, pulsa el fuego y elige el objetivo. Todas las fichas normales suman +3 de fuerza al atacar a un enemigo adyacente. Si está a dos casillas, puedes acercarte por una casilla libre y atacar, consumiendo también el movimiento. Ambos jugadores conservan sus dos cartas. La carga vuelve a cero y los cañones no pueden usarlo.</p>
       <p><b>Cañón y rescate:</b> Invocar cañón convierte tu ficha en cañón y suma +2. Llega a una estrella enemiga para rescatar una ficha.</p>
       <p><b>Victoria:</b> elimina todas las fichas rivales o conserva más al final de la ronda 12.</p>

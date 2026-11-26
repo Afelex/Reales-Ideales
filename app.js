@@ -409,45 +409,19 @@ function launchShell(from, to, side) {
     shake();
   });
 }
-// Escaparate de carta: la carta activada entra volando desde su bando,
-// se voltea y muestra nombre y efecto para que el rival la vea.
-const SHOWCASE_MS = 1700;
+// Cada activación o pase entra directamente en su espacio, sin ventana central.
+const SHOWCASE_MS = 850;
 function showcase(event) {
-  const card = event.type === 'reveal' ? event.card : null;
-  if (card && (mode === 'local' || event.side === 'I')) {
-    applyCardForce(event.side, card);
-    fx.play(card);
-    return;
-  }
-  const node = spawn('fx-showcase from-' + event.side, { x: window.innerWidth / 2, y: window.innerHeight * .42, size: 0 }, {},
-    card ? SHOWCASE_MS : 1000);
-  if (!node) return;
-  const role = game.battle && event.side === game.battle.defender ? 'responden' : 'activan';
-  span(node, 'fx-showcase-who', rules.SIDE[event.side] + (card ? ' ' + role : ' pasan'));
-  if (!card) {
-    node.classList.add('pass');
-    span(node, 'fx-showcase-pass', 'Sin carta');
+  if (!duel) return;
+  if (event.type === 'pass') {
+    const slot = duelSlots[event.side].length;
+    duelSlots[event.side].push(null);
+    renderDuel({ side: event.side, slot });
     fx.play('pass');
     return;
   }
-  const [color, glow] = cardColors[card];
-  node.style.setProperty('--color', color);
-  node.style.setProperty('--glow', glow);
-  const face = span(node, 'card front fx-showcase-card', '');
-  renderCardFace(face, card);
-  span(node, 'fx-showcase-effect', rules.CARDS[card].description);
-  fx.play('deal');
-  later(380, () => {
-    applyCardForce(event.side, card);
-    fx.play(card);
-    const burst = spawn('fx-card-burst', { x: window.innerWidth / 2, y: window.innerHeight * .42, size: 0 }, { color, glow }, 1100);
-    if (burst && fxEmblems.has(card)) {
-      const emblem = document.createElement('img');
-      emblem.src = 'assets/clay/emblemas/' + card + '.webp';
-      emblem.alt = '';
-      burst.append(emblem);
-    } else if (burst) burst.textContent = fxSymbols[card];
-  });
+  applyCardForce(event.side, event.card);
+  fx.play(event.card);
 }
 // Suma la carta al marcador del duelo y hace volar el número ganado o perdido.
 function floatNumber(side, text, kind) {
@@ -463,10 +437,10 @@ function applyCardForce(side, card) {
   const index = duel[0].side === side ? 0 : 1;
   const rivalSide = duel[1 - index].side;
   const before = [forceOf(0).total, forceOf(1).total];
+  const slot = duelSlots[side].length;
+  duelSlots[side].push(card);
   duelPlayed[side] = [...duelPlayed[side], card];
-  renderDuel();
-  renderRivalPlayed();
-  if (document.body.classList.contains('scene-full')) layoutScene();
+  renderDuel({ side, slot });
   const after = [forceOf(0).total, forceOf(1).total];
   const own = after[index] - before[index], rival = after[1 - index] - before[1 - index];
   if (card === 'decisive') floatNumber(side, 'Decisivo', 'decisive');
@@ -939,12 +913,11 @@ function layoutScene() {
     const bottom = Math.max(...cells.map(cell => cell.top + cell.h));
     let hudBottom = Math.max(...seats.map(seat => seat.getBoundingClientRect().bottom));
     const heading = byId('active-side').closest('.field-heading');
-    document.body.style.setProperty('--hud-turn-top', (hudBottom + 4) + 'px');
+    const seatTop = Math.min(...seats.map(seat => seat.getBoundingClientRect().top));
+    document.body.style.setProperty('--hud-turn-top', Math.max(0, seatTop) + 'px');
     hudBottom = Math.max(hudBottom, heading.getBoundingClientRect().bottom);
-    document.body.style.setProperty('--rival-strip-top', (hudBottom + 4) + 'px');
-    const rivalStrip = byId('rival-played');
-    if (!rivalStrip.hidden) hudBottom = Math.max(hudBottom, rivalStrip.getBoundingClientRect().bottom);
-    const dockTop = controls.getBoundingClientRect().top;
+    const hint = byId('special-hint');
+    const dockTop = hint.hidden ? controls.getBoundingClientRect().top : Math.min(controls.getBoundingClientRect().top, hint.getBoundingClientRect().top);
     const margin = 8;
     // Mantiene el terreno, las fichas y sus áreas táctiles en el mismo plano.
     const scale = Math.min(Math.max(vw / W, vh / H),
@@ -968,6 +941,7 @@ function layoutScene() {
     boardViewport.style.setProperty('--scene-aspect', String(W / (H - crop)));
     Object.assign(board.style, { left: '0', width: '100%', top: -crop / (H - crop) * 100 + '%', height: H / (H - crop) * 100 + '%' });
   }
+  positionDuel();
 }
 window.addEventListener('resize', layoutScene);
 portraitPhone.addEventListener?.('change', layoutScene);
@@ -1007,6 +981,7 @@ function startSpecial(attacker, defender, at) {
   // El duelo muestra la ficha tal como empieza el combate (ya en su casilla de ataque).
   duel = [{ ...attacker }, { ...rules.piece(game, defender.id) }];
   duelPlayed = { I: [], R: [] };
+  duelSlots = { I: [], R: [] };
   duelSpecial = game.battle.special;
   duelHold = false;
   selection = null;
@@ -1035,6 +1010,7 @@ function startAttack(attacker, defender) {
   battleResult = null;
   duel = [{ ...attacker }, { ...defender }];
   duelPlayed = { I: [], R: [] };
+  duelSlots = { I: [], R: [] };
   duelSpecial = null;
   duelHold = false;
   selection = null;
@@ -1238,28 +1214,7 @@ specialFire.addEventListener('click', () => {
   fx.play(specialMode ? 'charge' : 'pass');
   render();
 });
-// Cartas activadas por el rival: siempre visibles durante el combate.
-function miniCards(parent, cards) {
-  for (const card of cards) {
-    const mini = span(parent, 'mini-card card front', '');
-    renderCardFace(mini, card);
-    mini.setAttribute('role', 'img');
-    mini.setAttribute('aria-label', rules.CARDS[card].name + ': ' + rules.CARDS[card].description);
-    mini.title = rules.CARDS[card].name + ': ' + rules.CARDS[card].description;
-  }
-}
-function renderRivalPlayed() {
-  const strip = byId('rival-played');
-  const side = handSide();
-  const rival = side === 'I' ? 'R' : 'I';
-  const cards = duelPlayed[rival];
-  strip.replaceChildren();
-  strip.hidden = game.phase !== 'reveal' || !cards.length || (mode === 'local' && handOwner !== side);
-  if (strip.hidden) return;
-  strip.dataset.side = rival;
-  span(strip, 'rival-played-label', 'Activadas por el rival');
-  miniCards(span(strip, 'rival-played-cards', ''), cards);
-}
+// Las cartas públicas se muestran únicamente en las cuatro ranuras del combate.
 let cardMenu = null;
 const cardMenuNode = document.createElement('div');
 cardMenuNode.id = 'card-menu';
@@ -1329,7 +1284,6 @@ function renderHands() {
       if (busy()) return;
       handOwner = side;
       renderHands();
-      renderRivalPlayed();
       if (document.body.classList.contains('scene-full')) layoutScene();
     }, 'secondary hand-handoff');
     return;
@@ -1356,7 +1310,7 @@ function nextTurn() {
   clearSpecial();
   cardMenu = null;
   cardMenuNode.hidden = true;
-  battleResult = null;
+  // El resultado queda sobre el dock hasta el próximo combate.
   duel = null;
   if (!rules.nextTurn(game)) return; // El banner de inicio del siguiente turno basta.
   render();
@@ -1426,6 +1380,7 @@ function renderControls() {
 // para que cada jugador vea cuánto suma o le restan antes de decidir.
 let duelHold = false;
 let duelPlayed = { I: [], R: [] };
+let duelSlots = { I: [], R: [] };
 let duelSpecial = null;
 function forceOf(index) {
   const piece = duel[index], rival = duel[1 - index];
@@ -1451,33 +1406,110 @@ function forceSummary() {
   const decisive = a.decisive - d.decisive;
   return { a, d, decisive };
 }
-function renderDuel() {
+// Recorta el arte aprobado en PNG con esquinas de alfa real, sin alterar la carta.
+const playedCardPngs = new Map();
+let playedCardAtlas = null;
+let playedCardAtlasLoading = false;
+const playedCardOrder = ['boost','weaken','major','decisive','cannon','search'];
+function preparePlayedCardPngs() {
+  if (playedCardAtlasLoading || playedCardPngs.size) return;
+  playedCardAtlasLoading = true;
+  const img = new Image();
+  playedCardAtlas = img;
+  img.onload = () => {
+    try {
+      const w = Math.floor(img.naturalWidth / 3), h = Math.floor(img.naturalHeight / 2);
+      for (const [index, card] of playedCardOrder.entries()) {
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) continue;
+        const r = Math.min(w,h) * .075;
+        ctx.beginPath();
+        ctx.moveTo(r,0); ctx.lineTo(w-r,0); ctx.quadraticCurveTo(w,0,w,r);
+        ctx.lineTo(w,h-r); ctx.quadraticCurveTo(w,h,w-r,h);
+        ctx.lineTo(r,h); ctx.quadraticCurveTo(0,h,0,h-r);
+        ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0); ctx.closePath(); ctx.clip();
+        ctx.drawImage(img,(index%3)*w,Math.floor(index/3)*h,w,h,0,0,w,h);
+        playedCardPngs.set(card,canvas.toDataURL('image/png'));
+      }
+      if (game && duel && !byId('duel').hidden) renderDuel();
+    } catch { /* El arte original CSS sigue disponible si canvas falla. */ }
+  };
+  img.src = 'assets/v014/cartas-aprobadas.webp';
+}
+function positionDuel() {
+  const view = byId('duel');
+  if (view.hidden || !sceneGeometry) return;
+  const frame = boardViewport.getBoundingClientRect();
+  const rect = board.getBoundingClientRect();
+  const center = cellPoint('C6');
+  if (!frame.width || !rect.width || !center) return;
+  const width = Math.min(frame.width - 12, rect.width * .88, 440);
+  view.style.width = Math.max(0,width) + 'px';
+  view.style.left = (rect.left + rect.width / 2 - frame.left) + 'px';
+  const half = view.offsetHeight / 2;
+  view.style.top = Math.max(half + 6, Math.min(frame.height - half - 6, center.y - frame.top)) + 'px';
+}
+function renderDuel(fresh = null) {
   const view = byId('duel');
   view.hidden = !duel || (game.phase !== 'reveal' && !duelHold);
   view.replaceChildren();
   if (view.hidden) return;
+  preparePlayedCardPngs();
   const summary = forceSummary();
-  const [attacker, defender] = duel;
-  for (const [index, piece] of duel.entries()) {
-    if (index === 1) span(view, 'duel-versus', 'VS');
-    const portrait = document.createElement('div');
-    portrait.className = 'duelist';
-    portrait.dataset.side = piece.side;
-    portrait.append(makeToken(piece));
-    span(portrait, 'duelist-name', piece.cannon ? 'Cañón' : animals[character(piece)]);
-    span(portrait, 'duelist-role', index === 0 ? 'Ataca' : 'Defiende');
+  for (const side of ['R','I']) {
+    const index = duel[0].side === side ? 0 : 1;
     const force = index === 0 ? summary.a : summary.d;
-    const meter = span(portrait, 'duel-force', '');
-    meter.dataset.force = piece.side;
-    span(meter, 'duel-force-label', 'Fuerza');
-    span(meter, 'duel-force-value', String(force.total));
-    if (battleResult?.removed.includes(piece.id)) portrait.dataset.defeated = 'true';
-    view.append(portrait);
+    const group = document.createElement('section');
+    group.className = 'played-side';
+    group.dataset.side = side;
+    group.setAttribute('aria-label', rules.SIDE[side]);
+    const row = document.createElement('div');
+    row.className = 'played-slots';
+    for (let slot = 0; slot < 2; slot++) {
+      const decided = slot < duelSlots[side].length;
+      const card = duelSlots[side][slot];
+      const cell = document.createElement('div');
+      cell.className = 'played-slot';
+      cell.dataset.state = card ? 'card' : decided ? 'pass' : 'pending';
+      if (fresh?.side === side && fresh.slot === slot) cell.classList.add('played-arrival');
+      if (card) {
+        const rule = rules.CARDS[card];
+        cell.setAttribute('aria-label', rule.name + ': ' + rule.description);
+        const png = playedCardPngs.get(card);
+        if (png) {
+          const art = document.createElement('img');
+          art.src = png; art.alt = rule.name; art.className = 'played-card-png';
+          cell.append(art);
+        } else {
+          const art = span(cell,'card front played-card-face','');
+          renderCardFace(art,card);
+        }
+        const effect = card === 'decisive' ? 'Decisivo' : rule.rival ? '−1 rival' : signed(rule.own ?? 0);
+        span(cell,'played-effect',effect);
+      } else {
+        span(cell,'played-empty',decided ? 'Sin carta' : 'Por jugar');
+      }
+      row.append(cell);
+    }
+    group.append(row);
+    const meter = span(group,'played-total duel-force','');
+    meter.dataset.force = side;
+    span(meter,'duel-force-label','Fuerza');
+    span(meter,'duel-force-value',signed(force.total));
+    const extras = force.parts.filter(p => p.label === 'Combo' || p.label === 'Cañón' || p.label === rules.FIRE_POWER.name)
+      .map(p => p.label + ' ' + signed(p.value));
+    if (force.decisive) extras.push(force.decisive === 1 ? 'Decisivo' : 'Doble decisivo');
+    if (extras.length) span(group,'played-extras',extras.join(' · '));
+    meter.setAttribute('aria-label',rules.SIDE[side] + ': fuerza ' + force.total + (extras.length ? ', ' + extras.join(', ') : ''));
+    view.append(group);
   }
   const lead = summary.decisive ? (summary.decisive > 0 ? 0 : 1)
     : summary.a.total === summary.d.total ? -1 : summary.a.total > summary.d.total ? 0 : 1;
   view.dataset.lead = lead === -1 ? 'tie' : duel[lead].side;
-  view.setAttribute('aria-label', pieceName(attacker) + ' contra ' + pieceName(defender));
+  view.setAttribute('aria-label',pieceName(duel[0]) + ' contra ' + pieceName(duel[1]));
+  positionDuel();
 }
 // === Temporizador de decisión ===
 // Cuenta solo en las decisiones humanas y se detiene durante animaciones y banners.
@@ -1772,13 +1804,12 @@ function render() {
       + describe(battleResult);
   }
   document.body.classList.toggle('revealing', game.phase === 'reveal');
-  renderRivalPlayed();
   renderBoard();
   renderHands();
   renderControls();
   renderSpecialFire();
   syncTimer();
-  if (document.body.classList.contains('scene-full')) layoutScene();
+  layoutScene();
   byId('log').replaceChildren(...game.events.slice(-8).reverse().map(event => {
     const item = document.createElement('li');
     item.textContent = describe(event);
@@ -1888,6 +1919,7 @@ function resetPresentation() {
   battleResult = null;
   duel = null;
   duelPlayed = { I: [], R: [] };
+  duelSlots = { I: [], R: [] };
   duelSpecial = null;
   duelHold = false;
   clearSpecial();
@@ -2013,6 +2045,7 @@ function waitForMedia(media) {
 }
 function startupTasks() {
   const tasks = [...new Set(startupImages)].map(preloadImage);
+  preparePlayedCardPngs();
   applyBoardTheme();
   const video = board.querySelector('.board-video');
   if (video) tasks.push(waitForMedia(video));
