@@ -71,7 +71,7 @@
     return drawn;
   }
   function makePlayer(deck) {
-    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, ownTurns: 0, charge: 0 };
+    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, savedRescues: [], ownTurns: 0, charge: 0 };
     draw(player);
     return player;
   }
@@ -123,7 +123,7 @@
     if (STARS[p.side].includes(cell) && s.players[p.side].rescues &&
         s.pieces.some(q => q.side === p.side && !q.cell) && ZONES[p.side].some(c => !occupant(s, c))) {
       s.phase = 'rescue';
-      s.rescue = { side: p.side, after };
+      s.rescue = { side: p.side, after, source: 'star' };
     } else continueAfterEntry(s, after);
   }
   function continueAfterEntry(s, after) {
@@ -140,17 +140,45 @@
     entry(s, piece(s, id), cell, bonus ? 'battle' : 'turn', bonus ? 'bonus' : 'move');
     return true;
   }
+  // Una llegada concede un marcador; guardarlo reserva el derecho para otro turno.
+  function availableSavedRescues(s, side) {
+    return s.players[side].savedRescues.filter(availableAt => availableAt <= s.players[side].ownTurns).length;
+  }
+  function canUseSavedRescue(s, side = s.turn) {
+    return s.phase === 'turn' && s.turn === side && availableSavedRescues(s, side) > 0 &&
+      s.pieces.some(p => p.side === side && !p.cell) &&
+      Object.keys(CELLS).some(cell => !occupant(s, cell));
+  }
+  function startSavedRescue(s) {
+    if (!canUseSavedRescue(s)) return false;
+    s.rescue = { side: s.turn, after: 'turn', source: 'saved' };
+    s.phase = 'rescue';
+    return true;
+  }
+  function rescueTargets(s) {
+    if (s.phase !== 'rescue' || !s.rescue) return [];
+    const { side, source } = s.rescue;
+    return (source === 'saved' ? Object.keys(CELLS) : ZONES[side]).filter(cell => !occupant(s, cell));
+  }
   function rescue(s, id, cell) {
     if (s.phase !== 'rescue') return false;
-    const { side, after } = s.rescue;
+    const { side, after, source } = s.rescue;
+    const player = s.players[side];
+    const savedIndex = player.savedRescues.findIndex(t => t <= player.ownTurns);
+    if (source === 'saved' ? savedIndex < 0 || s.turn !== side : player.rescues <= 0) return false;
     if (id !== null) {
       const p = piece(s, id);
-      if (!p || p.cell || p.side !== side || !ZONES[side].includes(cell) || occupant(s, cell)) return false;
+      if (!p || p.cell || p.side !== side || !rescueTargets(s).includes(cell)) return false;
       p.cell = cell;
       p.cannon = false;
       p.ready = 0;
-      s.players[side].rescues--;
-      record(s, 'rescue', { side, piece: id, to: cell, text: SIDE[side] + ' rescatan a ' + id + ' en ' + cell + '.' });
+      if (source === 'saved') player.savedRescues.splice(savedIndex, 1);
+      else player.rescues--;
+      record(s, 'rescue', { side, piece: id, to: cell, source, text: SIDE[side] + ' rescatan a ' + id + ' en ' + cell + '.' });
+    } else if (source !== 'saved') {
+      player.rescues--;
+      player.savedRescues.push(player.ownTurns + 1);
+      record(s, 'rescue-saved', { side, text: SIDE[side] + ' guardan una estrella de rescate.' });
     }
     s.rescue = null;
     continueAfterEntry(s, after);
@@ -405,7 +433,7 @@
 
   const game = { SIDE, HAND_SIZE, ROSTER, FIRE_POWER, SPECIALS, CHARGE_MAX, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
     piece, occupant, remaining, moves, attacks, turnActions, move, attack, specialOptions, specialAttack, actor, cardLimit, playable,
-    searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, skipBonus, nextTurn, finishOnTime };
+    searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, rescueTargets, availableSavedRescues, canUseSavedRescue, startSavedRescue, skipBonus, nextTurn, finishOnTime };
   if (typeof module === 'object') module.exports = game;
   else window.RealesIdeales = game;
 })();
