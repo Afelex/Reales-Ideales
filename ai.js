@@ -81,7 +81,7 @@
     for (const piece of allies) {
       for (const option of rules.specialOptions(game, piece.id)) {
         const target = rules.piece(game, option.target);
-        const score = rules.FIRE_POWER.bonus + (target.cannon ? 3 : 0);
+        const score = rules.FIRE_POWER.bonus + (target.cannon ? 3 : 0) + (option.at === piece.cell ? .35 : 0);
         if (score > bestScore) {
           best = { type: 'special', piece: piece.id, target: option.target, at: option.at };
           bestScore = score;
