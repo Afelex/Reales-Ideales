@@ -1272,7 +1272,7 @@ body.fx-busy .special-hint { visibility: hidden; }
   display: grid; justify-items: center; align-content: start; gap: .12rem; width: auto; padding: .3rem .25rem .35rem;
   border-radius: .7rem; border: 2px solid #c9995f; background: #fff2d8; text-align: center; color: #2c1a12; box-shadow: 0 3px 0 #a5784a;
 }
-.search-option:hover, .search-option:focus-visible { border-color: #f0b52e; transform: translateY(-2px); }
+.search-option:hover, .search-option:focus-visible { border-color: #f0b52e; }
 .search-option .search-face.card { width: min(100%, 6.6rem, calc((100dvh - 16rem) / 2 * .89)); pointer-events: none; }
 .search-name { font: 800 .78rem/1.1 Georgia, serif; }
 .search-count { font: 650 .68rem/1.1 system-ui, sans-serif; color: var(--quiet); }
