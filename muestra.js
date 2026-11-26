@@ -503,22 +503,62 @@
     const fw = cardSheet.width / 3, fh = cardSheet.height / 2;
     return new PIXI.Texture({ source: cardSheet.source, frame: new PIXI.Rectangle(c * fw, r * fh, fw, fh) });
   }
+  // Quién juega la carta debe leerse de un vistazo: el dueño brilla con el color de su
+  // bando, la carta sale de su lado (atacante a la izquierda, defensor a la derecha) con su
+  // nombre encima, y viaja con estela hasta la ficha afectada, donde aparece el número.
+  const SIDE_COLOR = { I: 0x5ac8ff, R: 0xff6a4a };
+  const SIDE_STROKE = { I: 0x12364c, R: 0x5a1410 };
+  const SIDE_NAME = { I: 'idealista', R: 'realista' };
+  const ANIMAL_NAME = { mono: 'Mono', llama: 'Llama', guacamayo: 'Guacamayo', rana: 'Rana', tigrillo: 'Tigrillo', gallo: 'Gallo', cuy: 'Cuy', gato: 'Gato' };
+  const nameOf = t => ANIMAL_NAME[t.piece.animal] + ' ' + SIDE_NAME[t.piece.side];
+  // Convierte un punto del mundo para que quede dentro de la pantalla (con márgenes en píxeles de pantalla).
+  function clampToView(x, y, mx, my) {
+    const g = world.toGlobal(new PIXI.Point(x, y));
+    const vw = app.screen.width, vh = app.screen.height;
+    g.x = Math.min(Math.max(g.x, mx), vw - mx);
+    g.y = Math.min(Math.max(g.y, my + 70), vh - my - 110);
+    const l = world.toLocal(g);
+    return { x: l.x, y: l.y };
+  }
   async function playCard(card, owner, target, label, color, good = label.startsWith('+')) {
+    const sideX = owner === tokens.I5 ? -1 : 1;
+    const ownerColor = SIDE_COLOR[owner.piece.side];
+    // 1. El dueño se ilumina con el color de su bando.
+    const ring = new PIXI.Sprite(textures.ring);
+    ring.anchor.set(.5); ring.tint = ownerColor;
+    ring.x = owner.root.x; ring.y = owner.root.y - owner.size * .5; ring.width = ring.height = owner.size * 1.2; ring.alpha = 0;
+    layers.ui.addChild(ring);
+    tween(ring, { alpha: 1, 'scale.x': ring.scale.x * 1.25, 'scale.y': ring.scale.y * 1.25 }, 260, ease.outCubic);
+    hitFlash(owner, .35, 260);
+    // 2. La carta nace junto al dueño, de su lado, con su nombre.
     const s = new PIXI.Sprite(cardTexture(card));
     s.anchor.set(.5); s.width = 150; s.scale.y = s.scale.x;
     const base = s.scale.x;
-    const sideX = owner.root.x < W / 2 ? -1 : 1;
-    s.x = owner.root.x + sideX * 160; s.y = H + 140; s.rotation = sideX * .5;
+    s.x = owner.root.x + sideX * 40; s.y = owner.root.y - owner.size * .5; s.rotation = sideX * .4; s.alpha = 0;
     layers.ui.addChild(s);
+    const tag = new PIXI.Text({ text: nameOf(owner), style: { fontFamily: 'system-ui, sans-serif', fontWeight: '800', fontSize: 22, fill: 0xffffff,
+      stroke: { color: 0x2c1a12, width: 5, join: 'round' } } });
+    tag.resolution = 2; tag.anchor.set(.5, 1); tag.alpha = 0; layers.ui.addChild(tag);
+    const tagBg = new PIXI.Graphics(); tagBg.alpha = 0; layers.ui.addChildAt(tagBg, layers.ui.getChildIndex(tag));
     audio.sfx.card();
-    const hold = { x: owner.root.x + sideX * 120, y: owner.root.y - owner.size * 2.1 };
-    s.scale.x = .02;
-    await Promise.all([tween(s, { x: hold.x, y: hold.y, rotation: sideX * .06 }, 420, ease.outBack), tween(s, { 'scale.x': base }, 420, ease.outCubic)]);
+    const hold = clampToView(owner.root.x + sideX * 175, owner.root.y - owner.size * 1.1, 95, 130);
+    s.scale.set(base * .2);
+    await tween(s, { x: hold.x, y: hold.y, rotation: sideX * .06, alpha: 1, 'scale.x': base, 'scale.y': base }, 420, ease.outBack);
+    tag.x = s.x; tag.y = s.y - s.height / 2 - 6;
+    const tw = tag.width + 18, th = tag.height + 6;
+    tagBg.clear().roundRect(tag.x - tw / 2, tag.y - th + 2, tw, th, 10).fill({ color: ownerColor, alpha: .92 });
+    tween(tag, { alpha: 1 }, 160); tween(tagBg, { alpha: 1 }, 160);
     flare(s.x, s.y, 1.6, color, 380);
-    await wait(520);
-    audio.sfx.whoosh(.2);
-    await tween(s, { x: target.root.x, y: target.root.y - target.size * .55, 'scale.x': base * .15, 'scale.y': base * .15, alpha: .6 }, 260, ease.inCubic);
+    await wait(650);
+    tween(ring, { alpha: 0 }, 250).then(() => ring.destroy());
+    tween(tag, { alpha: 0 }, 150).then(() => tag.destroy()); tween(tagBg, { alpha: 0 }, 150).then(() => tagBg.destroy());
+    // 3. Viaja hasta la ficha afectada dejando estela del color de la carta.
+    audio.sfx.whoosh(.25);
+    const trail = setInterval(() => particles.fx.spawn({ tex: textures.glow, x: s.x, y: s.y, life: 320, s0: .5, s1: .05, a0: .8, a1: 0, tint: color, add: true }), 16);
+    await tween(s, { x: target.root.x, y: target.root.y - target.size * .55, 'scale.x': base * .15, 'scale.y': base * .15, alpha: .7 }, target === owner ? 240 : 380, ease.inCubic);
+    clearInterval(trail);
     s.destroy();
+    // 4. El efecto aparece sobre la ficha que lo recibe.
     flare(target.root.x, target.root.y - target.size * .55, 2, color, 320);
     for (let i = 0; i < 14; i++) {
       const a = rand(0, Math.PI * 2);
@@ -526,9 +566,18 @@
         life: 600, s0: .45, s1: .05, a0: 1, a1: 0, tint: color, add: true, vr: 6 });
     }
     hitFlash(target, .5, 220);
-    floatText(target.root.x, target.root.y - target.size * 1.25, label, color);
+    if (!good) { target.idle = false; tween(target, { squash: .14 }, 120).then(() => tween(target, { squash: 0 }, 380, ease.outElastic)).then(() => { target.idle = true; }); }
+    // El número aparece al costado de la ficha afectada (no entre las dos) y con el contorno de su bando.
+    const side = target === tokens.I5 ? -1 : 1;
+    floatText(target.root.x + side * target.size * .62, target.root.y - target.size * 1.02, label, color, 46, SIDE_STROKE[target.piece.side]);
+    // Anillo del color de la carta alrededor de la ficha afectada: une el número con su ficha.
+    const mark = new PIXI.Sprite(textures.ring);
+    mark.anchor.set(.5); mark.tint = color; mark.x = target.root.x; mark.y = target.root.y - target.size * .5;
+    mark.width = mark.height = target.size * 1.35; layers.ui.addChild(mark);
+    tween(mark, { 'scale.x': mark.scale.x * .82, 'scale.y': mark.scale.y * .82 }, 260, ease.outBack)
+      .then(() => wait(500)).then(() => tween(mark, { alpha: 0 }, 300)).then(() => mark.destroy());
     good ? audio.sfx.buff() : audio.sfx.debuff();
-    await wait(380);
+    await wait(420);
   }
   function coinsBurst(x, y, amount) {
     for (let i = 0; i < 10; i++) {
@@ -579,13 +628,18 @@
   }
   const SCENES = {
     async normal(A, D) {
-      say('Ataque normal: el gallo debilita, el tigrillo responde con Refuerzo mayor.');
+      say('Ataque con cartas: el tigrillo ataca al gallo.');
       await camTo((A.root.x + D.root.x) / 2, (A.root.y + D.root.y) / 2 - 40, 1.25, 700);
       floatText(A.root.x, A.root.y - A.size * 1.4, '¡Al ataque!', 0xfff7e6, 34);
       await wait(500);
-      await playCard('weaken', D, A, '−1', 0xb48aff);
+      // Orden del reglamento: defensor, atacante, defensor, atacante.
+      say('El gallo se defiende con Refuerzo: +1 para el gallo.');
+      await playCard('boost', D, D, '+1', 0x7fe07a);
+      say('El tigrillo juega Debilitar contra el gallo: −1 para el gallo.');
+      await playCard('weaken', A, D, '−1', 0xb48aff);
+      say('El tigrillo remata con Refuerzo mayor: +2 para el tigrillo.');
       await playCard('major', A, A, '+2', 0x7fe07a);
-      say('Fuerza: tigrillo 1 contra gallo 0.');
+      say('Fuerza: tigrillo 2 contra gallo 0.');
       await strike(A, D.cell, { height: 120, ms: 340 });
       await hitStop(70);
       audio.sfx.impact(.8);
@@ -596,9 +650,9 @@
       await arcMove(A, D.cell, 40, 300, ease.outCubic);
       audio.sfx.land(); dust(A.root.x, A.root.y, 12); tween(A, { squash: 0, lean: 0 }, 400, ease.outElastic); A.idle = true;
       coinsBurst(A.root.x, A.root.y - A.size * 1.2, 20);
-      scoreBanner('1 – 0');
+      scoreBanner('2 – 0');
       audio.sfx.cheer();
-      say('Gana el tigrillo 1 a 0 y avanza a la casilla libre. +20 monedas.');
+      say('Gana el tigrillo 2 a 0 y avanza a la casilla libre. +20 monedas.');
       await wait(900);
       await camHome();
     },
@@ -686,7 +740,9 @@
     async decisive(A, D) {
       say('Golpe decisivo: gana el combate aunque el rival tenga más fuerza.');
       await camTo((A.root.x + D.root.x) / 2, (A.root.y + D.root.y) / 2 - 40, 1.25, 600);
+      say('El gallo se defiende con Refuerzo: +1 para el gallo.');
       await playCard('boost', D, D, '+1', 0x7fe07a);
+      say('El tigrillo juega Golpe decisivo: gana aunque tenga menos fuerza.');
       await playCard('decisive', A, A, '¡Decisivo!', 0xff5a3a, true);
       tween(screenFx.vignette, { alpha: .8 }, 500);
       audio.duck(.06);
