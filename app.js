@@ -692,7 +692,8 @@ const gameMenu = byId('game-menu');
 const helpDialog = byId('help-dialog');
 const historyDialog = byId('history');
 const coinDialog = byId('coin-dialog');
-const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog, coinDialog];
+const cardMenuNode = byId('card-menu');
+const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog, coinDialog, cardMenuNode];
 byId('coin-button').addEventListener('click', () => { if (game && !busy()) { renderCoins(); coinDialog.showModal(); } });
 const gameMenuButton = byId('game-menu-button');
 const playMenu = byId('play-menu');
@@ -1382,60 +1383,35 @@ specialFire.addEventListener('click', () => {
 });
 // Las cartas públicas se muestran únicamente en las cuatro ranuras del combate.
 let cardMenu = null;
-const cardMenuNode = document.createElement('div');
-cardMenuNode.id = 'card-menu';
-cardMenuNode.className = 'card-menu';
-cardMenuNode.hidden = true;
-cardMenuNode.setAttribute('role', 'group');
-document.body.append(cardMenuNode);
+const cardPreviewArt = byId('card-preview-art');
+const cardPreviewPlay = byId('card-preview-play');
 function closeCardMenu() {
-  if (cardMenu === null) return;
   cardMenu = null;
-  cardMenuNode.hidden = true;
+  if (cardMenuNode.open) cardMenuNode.close();
 }
-// Un toque fuera del menú y de la carta lo cancela.
-document.addEventListener('pointerdown', event => {
-  if (cardMenu === null || cardMenuNode.contains(event.target)) return;
-  if (byId('hud-hand').querySelector('[data-slot="' + cardMenu.slot + '"]')?.contains(event.target)) return;
+byId('card-preview-close').addEventListener('click', closeCardMenu);
+cardMenuNode.addEventListener('close', () => { if (!cardMenuNode.open) cardMenu = null; });
+cardMenuNode.addEventListener('click', event => {
+  if (event.target !== cardMenuNode) return;
+  const rect = cardMenuNode.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeCardMenu();
+});
+cardPreviewPlay.addEventListener('click', () => {
+  if (!cardMenu || cardPreviewPlay.disabled) return;
+  const { side, slot, card } = cardMenu;
   closeCardMenu();
-}, true);
-document.addEventListener('keydown', event => { if (event.key === 'Escape') closeCardMenu(); });
-function openCardMenu(node, side, slot, card) {
-  cardMenu = { side, slot };
-  cardMenuNode.replaceChildren();
-  const preview = document.createElement('div');
-  preview.className = 'card-menu-preview';
-  const art = document.createElement('div');
-  art.className = 'card illustrated card-menu-art';
-  renderCardFace(art, card);
-  preview.append(art);
-  const copy = document.createElement('div');
-  copy.className = 'card-menu-copy';
-  span(copy, 'card-menu-title', rules.CARDS[card].name);
-  span(copy, 'card-menu-text', rules.CARDS[card].description);
-  preview.append(copy);
-  cardMenuNode.append(preview);
-  const row = document.createElement('div');
-  row.className = 'card-menu-actions';
-  cardMenuNode.append(row);
-  button(row, 'Cancelar', closeCardMenu, 'secondary');
-  const activate = button(row, 'Activar', () => {
-    cardMenu = null;
-    cardMenuNode.hidden = true;
-    if (busy() || game.phase !== 'reveal' || rules.actor(game) !== side || game.players[side].hand[slot] !== card) return;
-    card === 'search' ? chooseSearch(slot) : play(slot);
-  }, 'primary');
-  activate.disabled = game.phase !== 'reveal' || isAITurn() || !rules.playable(game, side, card);
-  cardMenuNode.hidden = false;
-  fitPanel(cardMenuNode);
-  const rect = node.getBoundingClientRect();
-  const width = cardMenuNode.offsetWidth;
-  const left = Math.min(Math.max(8, rect.left + rect.width / 2 - width / 2), window.innerWidth - width - 8);
-  cardMenuNode.style.left = left + 'px';
-  const above = rect.top - cardMenuNode.offsetHeight - 10;
-  cardMenuNode.style.top = Math.max(8, Math.min(above, window.innerHeight - cardMenuNode.offsetHeight - 8)) + 'px';
-  cardMenuNode.style.setProperty('--arrow', (rect.left + rect.width / 2 - left) + 'px');
-  (activate.disabled ? row.firstElementChild : activate).focus();
+  if (busy() || game?.phase !== 'reveal' || rules.actor(game) !== side || game.players[side].hand[slot] !== card) return;
+  if (card === 'search') chooseSearch(slot);
+  else play(slot);
+});
+function openCardMenu(side, slot, card) {
+  cardMenu = { side, slot, card };
+  cardPreviewArt.replaceChildren();
+  renderCardFace(cardPreviewArt, card);
+  byId('card-preview-title').textContent = rules.CARDS[card].name;
+  byId('card-preview-text').textContent = rules.CARDS[card].description;
+  cardPreviewPlay.disabled = game.phase !== 'reveal' || isAITurn() || !rules.playable(game, side, card);
+  cardMenuNode.showModal();
 }
 function handSide() {
   return mode === 'ai' ? 'I' : ai.decisionSide(game, rules);
@@ -1458,8 +1434,7 @@ function renderHands() {
   for (const [slot, card] of game.players[side].hand.entries()) {
     const node = button(hand, card ? '' : '—', () => {
       if (busy()) return;
-      if (cardMenu?.side === side && cardMenu.slot === slot) closeCardMenu();
-      else openCardMenu(node, side, slot, card);
+      openCardMenu(side, slot, card);
     }, 'hud-card');
     node.dataset.slot = String(slot);
     node.disabled = !card;
@@ -1475,8 +1450,7 @@ function renderHands() {
 function nextTurn() {
   selection = null;
   clearSpecial();
-  cardMenu = null;
-  cardMenuNode.hidden = true;
+  closeCardMenu();
   // El resultado queda sobre el dock hasta el próximo combate.
   duel = null;
   if (!rules.nextTurn(game)) return;
@@ -1774,8 +1748,7 @@ function timeOut() {
   }
   if (searchDialog.open) searchDialog.close();
   if (rescueDialog.open) rescueDialog.close();
-  cardMenu = null;
-  cardMenuNode.hidden = true;
+  closeCardMenu();
   fx.play('pass');
   showHudNotice('Tiempo agotado');
   switch (game.phase) {
@@ -2182,8 +2155,7 @@ function resetPresentation() {
   drag?.ghost?.remove();
   drag = null;
   selection = null;
-  cardMenu = null;
-  cardMenuNode.hidden = true;
+  closeCardMenu();
   battleResult = null;
   duel = null;
   duelPlayed = { I: [], R: [] };
@@ -2412,7 +2384,7 @@ function fitPanel(panel) {
   }
 }
 function fitOpenPanels() {
-  for (const panel of document.querySelectorAll('dialog[open], #stats-screen:not([hidden]) .stats-card, #end-screen:not([hidden]) .end-card, .card-menu:not([hidden])')) fitPanel(panel);
+  for (const panel of document.querySelectorAll('dialog[open], #stats-screen:not([hidden]) .stats-card, #end-screen:not([hidden]) .end-card')) fitPanel(panel);
 }
 const fitObserver = new MutationObserver(fitOpenPanels);
 for (const panel of document.querySelectorAll('dialog, #stats-screen, #end-screen')) {
