@@ -2,7 +2,7 @@
 
 const rules = window.RealesIdeales;
 const hudArt = name => 'assets/ui/hud/' + name + '.png';
-const searchArt = hudArt('lupa');
+const searchArt = hudArt('lupa') + '?v=041';
 const ai = window.RealesIdealesAI;
 const byId = id => document.getElementById(id);
 const board = byId('board');
@@ -2121,10 +2121,11 @@ function renderActionStatus() {
   const state = rules.turnActions(game);
   for (const [action, label] of [['move', 'Mover'], ['attack', 'Atacar']]) {
     const node = byId(action + '-status');
-    node.dataset.state = game.phase === 'turn' ? state[action] : 'waiting';
-    const description = { ready: 'disponible', waiting: 'sin destino válido por ahora', spent: 'usado' }[state[action]];
-    node.setAttribute('aria-label', label + ': ' + description);
-    node.title = label + ': ' + description;
+    const status = game.phase === 'turn' ? state[action] : 'waiting';
+    const descriptions = { ready: 'disponible', waiting: 'no disponible', spent: 'ya usado en este turno' };
+    node.dataset.state = status;
+    node.title = label + ': ' + descriptions[status];
+    node.setAttribute('aria-label', node.title);
   }
 }
 function shouldAutoEndTurn() {
@@ -2278,7 +2279,8 @@ byId('export').addEventListener('click', () => {
 const STARTUP_MIN_MS = 5000;
 const STARTUP_MAX_MS = 8000;
 const startupImages = [
-  ...['opciones', 'moneda', 'mover', 'atacar', 'fuego', 'fin-turno', 'lupa', 'marco', 'casilla-azul', 'casilla-verde', 'casilla-roja'].map(hudArt),
+  ...['opciones', 'moneda', 'mover', 'atacar', 'fuego', 'fin-turno', 'marco', 'casilla-azul', 'casilla-verde', 'casilla-roja', 'ranura-carta'].map(hudArt),
+  searchArt,
   'assets/logo.webp', 'assets/clay/portada-vertical.webp',
   'assets/clay/terracota.webp', 'assets/clay/campo-jardin.webp',
   'assets/clay/flor.webp', 'assets/clay/relieve.webp', 'assets/clay/jardin-izquierdo.webp',
