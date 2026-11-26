@@ -62,7 +62,20 @@ test('un Golpe decisivo por bando se neutraliza', () => {
   stage(s, false);
   reveal(s, 0, 0);
   assert.equal(result(s).advantage, 0);
+  assert.equal(result(s).decisiveWin, false);
+  assert.equal(result(s).removed.length, 2);
   assert.equal(s.phase, 'turn');
+});
+
+test('un Golpe decisivo sin respuesta activa el remate para cualquier bando', () => {
+  for (const side of ['I', 'R']) {
+    const s = setup([side === 'I' ? 'decisive' : 'major'], [side === 'R' ? 'decisive' : 'major']);
+    stage(s);
+    reveal(s, 0, 0);
+    assert.equal(result(s).winner, side);
+    assert.equal(result(s).decisiveWin, true);
+    assert.equal(result(s).removed.length, 1);
+  }
 });
 
 test('dos decisivos superan a un decisivo enemigo', () => {
@@ -70,6 +83,7 @@ test('dos decisivos superan a un decisivo enemigo', () => {
   stage(s, false);
   reveal(s, 0, 0, null, 1);
   assert.equal(result(s).advantage, 1);
+  assert.equal(result(s).decisiveWin, false);
   assert.equal(s.phase, 'combo');
 });
 
