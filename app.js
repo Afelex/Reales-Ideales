@@ -2267,38 +2267,53 @@ function showPlayOptions(open) {
 }
 const characterForm = byId('character-form');
 const characterConfirm = byId('character-confirm');
+const characterPreview = byId('character-preview');
+const characterName = byId('character-name');
 let matchSetup = null;
+function showCharacterPreview() {
+  const animal = characterForm.elements.character.value;
+  characterPreview.src = characterArt(characterDialog.dataset.side, animal);
+  characterName.textContent = animals[animal];
+}
 function showCharacterOptions(side) {
   characterDialog.dataset.side = side;
   byId('character-side').textContent = rules.SIDE[side];
-  characterForm.reset();
+  characterForm.elements.character.value = matchSetup.characters[side] ?? 'mono';
   for (const option of characterForm.querySelectorAll('.character-option')) {
     option.querySelector('img').src = characterArt(side, option.querySelector('input').value);
   }
   characterConfirm.textContent = side === 'I' && matchSetup.mode === 'local' ? 'Siguiente' : 'Empezar';
-  characterConfirm.disabled = true;
+  showCharacterPreview();
+  if (!characterDialog.open) characterDialog.showModal();
+  characterForm.querySelector('input:checked').focus({ preventScroll: true });
 }
 function chooseCharacters(nextMode) {
   matchSetup = { mode: nextMode, characters: { I: null, R: 'tigrillo' } };
   showCharacterOptions('I');
-  characterDialog.showModal();
 }
-characterForm.addEventListener('change', () => { characterConfirm.disabled = false; });
+characterForm.addEventListener('change', showCharacterPreview);
 characterForm.addEventListener('submit', event => {
   event.preventDefault();
   const { mode: nextMode, characters } = matchSetup;
   const side = characterDialog.dataset.side;
-  characters[side] = new FormData(characterForm).get('character');
+  characters[side] = characterForm.elements.character.value;
   if (side === 'I' && nextMode === 'local') {
     showCharacterOptions('R');
-    characterForm.querySelector('input').focus();
     return;
   }
   matchSetup = null;
   characterDialog.close();
   startGame(nextMode, characters);
 });
-byId('character-cancel').addEventListener('click', () => characterDialog.close());
+function goBackFromCharacterSelection() {
+  if (characterDialog.dataset.side === 'R') showCharacterOptions('I');
+  else characterDialog.close();
+}
+byId('character-cancel').addEventListener('click', goBackFromCharacterSelection);
+characterDialog.addEventListener('cancel', event => {
+  event.preventDefault();
+  goBackFromCharacterSelection();
+});
 characterDialog.addEventListener('close', () => {
   if (!matchSetup || characterDialog.open) return;
   matchSetup = null;

@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · v0.44</title>
-  <link rel="stylesheet" href="styles.css?v=044-personajes">
+  <title>Reales Ideales · v0.45</title>
+  <link rel="stylesheet" href="styles.css?v=045-selector">
   <script defer src="game.js?v=038-arte-combate"></script>
   <script defer src="ai.js?v=038-arte-combate"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
   <script defer src="assets/vendor/pixi-8.19.0.min.js"></script>
   <script defer src="combat-fx.js?v=038-arte-combate"></script>
   <script defer src="fx.js?v=038-arte-combate"></script>
-  <script defer src="app.js?v=044-personajes"></script>
+  <script defer src="app.js?v=045-selector"></script>
 </head>
 <body>
   <section id="inicio" class="cover" aria-labelledby="cover-title">
@@ -156,18 +156,25 @@
       </div>
     </div>
   </section>
-  <dialog id="character-dialog" aria-labelledby="character-title">
-    <h2 id="character-title">Elige a tu personaje</h2>
+  <dialog id="character-dialog" aria-labelledby="character-title" aria-describedby="character-side">
+    <header class="character-header">
+      <button id="character-cancel" class="character-back" type="button"><span aria-hidden="true">‹</span> Volver</button>
+      <h2 id="character-title">Elige a tu personaje</h2>
+      <p id="character-side" class="character-side" aria-live="polite"></p>
+    </header>
     <form id="character-form">
+      <div class="character-feature" aria-hidden="true">
+        <div class="character-feature-art"><img id="character-preview" alt="" width="206" height="215"></div>
+        <p id="character-name" class="character-name"></p>
+      </div>
       <fieldset class="character-choices">
-        <legend id="character-side"></legend>
+        <legend class="sr-only">Personajes</legend>
         <label class="character-option"><input class="sr-only" type="radio" name="character" value="mono" required><img alt="" width="112" height="112"><span>Mono</span></label>
         <label class="character-option"><input class="sr-only" type="radio" name="character" value="tigrillo" required><img alt="" width="112" height="112"><span>Tigrillo</span></label>
         <label class="character-option"><input class="sr-only" type="radio" name="character" value="cuy" required><img alt="" width="112" height="112"><span>Cuy</span></label>
       </fieldset>
       <div class="dialog-actions">
-        <button id="character-cancel" type="button" class="secondary">Cancelar</button>
-        <button id="character-confirm" type="submit" class="primary" disabled>Empezar</button>
+        <button id="character-confirm" type="submit" class="primary">Empezar</button>
       </div>
     </form>
   </dialog>
