@@ -5,7 +5,7 @@
 // Si WebGL no está disponible, todas las funciones son inofensivas y el juego conserva sus
 // efectos CSS. Con prefers-reduced-motion se emiten muchas menos partículas.
 (() => {
-  const PIXI = window.PIXI;
+  let PIXI;
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let app = null, layer = null, textures = null, ready = false, starting = null, speed = 1;
   const list = [];
@@ -56,7 +56,9 @@
   }
 
   function start() {
-    if (ready || starting || !PIXI) return starting;
+    if (ready || starting) return starting;
+    PIXI = window.PIXI;
+    if (!PIXI) return;
     starting = (async () => {
       try {
         app = new PIXI.Application();

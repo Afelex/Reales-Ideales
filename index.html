@@ -4,15 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · v0.48</title>
-  <link rel="stylesheet" href="styles.css?v=048-amaru">
+  <title>Reales Ideales · v0.49</title>
+  <link rel="stylesheet" href="styles.css?v=049-carga">
   <script defer src="game.js?v=046-poderes"></script>
   <script defer src="ai.js?v=046-poderes"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
-  <script defer src="assets/vendor/pixi-8.19.0.min.js"></script>
-  <script defer src="combat-fx.js?v=038-arte-combate"></script>
-  <script defer src="fx.js?v=038-arte-combate"></script>
-  <script defer src="app.js?v=048-amaru"></script>
+  <script defer src="combat-fx.js?v=049-carga"></script>
+  <script defer src="fx.js?v=049-carga"></script>
+  <script defer src="app.js?v=049-carga"></script>
 </head>
 <body>
   <section id="inicio" class="cover" aria-labelledby="cover-title">
@@ -25,11 +24,6 @@
     <h1 id="cover-title"><img src="assets/logo.webp" alt="Reales Ideales" width="180" height="92"></h1>
     <div class="cover-actions">
       <button id="play-menu" type="button" class="primary menu-play" aria-controls="play-options" aria-expanded="false" disabled>¡Jugar!</button>
-      <div id="startup" class="startup-loading" aria-label="Preparando Reales Ideales" tabindex="-1" hidden>
-        <p id="startup-status" role="status">Cargando recursos…</p>
-        <progress id="startup-progress" max="100" value="0" aria-label="Carga de recursos"></progress>
-        <span id="startup-percent" aria-hidden="true">0 %</span>
-      </div>
       <nav id="play-options" class="play-options" aria-label="Opciones de juego" hidden>
         <button id="help-button" type="button" class="secondary menu-play" aria-haspopup="dialog">Tutorial</button>
         <button id="play-local" type="button" class="secondary menu-play" aria-haspopup="dialog">Multijugador</button>
