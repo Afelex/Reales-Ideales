@@ -2208,7 +2208,7 @@ dialog .dialog-actions > button:disabled {
 }
 #power-options { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 [data-banner="fire"] { --banner-light: #992f22; --banner-dark: #3b1518; --banner-thread: #f1b25a; }
-[data-banner="electric"] { --banner-light: #13566a; --banner-dark: #0d273e; --banner-thread: #72dad4; }
+[data-banner="electric"] { --banner-light: #d3a400; --banner-dark: #553801; --banner-thread: #ffe15b; }
 [data-banner="frost"] { --banner-light: #264e87; --banner-dark: #181e49; --banner-thread: #91e3fa; }
 [data-banner="random"] { --banner-light: #545d65; --banner-dark: #222931; --banner-thread: #bac4cb; }
 #character-dialog[data-stage="power"] .power-standard {
@@ -2278,9 +2278,9 @@ dialog .dialog-actions > button:disabled {
 }
 .fx.fx-electric-arc {
   width: var(--length); height: 20px; margin: -10px 0 0; transform-origin: 0 50%;
-  transform: rotate(var(--angle)); background: #e4ffff;
+  transform: rotate(var(--angle)); background: var(--color);
   clip-path: polygon(0 48%, 16% 35%, 29% 61%, 47% 34%, 64% 56%, 82% 27%, 100% 48%, 83% 51%, 65% 76%, 47% 56%, 28% 80%, 16% 54%, 0 60%);
-  box-shadow: inset 0 0 7px 4px #50aaff;
+  box-shadow: inset 0 0 7px 4px var(--glow);
   animation: electric-arc .66s ease-out both;
 }
 @keyframes electric-arc {
@@ -2300,7 +2300,7 @@ dialog .dialog-actions > button:disabled {
   to { transform: translate(calc(var(--dx) - 50%), calc(var(--dy) - 50%)) scale(1.15) rotate(32deg); }
 }
 .fx.fx-element-impact {
-  background: radial-gradient(transparent 37%, #eaffff 55%, transparent 69%);
+  background: radial-gradient(transparent 37%, var(--color) 55%, transparent 69%);
   box-shadow: 0 0 19px var(--glow);
   animation: elemental-impact .65s ease-out both;
 }
