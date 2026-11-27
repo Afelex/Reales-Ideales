@@ -175,7 +175,23 @@ let previousPieces = null;
 let displayedPieces = null;
 const movingPieces = new Set();
 const boardEffectTypes = new Set(['move', 'bonus', 'advance', 'leap', 'battle', 'combo', 'double', 'summon', 'rescue']);
-const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+const reducedMotion = () => motionPreference.matches;
+const saveData = () => Boolean(navigator.connection?.saveData);
+let combatFxRequest;
+function loadCombatFx() {
+  if (saveData() || reducedMotion() || combatFxRequest) return;
+  const script = document.createElement('script');
+  script.src = 'assets/vendor/pixi-8.19.0.min.js';
+  script.fetchPriority = 'low';
+  script.addEventListener('load', () => { if (game && !reducedMotion()) cfx.start(); }, { once: true });
+  script.addEventListener('error', () => {
+    script.remove();
+    combatFxRequest = null;
+  }, { once: true });
+  combatFxRequest = script;
+  document.head.append(script);
+}
 function later(ms, callback) {
   const timer = setTimeout(() => {
     fxTimers = fxTimers.filter(value => value !== timer);
@@ -739,9 +755,9 @@ const cover = byId('inicio');
 const coverVideo = byId('cover-video');
 const animatedCover = window.matchMedia('(orientation: portrait) and (prefers-reduced-motion: no-preference)');
 function syncCoverVideo() {
-  const enabled = settings.coverMotion === 'on' && animatedCover.matches && !navigator.connection?.saveData;
+  const enabled = settings.coverMotion === 'on' && animatedCover.matches && !saveData();
   coverVideo.hidden = !enabled;
-  if (!enabled || cover.hidden || document.hidden) {
+  if (!enabled || cover.hidden || characterDialog.open || document.hidden) {
     coverVideo.pause();
     return;
   }
@@ -752,6 +768,7 @@ coverVideo.addEventListener('playing', () => coverVideo.classList.add('ready'));
 coverVideo.addEventListener('error', () => coverVideo.classList.remove('ready'));
 animatedCover.addEventListener?.('change', syncCoverVideo);
 document.addEventListener('visibilitychange', syncCoverVideo);
+characterDialog.addEventListener('close', syncCoverVideo);
 const seats = [...document.querySelectorAll('.seat')];
 let handOwner = null;
 gameMenuButton.addEventListener('click', () => gameMenu.showModal());
@@ -1008,14 +1025,14 @@ const BOARD_THEMES = {
     art() {
       const video = document.createElement('video');
       video.className = 'board-video';
-      video.src = 'assets/escenario/campo-andino.mp4';
+      video.dataset.src = 'assets/escenario/campo-andino.mp4';
       video.poster = 'assets/escenario/campo-andino-poster.webp';
       video.muted = true;
       video.loop = true;
       video.playsInline = true;
       video.setAttribute('playsinline', '');
       video.setAttribute('aria-hidden', 'true');
-      video.preload = 'auto';
+      video.preload = 'none';
       return video;
     },
   },
@@ -1036,6 +1053,23 @@ function placeToken(token, cellId) {
   token.style.top = (g.y + g.h * .2 - size) / H * 100 + '%';
   token.style.zIndex = String(Math.round(g.y));
 }
+function syncBoardVideo() {
+  const video = board.querySelector('.board-video');
+  if (!video) return;
+  if (!game || document.hidden || reducedMotion() || saveData()) {
+    video.pause();
+    return;
+  }
+  if (!video.hasAttribute('src')) video.src = video.dataset.src;
+  if (video.paused) video.play().catch(() => {});
+}
+document.addEventListener('visibilitychange', syncBoardVideo);
+motionPreference.addEventListener?.('change', () => {
+  syncBoardVideo();
+  if (!game || reducedMotion() || saveData()) return;
+  loadCombatFx();
+  cfx.start();
+});
 function applyBoardTheme() {
   const name = BOARD_THEMES[settings.board] && (settings.board !== 'andes' || scenes.andes) ? settings.board : 'plaza';
   const theme = BOARD_THEMES[name];
@@ -1044,10 +1078,12 @@ function applyBoardTheme() {
   board.dataset.theme = name;
   board.dataset.geometry = 'true';
   document.body.dataset.theme = name;
-  board.querySelector('.board-art, .board-video')?.remove();
+  const previous = board.querySelector('.board-art, .board-video');
+  if (previous instanceof HTMLVideoElement) previous.pause();
+  previous?.remove();
   const art = theme.art();
   board.prepend(art);
-  if (game && art instanceof HTMLVideoElement && !reducedMotion()) art.play().catch(() => {});
+  syncBoardVideo();
   for (const [id, hex] of hexButtons) {
     const g = cells[id];
     hex.style.left = g.left / W * 100 + '%';
@@ -2260,12 +2296,12 @@ function showMatchIntro() {
 }
 function startGame(nextMode, characters, powers) {
   resetPresentation();
-  cfx.start();
+  if (!reducedMotion() && !saveData()) {
+    loadCombatFx();
+    cfx.start();
+  }
   cfx.setSpeed(settings.speed);
   fx.music('battle');
-  if (!sceneGeometry) applyBoardTheme();
-  const video = board.querySelector('.board-video');
-  if (video && !reducedMotion()) video.play().catch(() => {});
   mode = nextMode;
   game = rules.makeGame({}, powers);
   game.characters = characters;
@@ -2279,6 +2315,8 @@ function startGame(nextMode, characters, powers) {
   drawMatchClock(MATCH_DURATION_MS / 1000);
   cover.hidden = true;
   syncCoverVideo();
+  if (sceneGeometry) syncBoardVideo();
+  else applyBoardTheme();
   byId('partida').hidden = false;
   document.body.classList.add('playing');
   layoutScene();
@@ -2344,6 +2382,7 @@ for (const [key, power] of Object.entries(bannerChoices)) {
   const image = document.createElement('img');
   image.alt = '';
   image.width = image.height = 112;
+  image.loading = 'lazy';
   image.src = powerArt(key);
   option.append(input);
   span(option, 'banner-thumb', '').append(image);
@@ -2388,6 +2427,8 @@ function showCharacterOptions(side, stage = 'character') {
 function chooseCharacters(nextMode) {
   matchSetup = { mode: nextMode, characters: { I: null, R: 'tigrillo' }, powers: { I: 'fire', R: 'fire' } };
   showCharacterOptions('I');
+  syncCoverVideo();
+  warmMatchAssets();
 }
 characterForm.addEventListener('change', showSelectionPreview);
 characterForm.addEventListener('submit', event => {
@@ -2452,116 +2493,33 @@ byId('export').addEventListener('click', () => {
 });
 
 
-// La primera pulsación de ¡Jugar! habilita la música y precarga la partida.
-const STARTUP_MIN_MS = 5000;
-const STARTUP_MAX_MS = 8000;
-const startupImages = [
-  ...['opciones', 'moneda', 'mover', 'atacar', 'fuego', 'fin-turno', 'marco', 'casilla-azul', 'casilla-verde', 'casilla-roja', 'ranura-carta'].map(hudArt),
-  searchArt, 'assets/poderes/patio.webp', ...Object.keys(bannerChoices).map(powerArt),
-  'assets/logo.webp', 'assets/clay/portada-vertical.webp',
-  'assets/clay/terracota.webp', 'assets/clay/campo-jardin.webp',
-  'assets/clay/flor.webp', 'assets/clay/relieve.webp', 'assets/clay/jardin-izquierdo.webp',
-  'assets/clay/jardin-derecho.webp', 'assets/clay/cordon.webp',
-  'assets/clay/dorso-idealista.webp', 'assets/clay/dorso-realista.webp',
-  'assets/v014/cartas-aprobadas.webp', ...Object.values(cannonArt),
-  'assets/escenario/campo-andino-poster.webp', 'assets/escenario/campo-andino-fondo.webp',
-  ...['rescate', 'idealista', 'realista', 'turno', 'boost', 'decisive', 'cannon', 'weaken', 'major']
-    .map(name => 'assets/clay/emblemas/' + name + '.webp'),
+// La portada abre el menú de inmediato. El arte del juego se prepara al elegir un modo.
+const matchArtwork = [
+  'assets/poderes/patio.webp', ...Object.keys(bannerChoices).map(powerArt),
+  'assets/escenario/campo-andino-poster.webp',
+  ...['fin-turno', 'marco', 'ranura-carta'].map(hudArt),
   ...Object.entries(rules.ROSTER).flatMap(([side, roster]) => roster.map(animal =>
     characterArt(side, animal))),
 ];
-const startupImageCache = new Map();
-function preloadImage(src) {
-  return new Promise(resolve => {
-    const img = new Image();
-    startupImageCache.set(src, img);
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = src;
-    if (img.complete) resolve(img.naturalWidth > 0);
-  });
-}
-function waitForMedia(media) {
-  if (!media) return Promise.resolve(true);
-  if (media.readyState >= 2) return Promise.resolve(true);
-  if (media.error) return Promise.resolve(false);
-  return new Promise(resolve => {
-    const settle = ok => {
-      media.removeEventListener('loadeddata', ready);
-      media.removeEventListener('canplay', ready);
-      media.removeEventListener('error', failed);
-      resolve(ok);
-    };
-    const ready = () => settle(true);
-    const failed = () => settle(false);
-    media.addEventListener('loadeddata', ready, { once: true });
-    media.addEventListener('canplay', ready, { once: true });
-    media.addEventListener('error', failed, { once: true });
-  });
-}
-function startupTasks() {
-  const tasks = [...new Set(startupImages)].map(preloadImage);
+let matchAssetsWarmed = false;
+function warmMatchAssets() {
+  if (matchAssetsWarmed || saveData()) return;
+  matchAssetsWarmed = true;
+  for (const src of matchArtwork) {
+    const image = new Image();
+    image.fetchPriority = 'low';
+    image.src = src;
+  }
   preparePlayedCardPngs();
-  applyBoardTheme();
-  const video = board.querySelector('.board-video');
-  if (video) tasks.push(waitForMedia(video));
-  if (fx.musicOn()) {
-    tasks.push(waitForMedia(fx.preloadMusic('menu')));
-    tasks.push(waitForMedia(fx.preloadMusic('battle')));
-  }
-  return tasks;
+  loadCombatFx();
 }
-let startupStarted = false;
-function beginStartup() {
+playMenu.addEventListener('click', () => {
   syncCoverVideo();
-  if (startupStarted) {
-    showPlayOptions(true);
-    return;
-  }
-  startupStarted = true;
-  // Debe ocurrir en el gesto de usuario, antes de cualquier await o temporizador.
   fx.music('menu');
-  const start = performance.now();
-  const intro = byId('startup');
-  const progress = byId('startup-progress');
-  const percent = byId('startup-percent');
-  const status = byId('startup-status');
-  playMenu.hidden = true;
-  intro.hidden = false;
-  intro.focus({ preventScroll: true });
-  intro.setAttribute('aria-busy', 'true');
-  let tasks = [];
-  try { tasks = startupTasks(); } catch (error) { console.warn('Precarga parcial', error); }
-  let settled = 0, failed = 0;
-  for (const task of tasks) Promise.resolve(task).then(ok => {
-    settled++;
-    if (!ok) failed++;
-  }, () => { settled++; failed++; });
-  const tick = () => {
-    const elapsed = performance.now() - start;
-    const complete = settled === tasks.length;
-    const deadline = elapsed >= STARTUP_MAX_MS;
-    const canEnter = elapsed >= STARTUP_MIN_MS && (complete || deadline);
-    const timeShare = Math.min(1, elapsed / STARTUP_MIN_MS);
-    const resourceShare = tasks.length ? settled / tasks.length : 1;
-    const value = canEnter ? 100 : Math.min(99, Math.floor(100 * (.65 * timeShare + .35 * resourceShare)));
-    progress.value = value;
-    percent.textContent = value + ' %';
-    if (elapsed >= STARTUP_MIN_MS && !complete) status.textContent = 'Preparando los últimos recursos…';
-    if (!canEnter) { requestAnimationFrame(tick); return; }
-    status.textContent = complete && !failed ? '¡Listo!' : 'Entrando al menú…';
-    // Los recursos lentos siguen cargando de forma nativa sin bloquear el menú.
-    requestAnimationFrame(() => {
-      intro.hidden = true;
-      intro.removeAttribute('aria-busy');
-      showPlayOptions(true);
-    });
-  };
-  requestAnimationFrame(tick);
-}
-playMenu.addEventListener('click', beginStartup);
+  showPlayOptions(true);
+});
 playMenu.disabled = false;
-syncCoverVideo();
+window.addEventListener('load', syncCoverVideo, { once: true });
 
 
 // Contenedores completos sin desplazamiento: adapta el contenido real a la altura visible.
@@ -2589,7 +2547,7 @@ function fitPanel(panel) {
   }
 }
 function fitOpenPanels() {
-  for (const panel of document.querySelectorAll('dialog[open], #stats-screen:not([hidden]) .stats-card, #end-screen:not([hidden]) .end-card')) fitPanel(panel);
+  for (const panel of document.querySelectorAll('dialog[open]:not(#character-dialog), #stats-screen:not([hidden]) .stats-card, #end-screen:not([hidden]) .end-card')) fitPanel(panel);
 }
 const fitObserver = new MutationObserver(fitOpenPanels);
 for (const panel of document.querySelectorAll('dialog, #stats-screen, #end-screen')) {
