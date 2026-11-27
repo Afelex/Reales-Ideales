@@ -2036,43 +2036,159 @@ dialog .dialog-actions > button:disabled {
   background: linear-gradient(#505962, #373e47);
   text-shadow: none;
 }
+#character-dialog {
+  --arena-art: url('assets/reserva/plaza-vertical.webp');
+  --select-dark: #0a1728;
+  --select-light: #c0e8ff;
+  --select-glow: #6ac6f6;
+  --select-card: #183958;
+  --select-top: max(.6rem, env(safe-area-inset-top));
+  --select-bottom: max(.9rem, env(safe-area-inset-bottom));
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: var(--select-top) max(.9rem, env(safe-area-inset-right))
+    var(--select-bottom) max(.9rem, env(safe-area-inset-left));
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, var(--select-dark), transparent 45%, var(--select-dark) 86%),
+    linear-gradient(90deg, #10192350, #10192310 50%, #10192350), var(--arena-art) center / cover no-repeat, var(--select-dark);
+  box-shadow: none;
+}
+.character-screen {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(100dvh - var(--select-top) - var(--select-bottom));
+}
+#character-dialog[data-side="R"] {
+  --select-dark: #2a141b;
+  --select-light: #ffcdc0;
+  --select-glow: #ff9a78;
+  --select-card: #62343b;
+}
+.character-header { position: relative; display: grid; justify-items: center; gap: .45rem; padding-top: 3.05rem; }
+#character-title {
+  margin: 0;
+  color: #ffe4aa;
+  font: 900 clamp(1.35rem, 6.45vw, 2.6rem)/1 Georgia, serif;
+  text-transform: uppercase;
+  text-shadow: 0 2px #2d1c17, 0 3px 10px #160e12;
+}
+.character-side {
+  margin: 0;
+  padding: .27rem .8rem;
+  border: 1px solid var(--select-glow);
+  border-radius: 999px;
+  background: var(--select-dark);
+  color: var(--select-light);
+  font: 750 .78rem/1.15 system-ui, sans-serif;
+}
+.character-back {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  min-height: 44px;
+  padding: 0 .65rem;
+  border: 1px solid #f2cc8366;
+  border-radius: .48rem;
+  background: var(--select-dark);
+  color: #fff0ce;
+  font: 750 .84rem/1 system-ui, sans-serif;
+}
+.character-back span { color: #ffd58b; font-size: 1.42rem; }
+.character-back:focus-visible { outline-color: #fff2b7; }
+#character-form {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: clamp(.53rem, 2dvh, .94rem);
+  width: min(100%, 33rem);
+  min-height: 0;
+  margin-inline: auto;
+}
+.character-feature {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: .25rem;
+  align-self: center;
+  height: min(100%, 28rem);
+  min-height: 0;
+  padding: .35rem 0;
+}
+.character-feature-art { position: relative; isolation: isolate; display: grid; place-items: end center; min-height: 0; }
+.character-feature-art::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--select-glow) 55%, transparent), transparent 68%);
+}
+.character-feature-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 21rem;
+  max-height: 21rem;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 12px #130d16bb);
+}
+.character-name {
+  margin: 0;
+  color: #ffe4a8;
+  font: 900 clamp(1.95rem, 10vw, 4rem)/1 Georgia, serif;
+  text-transform: uppercase;
+  text-shadow: 0 .07em #753d25, 0 .11em .28em #140b12;
+}
 .character-choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(.35rem, 2vw, .6rem);
-  margin: .7rem 0 1rem;
+  gap: clamp(.35rem, 2vw, .75rem);
+  margin: 0;
   padding: 0;
   border: 0;
   min-inline-size: 0;
 }
-.character-choices legend {
-  margin-inline: auto;
-  padding: 0 0 .5rem;
-  color: #b8e4ff;
-  font: 750 .95rem/1.2 system-ui, sans-serif;
-}
-#character-dialog[data-side="R"] legend { color: #ffbcb3; }
 .character-option {
   display: grid;
   justify-items: center;
-  gap: .3rem;
-  padding: .45rem .15rem .5rem;
-  border: 2px solid #a47b45;
+  gap: .18rem;
+  padding: .32rem .16rem .43rem;
+  border: 2px solid #c4a07578;
   border-radius: .65rem;
-  background: linear-gradient(#2e5370, #182d44);
+  background: linear-gradient(var(--select-card), var(--select-dark));
   color: #fff1d7;
-  font: 750 clamp(.76rem, 3.8vw, 1rem)/1.2 system-ui, sans-serif;
+  font: 750 clamp(.75rem, 3.8vw, .95rem)/1.12 system-ui, sans-serif;
   cursor: pointer;
 }
-#character-dialog[data-side="R"] .character-option { background: linear-gradient(#71505c, #452d39); }
-.character-option img { width: 100%; max-width: 5.2rem; height: auto; aspect-ratio: 1; object-fit: contain; }
+.character-option img { width: 100%; max-width: min(4.55rem, 13dvh); height: auto; aspect-ratio: 1; object-fit: contain; }
 #character-dialog .character-option:has(input:checked) {
   border-color: #ffe39f;
-  background: var(--gold-clay);
-  color: #352111;
-  box-shadow: 0 0 9px #f4bf6a80;
+  background: linear-gradient(var(--select-card), var(--select-dark));
+  color: #ffe39f;
+  box-shadow: inset 0 -3px #e5aa4b, 0 0 12px #f4bf6a66;
 }
 .character-option:has(input:focus-visible) { outline: 2px solid #fff2b7; outline-offset: 2px; }
+#character-form .dialog-actions { width: min(100%, 23rem); }
+#character-form .dialog-actions > button { font-size: 1rem; min-height: 46px; }
+
+@media (orientation: landscape) and (min-width: 565px), (min-width: 1000px) {
+  #character-dialog { --arena-art: url('assets/reserva/plaza-horizontal.webp'); }
+  .character-header { padding-top: .35rem; }
+  #character-form {
+    width: min(100%, 59rem);
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr);
+    column-gap: clamp(1.1rem, 4vw, 3.3rem);
+  }
+  .character-feature { grid-column: 1; grid-row: 1 / -1; }
+  .character-choices { grid-column: 2; grid-row: 2; }
+  #character-form .dialog-actions { grid-column: 2; grid-row: 3; align-self: start; }
+  .character-name { font-size: clamp(1.85rem, 6vw, 4rem); }
+}
 
 .match-intro {
   position: fixed;
