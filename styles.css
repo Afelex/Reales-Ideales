@@ -1373,6 +1373,7 @@ body.fx-busy .special-hint { visibility: hidden; }
 .settings-form label:has(input:checked) { background: linear-gradient(#ffe08a, #f0b52e); border-color: #8a5a10; color: #2c1a12; }
 .settings-form label:has(input:focus-visible) { outline: 3px solid #25475a; outline-offset: 2px; }
 .settings-form .dialog-actions { margin-top: .3rem; }
+#board-video-status { margin: 0; text-align: center; font: 650 .8rem/1.3 system-ui, sans-serif; }
 /* === v0.19: escenario "Campo andino" (video en bucle como tablero) === */
 body.playing[data-theme="andes"] {
   background: radial-gradient(ellipse at 50% 55%, transparent 35%, #0d1a0a80 100%),
