@@ -54,10 +54,15 @@ const controls = actions.closest('.controls');
 const SETTINGS_KEY = 'reales-ideales-ajustes';
 const settings = { timer: 'normal', speed: 1, board: 'andes', coverMotion: 'on' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch { /* sin almacenamiento */ }
+// Restablece el escenario inicial una vez, sin borrar los demás ajustes.
+const restoreBoard = settings.board === 'plaza' && settings.boardVersion !== 1;
+settings.board = settings.board === 'plaza' && !restoreBoard ? 'plaza' : 'andes';
+settings.boardVersion = 1;
 settings.speed = Number(settings.speed) || 1;
 const saveSettings = () => {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* sin almacenamiento */ }
 };
+if (restoreBoard) saveSettings();
 
 function span(parent, className, text) {
   const node = document.createElement('span');
@@ -740,6 +745,8 @@ function playEffects(events) {
 }
 const settingsDialog = byId('settings');
 const settingsForm = settingsDialog.querySelector('form');
+const boardVideoHelp = byId('board-video-help');
+const boardVideoStatus = byId('board-video-status');
 const gameMenu = byId('game-menu');
 const helpDialog = byId('help-dialog');
 const historyDialog = byId('history');
@@ -1027,6 +1034,7 @@ const BOARD_THEMES = {
       video.className = 'board-video';
       video.dataset.src = 'assets/escenario/campo-andino.mp4';
       video.poster = 'assets/escenario/campo-andino-poster.webp';
+      video.defaultMuted = true;
       video.muted = true;
       video.loop = true;
       video.playsInline = true;
@@ -1053,25 +1061,48 @@ function placeToken(token, cellId) {
   token.style.top = (g.y + g.h * .2 - size) / H * 100 + '%';
   token.style.zIndex = String(Math.round(g.y));
 }
+let boardVideoOverride = false;
 function syncBoardVideo() {
   const video = board.querySelector('.board-video');
   if (!video) return;
-  if (!game || document.hidden || reducedMotion() || saveData()) {
+  if (!game || document.hidden) {
     video.pause();
     return;
   }
+  if (reducedMotion() && !boardVideoOverride) {
+    video.pause();
+    boardVideoStatus.textContent = 'Video en pausa por movimiento reducido.';
+    boardVideoHelp.hidden = false;
+    return;
+  }
   if (!video.hasAttribute('src')) video.src = video.dataset.src;
-  if (video.paused) video.play().catch(() => {});
+  if (!video.paused) return;
+  video.play().then(() => {
+    if (video.isConnected) boardVideoHelp.hidden = true;
+  }).catch(error => {
+    if (error.name === 'AbortError' || !video.isConnected || !game || document.hidden) return;
+    if (boardVideoHelp.hidden && !settingsDialog.open) showHudNotice('Video en pausa · Ajustes');
+    boardVideoStatus.textContent = 'El video no pudo iniciarse.';
+    boardVideoHelp.hidden = false;
+  });
 }
+byId('play-board-video').addEventListener('click', () => {
+  const video = board.querySelector('.board-video');
+  if (!game || !video) return;
+  boardVideoOverride = true;
+  if (video.error) video.load();
+  syncBoardVideo();
+});
 document.addEventListener('visibilitychange', syncBoardVideo);
 motionPreference.addEventListener?.('change', () => {
+  boardVideoOverride = false;
   syncBoardVideo();
   if (!game || reducedMotion() || saveData()) return;
   loadCombatFx();
   cfx.start();
 });
 function applyBoardTheme() {
-  const name = BOARD_THEMES[settings.board] && (settings.board !== 'andes' || scenes.andes) ? settings.board : 'plaza';
+  const name = settings.board === 'plaza' || !scenes.andes ? 'plaza' : 'andes';
   const theme = BOARD_THEMES[name];
   sceneGeometry = theme.geometry();
   const { width: W, height: H, cells } = sceneGeometry;
@@ -1081,9 +1112,9 @@ function applyBoardTheme() {
   const previous = board.querySelector('.board-art, .board-video');
   if (previous instanceof HTMLVideoElement) previous.pause();
   previous?.remove();
+  boardVideoHelp.hidden = true;
   const art = theme.art();
   board.prepend(art);
-  syncBoardVideo();
   for (const [id, hex] of hexButtons) {
     const g = cells[id];
     hex.style.left = g.left / W * 100 + '%';
@@ -1094,6 +1125,7 @@ function applyBoardTheme() {
       ((x - g.left) / g.w * 100).toFixed(2) + '% ' + ((y - g.top) / g.h * 100).toFixed(2) + '%').join(',') + ')';
   }
   layoutScene();
+  syncBoardVideo();
   if (game) renderBoard();
 }
 // Encaje del escenario: en móvil vertical el video cubre toda la pantalla (como object-fit: cover,
@@ -1161,7 +1193,6 @@ const sceneResize = new ResizeObserver(() => {
 });
 sceneResize.observe(controls);
 sceneResize.observe(byId('active-side').closest('.field-heading'));
-// El escenario se prepara durante la pantalla de carga inicial.
 function isAITurn() {
   return mode === 'ai' && ai.decisionSide(game, rules) === 'R';
 }
@@ -2296,6 +2327,7 @@ function showMatchIntro() {
 }
 function startGame(nextMode, characters, powers) {
   resetPresentation();
+  boardVideoOverride = false;
   if (!reducedMotion() && !saveData()) {
     loadCombatFx();
     cfx.start();
@@ -2315,21 +2347,24 @@ function startGame(nextMode, characters, powers) {
   drawMatchClock(MATCH_DURATION_MS / 1000);
   cover.hidden = true;
   syncCoverVideo();
-  if (sceneGeometry) syncBoardVideo();
-  else applyBoardTheme();
   byId('partida').hidden = false;
   document.body.classList.add('playing');
-  layoutScene();
+  if (sceneGeometry) {
+    layoutScene();
+    syncBoardVideo();
+  } else applyBoardTheme();
   gameMenuButton.hidden = false;
   byId('red-ai').hidden = mode !== 'ai';
   showMatchIntro();
   render();
+  if (settings.board === 'andes' && !scenes.andes) showHudNotice('Campo andino no se pudo cargar');
   window.scrollTo(0, 0);
 }
 function returnToMenu() {
   resetPresentation();
   fx.music('menu');
   board.querySelector('.board-video')?.pause();
+  boardVideoHelp.hidden = true;
   game = null;
   mode = null;
   byId('match-clock').hidden = true;
