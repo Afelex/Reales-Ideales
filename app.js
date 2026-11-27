@@ -3,7 +3,7 @@
 const rules = window.RealesIdeales;
 const hudArt = name => 'assets/ui/hud/' + name + '.png';
 const searchArt = hudArt('lupa') + '?v=041';
-const powerArt = id => 'assets/poderes/' + id + '.webp?v=047';
+const powerArt = id => 'assets/poderes/' + id + '.webp?v=' + (id === 'electric' ? '048' : '047');
 const ai = window.RealesIdealesAI;
 const byId = id => document.getElementById(id);
 const board = byId('board');
@@ -385,7 +385,7 @@ const SHOT_DELAY = 220, SHOT_FLIGHT = 720;
 const SPECIAL_MS = 2300;
 const powerStyles = {
   fire: { color: '#ffd34d', glow: '#ff8a2a', shape: 'ember' },
-  electric: { color: '#e3ffff', glow: '#42bdff', shape: 'spark' },
+  electric: { color: '#fff36b', glow: '#ffcd08', shape: 'spark' },
   frost: { color: '#b5f1ff', glow: '#75d0ff', shape: 'ring' },
 };
 function electricArc(from, to) {
@@ -393,6 +393,7 @@ function electricArc(from, to) {
   const dx = to.x - from.x, dy = to.y - from.y;
   spawn('fx-electric-arc', from, {
     length: Math.hypot(dx, dy) + 'px', angle: Math.atan2(dy, dx) + 'rad',
+    color: powerStyles.electric.color, glow: powerStyles.electric.glow,
   }, 660);
 }
 function elementalStrike(event) {
@@ -411,7 +412,8 @@ function elementalStrike(event) {
     }, 620);
   }
   later(event.powerId === 'electric' ? 690 : 575, () => {
-    spawn('fx-element-impact', target, { glow: powerStyles[event.powerId].glow }, 700);
+    const { color, glow } = powerStyles[event.powerId];
+    spawn('fx-element-impact', target, { color: event.powerId === 'electric' ? color : '#eaffff', glow }, 700);
     numberAt(target, '+1', 'up');
     if (event.frozenCount) showHudNotice(event.frozenCount === 1 ? '1 carta congelada' : event.frozenCount + ' cartas congeladas');
   });
