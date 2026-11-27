@@ -3,15 +3,21 @@
 
   const SIDE = { I: 'Idealistas', R: 'Realistas' };
   const HAND_SIZE = 3;
-  // Todas las fichas tienen fuerza base 0 y comparten el Fuego Especial.
+  // Todas las fichas normales pueden usar el poder elegido por su bando.
   const ROSTER = {
     I: ['mono', 'llama', 'guacamayo', 'rana', 'tigrillo', 'gallo', 'cuy', 'gato'],
     R: ['rana', 'tigrillo', 'guacamayo', 'gallo', 'cuy', 'llama', 'mono', 'gato'],
   };
-  // Barra por bando: +1 al empezar cada turno propio; con 3 se puede lanzar un ataque especial.
   const CHARGE_MAX = 3;
-  // La especie solo identifica el arte y las animaciones; la regla es universal.
-  const FIRE_POWER = Object.freeze({ name: 'Fuego Especial', bonus: 3, reach: 2, description: '+3 de fuerza; a dos casillas, consume también el movimiento para acercarse.' });
+  const FIRE_POWER = Object.freeze({ name: 'Fuego Victorioso', bonus: 3, charges: CHARGE_MAX, reach: 2,
+    description: '+3 de fuerza. A dos casillas, da un paso para acercarte.' });
+  const POWERS = Object.freeze({
+    fire: FIRE_POWER,
+    electric: Object.freeze({ name: 'Asalto Eléctrico', bonus: 1, charges: 2, reach: 2,
+      description: '+1 de fuerza. Salta hasta 2 casillas libres de destino y ataca hasta 2 casillas desde allí.' }),
+    frost: Object.freeze({ name: 'Escarcha Especial', bonus: 1, charges: 3, reach: 2,
+      description: '+1 de fuerza. Congela hasta 2 cartas rivales al azar durante el combate.' }),
+  });
   const SPECIALS = Object.freeze(Object.fromEntries(ROSTER.I.map(animal => [animal, FIRE_POWER])));
   const CARDS = {
     boost: { name: 'Refuerzo', count: 8, own: 1, description: 'Suma 1 a tu fuerza.' },
@@ -70,15 +76,16 @@
     }
     return drawn;
   }
-  function makePlayer(deck) {
-    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, savedRescues: [], coins: 0, ownTurns: 0, charge: 0 };
+  function makePlayer(deck, power) {
+    const player = { deck: deck.slice(), hand: [], discard: [], removed: [], rescues: 2, savedRescues: [], coins: 0,
+      ownTurns: 0, charge: 0, power: Object.hasOwn(POWERS, power) ? power : 'fire' };
     draw(player);
     return player;
   }
-  function makeGame(decks = {}) {
+  function makeGame(decks = {}, powers = {}) {
     const deck = () => shuffle(Object.entries(CARDS).flatMap(([id, card]) => Array(card.count).fill(id)));
     const state = {
-      players: { I: makePlayer(decks.I ?? deck()), R: makePlayer(decks.R ?? deck()) },
+      players: { I: makePlayer(decks.I ?? deck(), powers.I), R: makePlayer(decks.R ?? deck(), powers.R) },
       pieces: Object.entries(ZONES).flatMap(([side, cells]) =>
         cells.map((cell, i) => ({ id: side + (i + 1), side, animal: ROSTER[side][i], cell, cannon: false, ready: 0 }))),
       turn: 'I', round: 1, actions: 0, attacked: false, moved: [],
@@ -102,6 +109,9 @@
   const piece = (s, id) => s.pieces.find(p => p.id === id);
   const occupant = (s, cell) => s.pieces.find(p => p.cell === cell);
   const remaining = (s, side) => s.pieces.filter(p => p.side === side && p.cell).length;
+  const powerFor = (s, side) => POWERS[s.players[side].power] ?? FIRE_POWER;
+  const frozen = (s, side, slot) => s.phase === 'reveal' && side === s.battle.defender &&
+    Boolean(s.battle.frozenSlots?.includes(slot));
   function moves(s, id) {
     const p = piece(s, id);
     const allowed = p?.cell && (s.phase === 'bonus' ? s.battle.winner === p.side
@@ -196,11 +206,11 @@
     startBattle(s, piece(s, id), piece(s, target), null);
     return true;
   }
-  function startBattle(s, a, d, special) {
+  function startBattle(s, a, d, special, frozenSlots = []) {
     s.actions++;
     s.attacked = true;
     s.battle = { a: a.id, d: d.id, attacker: a.side, defender: d.side, nearby: adjacent(a.cell, d.cell),
-      attackerCannon: a.cannon, special, slot: 0, played: { I: [], R: [] }, search: { I: [], R: [] }, startedWithCannon: {
+      attackerCannon: a.cannon, special, frozenSlots, slot: 0, played: { I: [], R: [] }, search: { I: [], R: [] }, startedWithCannon: {
         I: s.pieces.some(p => p.side === 'I' && p.cell && p.cannon),
         R: s.pieces.some(p => p.side === 'R' && p.cell && p.cannon),
       } };
@@ -208,12 +218,16 @@
     record(s, 'attack', { side: a.side, piece: a.id, target: d.id, nearby: s.battle.nearby, special,
       text: a.id + ' ataca a ' + d.id + '.' });
   }
-  // Fuego Especial: combate adyacente o un paso legal de aproximación.
   function specialOptions(s, id) {
     const p = piece(s, id);
     if (s.phase !== 'turn' || !p?.cell || p.side !== s.turn || s.attacked || s.actions >= 2 ||
-        p.cannon || s.players[p.side].charge < CHARGE_MAX) return [];
+        p.cannon || s.players[p.side].charge < powerFor(s, p.side).charges) return [];
     const enemies = s.pieces.filter(q => q.cell && q.side !== p.side);
+    if (s.players[p.side].power === 'electric') {
+      if (s.moved.length) return [];
+      const destinations = Object.keys(CELLS).filter(at => distance(p.cell, at) <= 2 && !occupant(s, at));
+      return destinations.flatMap(at => enemies.filter(q => distance(at, q.cell) <= 2).map(q => ({ target: q.id, at })));
+    }
     const options = attacks(s, id).map(target => ({ target, at: p.cell }));
     for (const at of moves(s, id)) for (const q of enemies) {
       if (distance(p.cell, q.cell) === 2 && adjacent(at, q.cell)) options.push({ target: q.id, at });
@@ -223,21 +237,27 @@
   function specialAttack(s, id, target, at = null) {
     const p = piece(s, id);
     const options = specialOptions(s, id).filter(o => o.target === target);
-    const option = at === null ? options[0] : options.find(o => o.at === at);
+    const powerId = s.players[p?.side]?.power ?? 'fire';
+    const power = POWERS[powerId];
+    const option = at === null && powerId !== 'electric' ? options[0] : options.find(o => o.at === at);
     if (!option) return false;
     s.players[p.side].charge = 0;
-    if (option.at !== p.cell) {
-      const from = p.cell;
+    const from = p.cell;
+    if (option.at !== from) {
       p.cell = option.at;
       s.actions++;
       s.moved.push(id);
       // Aproximación integrada al ataque: no abre un rescate intermedio.
       record(s, 'leap', { side: p.side, piece: id, from, to: p.cell, animal: p.animal,
-        text: id + ' se acerca a ' + p.cell + ' con el Fuego Especial.' });
+        powerId, text: id + ' se acerca a ' + p.cell + ' con ' + power.name + '.' });
     }
-    record(s, 'special', { side: p.side, piece: id, animal: p.animal, power: FIRE_POWER.name, target,
-      text: id + ' lanza ' + FIRE_POWER.name + '.' });
-    startBattle(s, p, piece(s, target), p.animal);
+    const defender = piece(s, target);
+    const frozenSlots = powerId === 'frost'
+      ? shuffle(s.players[defender.side].hand.flatMap((card, slot) => card ? [slot] : [])).slice(0, 2)
+      : [];
+    record(s, 'special', { side: p.side, piece: id, powerId, power: power.name, target, from, at: p.cell,
+      targetCell: defender.cell, frozenCount: frozenSlots.length, text: id + ' lanza ' + power.name + '.' });
+    startBattle(s, p, defender, powerId, frozenSlots);
     return true;
   }
   const actor = s => s.battle.slot % 2 ? s.battle.attacker : s.battle.defender;
@@ -252,8 +272,8 @@
   }
   // Ambos bandos conservan sus dos oportunidades de activar cartas.
   function cardLimit(s, side) { return 2; }
-  function playable(s, side, card) {
-    if (s.phase !== 'reveal' || !card || s.battle.played[side].length >= cardLimit(s, side)) return false;
+  function playable(s, side, card, slot) {
+    if (s.phase !== 'reveal' || !card || frozen(s, side, slot) || s.battle.played[side].length >= cardLimit(s, side)) return false;
     return card !== 'cannon' || (!s.battle.startedWithCannon[side] && !s.battle.played[side].includes(card));
   }
   // El índice se mantiene como ranura estable (0, 1 o 2) durante el combate.
@@ -264,7 +284,7 @@
     if (index !== null) {
       const player = s.players[side];
       const card = player.hand[index];
-      if (!playable(s, side, card)) return false;
+      if (!playable(s, side, card, index)) return false;
       if (card === 'search') {
         const options = searchOptions(s, side);
         if (options.length && !options.includes(searchedCard)) return false;
@@ -293,7 +313,7 @@
   // Fuerza inicial del atacante: 0, +2 si ya era cañón y el bono de su ataque especial.
   function baseAttack(s) {
     const b = s.battle;
-    return (b.attackerCannon ? 2 : 0) + (b.special ? FIRE_POWER.bonus : 0);
+    return (b.attackerCannon ? 2 : 0) + (POWERS[b.special]?.bonus ?? 0);
   }
   // Fuerza de ambos bandos con un conjunto de cartas (por defecto, las activadas).
   function projected(s, played = s.battle.played) {
@@ -440,7 +460,7 @@
     if (s.turn === 'R') s.round++;
     s.turn = opponent(s.turn);
     s.players[s.turn].ownTurns++;
-    s.players[s.turn].charge = Math.min(CHARGE_MAX, s.players[s.turn].charge + 1);
+    s.players[s.turn].charge = Math.min(powerFor(s, s.turn).charges, s.players[s.turn].charge + 1);
     s.actions = 0;
     s.attacked = false;
     s.moved = [];
@@ -448,7 +468,7 @@
     return true;
   }
 
-  const game = { SIDE, HAND_SIZE, ROSTER, FIRE_POWER, SPECIALS, CHARGE_MAX, COIN_REWARDS, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
+  const game = { SIDE, HAND_SIZE, ROSTER, FIRE_POWER, SPECIALS, POWERS, powerFor, frozen, CHARGE_MAX, COIN_REWARDS, CELLS, CARDS, ZONES, STARS, makeGame, adjacent, distance,
     piece, occupant, remaining, moves, attacks, turnActions, move, attack, specialOptions, specialAttack, actor, cardLimit, playable,
     searchOptions, reveal, projected, comboTargets, comboEliminate, rescue, rescueTargets, availableSavedRescues, canUseSavedRescue, startSavedRescue, skipBonus, nextTurn, finishOnTime };
   if (typeof module === 'object') module.exports = game;

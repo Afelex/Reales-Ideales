@@ -3,6 +3,7 @@
 const rules = window.RealesIdeales;
 const hudArt = name => 'assets/ui/hud/' + name + '.png';
 const searchArt = hudArt('lupa') + '?v=041';
+const powerArt = id => 'assets/poderes/' + id + '.webp';
 const ai = window.RealesIdealesAI;
 const byId = id => document.getElementById(id);
 const board = byId('board');
@@ -383,22 +384,46 @@ const SHOT_DELAY = 220, SHOT_FLIGHT = 720;
 // las partículas del poder se concentran en ella y aparece el nombre y lo que hace.
 const SPECIAL_MS = 2300;
 const powerStyles = {
-  tigrillo: { color: '#ffe066', glow: '#5ac8ff', shape: 'spark' },
-  llama: { color: '#d8b48a', glow: '#ffdca0', shape: 'rock' },
-  guacamayo: { color: '#ff8a2a', glow: '#ffd34d', shape: 'ember' },
-  rana: { color: '#8dffb8', glow: '#36e0ff', shape: 'spark' },
-  gallo: { color: '#ff5a2a', glow: '#ffd34d', shape: 'ember' },
-  mono: { color: '#ffd34d', glow: '#ff8a2a', shape: 'ember' },
-  cuy: { color: '#c08aff', glow: '#5ac8ff', shape: 'ring' },
-  gato: { color: '#a07ad8', glow: '#2c1a3a', shape: 'smoke' },
+  fire: { color: '#ffd34d', glow: '#ff8a2a', shape: 'ember' },
+  electric: { color: '#e3ffff', glow: '#42bdff', shape: 'spark' },
+  frost: { color: '#b5f1ff', glow: '#75d0ff', shape: 'ring' },
 };
+function electricArc(from, to) {
+  if (!from || !to) return;
+  const dx = to.x - from.x, dy = to.y - from.y;
+  spawn('fx-electric-arc', from, {
+    length: Math.hypot(dx, dy) + 'px', angle: Math.atan2(dy, dx) + 'rad',
+  }, 660);
+}
+function elementalStrike(event) {
+  const from = cellPoint(event.from), at = cellPoint(event.at), target = cellPoint(event.targetCell);
+  if (event.powerId === 'electric') {
+    electricArc(from, at);
+    later(390, () => {
+      const piece = displayedPiece(event.piece);
+      if (piece) displayedPieces?.set(piece.id, { ...piece, cell: event.at });
+      renderBoard();
+      electricArc(at, target);
+    });
+  } else if (at && target && !reducedMotion()) {
+    spawn('fx-ice-shot', at, {
+      dx: target.x - at.x + 'px', dy: target.y - at.y + 'px',
+    }, 620);
+  }
+  later(event.powerId === 'electric' ? 690 : 575, () => {
+    spawn('fx-element-impact', target, { glow: powerStyles[event.powerId].glow }, 700);
+    numberAt(target, '+1', 'up');
+    if (event.frozenCount) showHudNotice(event.frozenCount === 1 ? '1 carta congelada' : event.frozenCount + ' cartas congeladas');
+  });
+}
 function specialCall(event) {
-  const point = cellPoint(pieceCell(event.piece));
+  const point = cellPoint(event.powerId === 'electric' ? event.from : event.at);
   const piece = displayedPiece(event.piece);
-  const power = rules.FIRE_POWER;
-  const style = powerStyles[event.animal] ?? powerStyles.tigrillo;
+  const power = rules.POWERS[event.powerId];
+  const style = powerStyles[event.powerId];
   fx.play('special');
-  if (point) {
+  if (event.powerId !== 'fire') elementalStrike(event);
+  if (point && event.powerId === 'fire') {
     spawn('fx-spotlight', { x: 0, y: 0, size: 0 }, { x: point.x + 'px', y: point.y + 'px', r: point.size * .7 + 'px' }, SPECIAL_MS);
     spawn('fx-power-aura side-' + event.side, point, { color: style.color, glow: style.glow }, SPECIAL_MS);
     if (piece) tokenClone(piece, tokenFrame(piece.cell), 'fx-hero', SPECIAL_MS);
@@ -411,9 +436,11 @@ function specialCall(event) {
       }, SPECIAL_MS);
     }
   }
-  cfx.fireCharge(point, SPECIAL_MS);
-  later(SPECIAL_MS * .55, () => cfx.fireBurst(point, 30));
-  numberAt(point, signed(power.bonus), 'up');
+  if (event.powerId === 'fire') {
+    cfx.fireCharge(point, SPECIAL_MS);
+    later(SPECIAL_MS * .55, () => cfx.fireBurst(point, 30));
+    numberAt(point, signed(power.bonus), 'up');
+  }
   const title = point && spawn('fx-power-name fx-power-local side-' + event.side,
     { ...point, x: Math.max(75, Math.min(window.innerWidth - 75, point.x)), y: point.y - point.size * .65 },
     { color: style.color, glow: style.glow }, SPECIAL_MS);
@@ -682,6 +709,9 @@ const knockoutDuration = event => KNOCKOUT_MS + (event.removed.length - 1) * KNO
 function playEffects(events) {
   let delay = 0;
   for (const event of events) {
+    // Los efectos elementales sustituyen el proyectil común y, para el rayo, el desplazamiento.
+    if (event.type === 'leap' && event.powerId === 'electric') continue;
+    if (event.type === 'attack' && event.special && event.special !== 'fire') continue;
     if (delay) later(delay, () => effectFor(event));
     else effectFor(event);
     delay += event.type === 'battle'
@@ -808,11 +838,12 @@ function describe(event, index = game.events.indexOf(event)) {
     case 'move': return nameOf(event.piece) + ' avanza.';
     case 'bonus':
     case 'advance': return nameOf(event.piece) + ' avanza tras la victoria.';
-    case 'leap': return nameOf(event.piece) + ' se acerca con el Fuego Especial.';
+    case 'leap': return nameOf(event.piece) + ' se acerca con ' + rules.POWERS[event.powerId].name + '.';
     case 'rescue': return rules.SIDE[event.side] + ' rescatan a ' + nameOf(event.piece) + '.';
     case 'rescue-saved': return rules.SIDE[event.side] + ' guardan una estrella de rescate.';
     case 'attack': return nameOf(event.piece) + ' ataca a ' + nameOf(event.target) + '.';
-    case 'special': return nameOf(event.piece) + ' lanza ' + event.power + '.';
+    case 'special': return nameOf(event.piece) + ' lanza ' + event.power + '.'
+      + (event.frozenCount ? ' Cartas congeladas: ' + event.frozenCount + '.' : '');
     case 'summon': return nameOf(event.piece) + ' se convierte en cañón.';
     case 'combo':
     case 'double': return nameOf(event.target) + ' cae como segunda ficha.';
@@ -1107,8 +1138,9 @@ function specialView() {
   const piece = rules.piece(game, selection);
   const options = rules.specialOptions(game, selection);
   const at = specialAt ?? piece.cell;
+  const electric = game.players[piece.side].power === 'electric';
   return {
-    targets: [...new Set(options.filter(o => !specialAt || o.at === at).map(o => o.target))],
+    targets: [...new Set(options.filter(o => specialAt ? o.at === at : !electric).map(o => o.target))],
     destinations: specialAt ? [] : [...new Set(options.filter(o => o.at !== piece.cell).map(o => o.at))],
     at,
   };
@@ -1205,7 +1237,7 @@ function clickCell(cell) {
 }
 function specialReadyPieces() {
   if (game.phase !== 'turn' || isAITurn() || specialMode || game.attacked || game.actions >= 2) return new Set();
-  if (game.players[game.turn].charge < rules.CHARGE_MAX) return new Set();
+  if (game.players[game.turn].charge < rules.powerFor(game, game.turn).charges) return new Set();
   return new Set(game.pieces.filter(p => p.side === game.turn && p.cell && rules.specialOptions(game, p.id).length).map(p => p.id));
 }
 function renderBoard() {
@@ -1341,15 +1373,25 @@ function chooseSearch(index) {
 const specialFire = byId('special-fire');
 function renderSpecialFire() {
   const side = game.turn;
+  const hudSide = handSide() ?? side;
+  const powerId = game.players[hudSide].power;
+  const power = rules.powerFor(game, hudSide);
   const show = game.phase === 'turn' && !isAITurn() && !game.attacked && game.actions < 2
-    && game.players[side].charge >= rules.CHARGE_MAX
+    && game.players[side].charge >= power.charges
     && game.pieces.some(p => p.side === side && rules.specialOptions(game, p.id).length);
-  const charge = game.players[handSide() ?? side].charge;
+  const charge = game.players[hudSide].charge;
+  const arc = 360 / power.charges;
+  specialFire.dataset.power = powerId;
+  specialFire.querySelector('img').src = powerArt(powerId);
   specialFire.disabled = !show;
   [...specialFire.querySelectorAll('.ss-ring circle')].forEach((segment, index) => {
+    segment.style.display = index >= power.charges ? 'none' : '';
+    segment.style.strokeDasharray = (arc - 16) + ' ' + (360 - arc + 16);
+    segment.setAttribute('pathLength', 360);
+    segment.setAttribute('transform', 'rotate(' + index * arc + ' 22 22)');
     segment.classList.toggle('charged', index < charge);
   });
-  specialFire.setAttribute('aria-label', 'Carga del fuego: ' + charge + ' de ' + rules.CHARGE_MAX);
+  specialFire.setAttribute('aria-label', power.name + ': ' + charge + ' de ' + power.charges + ' cargas');
   specialFire.setAttribute('aria-pressed', String(show && specialMode));
   document.body.classList.toggle('ss-ready', show);
   const hint = byId('special-hint');
@@ -1359,25 +1401,26 @@ function renderSpecialFire() {
     return;
   }
   const options = selection ? rules.specialOptions(game, selection) : [];
-  const power = options.length ? rules.FIRE_POWER : null;
+  const armed = Boolean(options.length);
   // La guía cambia con la ficha y el objetivo seleccionados.
-  hint.dataset.step = specialMode ? 'target' : power ? 'press' : 'piece';
+  hint.dataset.step = specialMode ? 'target' : armed ? 'press' : 'piece';
   hint.textContent = specialMode
-    ? (specialView()?.destinations.length && !specialAt ? 'Elige una casilla verde o un objetivo rojo' : 'Toca el objetivo rojo')
-    : power ? 'Activa el fuego' : 'Elige una ficha con fuego';
+    ? (powerId === 'electric' && !specialAt ? 'Elige una casilla verde' :
+      specialView()?.destinations.length && !specialAt ? 'Elige una casilla verde o un objetivo rojo' : 'Toca el objetivo rojo')
+    : armed ? 'Activa ' + power.name : 'Elige una ficha con poder';
   specialFire.dataset.side = side;
-  specialFire.classList.toggle('armed', Boolean(power));
+  specialFire.classList.toggle('armed', armed);
   specialFire.classList.toggle('active', specialMode);
   specialFire.setAttribute('aria-pressed', String(specialMode));
-  specialFire.setAttribute('aria-label', specialMode ? 'Cancelar ' + power?.name
-    : power ? 'Activar Fuego Especial: +3 de fuerza' : 'Fuego Especial listo: elige una ficha con enemigo a una o dos casillas');
+  specialFire.setAttribute('aria-label', specialMode ? 'Cancelar ' + power.name
+    : armed ? 'Activar ' + power.name : power.name + ' listo');
 }
 specialFire.addEventListener('click', () => {
   if (!game || busy() || isAITurn()) return;
   const options = selection ? rules.specialOptions(game, selection) : [];
   if (!options.length) {
     fx.play('pass');
-    say('Fuego Especial listo', 'Toca una ficha tuya que tenga un enemigo a su alcance y luego este botón.');
+    say(rules.powerFor(game, game.turn).name, 'Toca una ficha tuya que tenga un enemigo a su alcance y luego este botón.');
     return;
   }
   specialMode = !specialMode;
@@ -1413,8 +1456,10 @@ function openCardMenu(side, slot, card) {
   cardPreviewArt.replaceChildren();
   renderCardFace(cardPreviewArt, card);
   byId('card-preview-title').textContent = rules.CARDS[card].name;
-  byId('card-preview-text').textContent = rules.CARDS[card].description;
-  cardPreviewPlay.disabled = game.phase !== 'reveal' || isAITurn() || !rules.playable(game, side, card);
+  const frozen = rules.frozen(game, side, slot);
+  cardPreviewArt.classList.toggle('frozen-card', frozen);
+  byId('card-preview-text').textContent = frozen ? 'Congelada durante este combate. ' + rules.CARDS[card].description : rules.CARDS[card].description;
+  cardPreviewPlay.disabled = game.phase !== 'reveal' || isAITurn() || !rules.playable(game, side, card, slot);
   cardMenuNode.showModal();
 }
 function handSide() {
@@ -1442,7 +1487,9 @@ function renderHands() {
     }, 'hud-card');
     node.dataset.slot = String(slot);
     node.disabled = !card;
-    node.title = card ? rules.CARDS[card].name : 'Casilla vacía';
+    const frozen = rules.frozen(game, side, slot);
+    node.classList.toggle('frozen-card', frozen);
+    node.title = card ? rules.CARDS[card].name + (frozen ? ' · Congelada' : '') : 'Casilla vacía';
     node.setAttribute('aria-label', node.title);
     if (!card) continue;
     const icon = document.createElement('img');
@@ -1485,9 +1532,8 @@ function renderControls() {
       arrow.alt = '';
       end.append(arrow);
       if (specialMode && selection) {
-        const power = rules.FIRE_POWER;
-        say(power.name, power.description + ' ' + (specialView().destinations.length && !specialAt
-          ? 'Elige una casilla de destino o un objetivo marcado.' : 'Elige el objetivo marcado.'));
+        const power = rules.powerFor(game, game.turn);
+        say(power.name, power.description);
       }
       break;
     case 'reveal': {
@@ -1577,8 +1623,7 @@ function forceOf(index) {
   parts.push({ label: 'Base', value: 0 });
   if (index === 0) {
     if (piece.cannon) parts.push({ label: 'Cañón', value: 2 });
-    if (duelSpecial && rules.SPECIALS[duelSpecial].bonus)
-      parts.push({ label: rules.SPECIALS[duelSpecial].name, value: rules.SPECIALS[duelSpecial].bonus });
+    if (duelSpecial) parts.push({ label: rules.POWERS[duelSpecial].name, value: rules.POWERS[duelSpecial].bonus });
   }
   for (const card of own) if (rules.CARDS[card].own) parts.push({ label: rules.CARDS[card].name, value: rules.CARDS[card].own });
   if (own.length === 2 && own[0] === own[1]) parts.push({ label: 'Combo', value: 1 });
@@ -1686,7 +1731,7 @@ function renderDuel(fresh = null) {
     meter.dataset.force = side;
     span(meter,'duel-force-label','Fuerza');
     span(meter,'duel-force-value',signed(force.total));
-    const extras = force.parts.filter(p => p.label === 'Combo' || p.label === 'Cañón' || p.label === rules.FIRE_POWER.name)
+    const extras = force.parts.filter(p => p.label === 'Combo' || p.label === 'Cañón' || p.label === rules.POWERS[duelSpecial]?.name)
       .map(p => p.label + ' ' + signed(p.value));
     if (force.decisive) extras.push(force.decisive === 1 ? 'Decisivo' : 'Doble decisivo');
     if (extras.length) span(group,'played-extras',extras.join(' · '));
@@ -2027,10 +2072,13 @@ function render() {
     savedBadge.title = saved + ' estrellas guardadas; ' + rules.availableSavedRescues(game,side) + ' habilitadas';
     byId('deck-' + side).textContent = deck.length;
     const bar = byId('charge-' + side);
-    [...bar.children].forEach((segment, i) => segment.classList.toggle('full', i < charge));
-    bar.classList.toggle('ready', charge >= rules.CHARGE_MAX);
-    bar.setAttribute('aria-label', charge >= rules.CHARGE_MAX ? 'Ataque especial listo'
-      : 'Ataque especial: ' + charge + ' de ' + rules.CHARGE_MAX);
+    const power = rules.powerFor(game, side);
+    [...bar.children].forEach((segment, i) => {
+      segment.hidden = i >= power.charges;
+      segment.classList.toggle('full', i < charge);
+    });
+    bar.classList.toggle('ready', charge >= power.charges);
+    bar.setAttribute('aria-label', power.name + ': ' + charge + ' de ' + power.charges + ' cargas');
   }
   renderActionStatus();
   renderSavedRescue();
@@ -2208,7 +2256,7 @@ function showMatchIntro() {
     }, 700);
   }, 1250);
 }
-function startGame(nextMode, characters) {
+function startGame(nextMode, characters, powers) {
   resetPresentation();
   cfx.start();
   cfx.setSpeed(settings.speed);
@@ -2217,7 +2265,7 @@ function startGame(nextMode, characters) {
   const video = board.querySelector('.board-video');
   if (video && !reducedMotion()) video.play().catch(() => {});
   mode = nextMode;
-  game = rules.makeGame();
+  game = rules.makeGame({}, powers);
   game.characters = characters;
   for (const [side, animal] of Object.entries(game.characters)) {
     const avatar = byId('avatar-' + side);
@@ -2269,46 +2317,90 @@ const characterForm = byId('character-form');
 const characterConfirm = byId('character-confirm');
 const characterPreview = byId('character-preview');
 const characterName = byId('character-name');
+const characterOptions = byId('character-options');
+const powerOptions = byId('power-options');
+const powerDetail = byId('power-detail');
 let matchSetup = null;
-function showCharacterPreview() {
+for (const [key, power] of Object.entries(rules.POWERS)) {
+  const option = document.createElement('label');
+  option.className = 'character-option';
+  const input = document.createElement('input');
+  input.className = 'sr-only';
+  input.type = 'radio';
+  input.name = 'power';
+  input.value = key;
+  input.required = true;
+  const image = document.createElement('img');
+  image.alt = '';
+  image.width = image.height = 112;
+  image.src = powerArt(key);
+  option.append(input, image);
+  span(option, '', power.name);
+  powerOptions.append(option);
+}
+function showSelectionPreview() {
+  if (characterDialog.dataset.stage === 'power') {
+    const key = characterForm.elements.power.value;
+    const power = rules.POWERS[key];
+    characterPreview.src = powerArt(key);
+    characterName.textContent = power.name;
+    powerDetail.textContent = power.charges + ' cargas · ' + power.description;
+    return;
+  }
   const animal = characterForm.elements.character.value;
   characterPreview.src = characterArt(characterDialog.dataset.side, animal);
   characterName.textContent = animals[animal];
 }
-function showCharacterOptions(side) {
+function showCharacterOptions(side, stage = 'character') {
+  const choosingPower = stage === 'power';
   characterDialog.dataset.side = side;
+  characterDialog.dataset.stage = stage;
+  byId('character-title').textContent = choosingPower ? 'Elige tu bandera' : 'Elige a tu personaje';
   byId('character-side').textContent = rules.SIDE[side];
+  characterOptions.hidden = characterOptions.disabled = choosingPower;
+  powerOptions.hidden = powerOptions.disabled = !choosingPower;
+  powerDetail.hidden = !choosingPower;
+  characterForm.elements.power.value = matchSetup.powers[side];
   characterForm.elements.character.value = matchSetup.characters[side] ?? 'mono';
-  for (const option of characterForm.querySelectorAll('.character-option')) {
+  for (const option of characterOptions.querySelectorAll('.character-option')) {
     option.querySelector('img').src = characterArt(side, option.querySelector('input').value);
   }
-  characterConfirm.textContent = side === 'I' && matchSetup.mode === 'local' ? 'Siguiente' : 'Empezar';
-  showCharacterPreview();
+  characterConfirm.textContent = !choosingPower || side === 'I' && matchSetup.mode === 'local' ? 'Siguiente' : 'Empezar';
+  showSelectionPreview();
   if (!characterDialog.open) characterDialog.showModal();
   requestAnimationFrame(() => {
-    if (characterDialog.open) characterForm.querySelector('input:checked').focus({ preventScroll: true });
+    if (characterDialog.open) (choosingPower ? powerOptions : characterOptions).querySelector('input:checked').focus({ preventScroll: true });
   });
 }
 function chooseCharacters(nextMode) {
-  matchSetup = { mode: nextMode, characters: { I: null, R: 'tigrillo' } };
+  matchSetup = { mode: nextMode, characters: { I: null, R: 'tigrillo' }, powers: { I: 'fire', R: 'fire' } };
   showCharacterOptions('I');
 }
-characterForm.addEventListener('change', showCharacterPreview);
+characterForm.addEventListener('change', showSelectionPreview);
 characterForm.addEventListener('submit', event => {
   event.preventDefault();
-  const { mode: nextMode, characters } = matchSetup;
-  const side = characterDialog.dataset.side;
-  characters[side] = characterForm.elements.character.value;
+  const { mode: nextMode, characters, powers } = matchSetup;
+  const { side, stage } = characterDialog.dataset;
+  if (stage === 'character') {
+    characters[side] = characterForm.elements.character.value;
+    showCharacterOptions(side, 'power');
+    return;
+  }
+  powers[side] = characterForm.elements.power.value;
   if (side === 'I' && nextMode === 'local') {
     showCharacterOptions('R');
     return;
   }
   matchSetup = null;
   characterDialog.close();
-  startGame(nextMode, characters);
+  startGame(nextMode, characters, powers);
 });
 function goBackFromCharacterSelection() {
-  if (characterDialog.dataset.side === 'R') showCharacterOptions('I');
+  const { side, stage } = characterDialog.dataset;
+  if (stage === 'power') {
+    matchSetup.powers[side] = characterForm.elements.power.value;
+    showCharacterOptions(side);
+  } else if (side === 'R') showCharacterOptions('I', 'power');
   else characterDialog.close();
 }
 byId('character-cancel').addEventListener('click', goBackFromCharacterSelection);
@@ -2334,7 +2426,7 @@ byId('restart').addEventListener('click', () => {
 byId('export').addEventListener('click', () => {
   const data = { version: '0.15', mode, complete: game.phase === 'end', round: game.round,
     durationSeconds: started === null ? 0 : Math.floor(((ended ?? Date.now()) - started) / 1000),
-    winner: game.winner, reason: game.reason, events: game.events };
+    winner: game.winner, reason: game.reason, powers: { I: game.players.I.power, R: game.players.R.power }, events: game.events };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
@@ -2349,7 +2441,7 @@ const STARTUP_MIN_MS = 5000;
 const STARTUP_MAX_MS = 8000;
 const startupImages = [
   ...['opciones', 'moneda', 'mover', 'atacar', 'fuego', 'fin-turno', 'marco', 'casilla-azul', 'casilla-verde', 'casilla-roja', 'ranura-carta'].map(hudArt),
-  searchArt,
+  searchArt, 'assets/poderes/patio.webp', ...Object.keys(rules.POWERS).map(powerArt),
   'assets/logo.webp', 'assets/clay/portada-vertical.webp',
   'assets/clay/terracota.webp', 'assets/clay/campo-jardin.webp',
   'assets/clay/flor.webp', 'assets/clay/relieve.webp', 'assets/clay/jardin-izquierdo.webp',

@@ -59,7 +59,7 @@
     let best = { type: 'reveal', index: null };
     let bestScore = current * 6;
     for (const [index, card] of game.players[side].hand.entries()) {
-      if (!rules.playable(game, side, card)) continue;
+      if (!rules.playable(game, side, card, index)) continue;
       const options = card === 'search' ? rules.searchOptions(game, side) : [];
       const preference = { decisive: 6, major: 5, cannon: 4, boost: 3, search: 2, weaken: 1 };
       const searchTarget = options.sort((a, b) => preference[b] - preference[a])[0] ?? null;
@@ -73,15 +73,14 @@
     return best;
   }
 
-  // El Fuego Especial es igual para todas las fichas; prioriza objetivos valiosos.
   function specialChoice(rules, game, allies, side) {
-    if (game.players[side].charge < rules.CHARGE_MAX) return null;
+    if (game.players[side].charge < rules.powerFor(game, side).charges) return null;
     let best = null;
     let bestScore = -Infinity;
     for (const piece of allies) {
       for (const option of rules.specialOptions(game, piece.id)) {
         const target = rules.piece(game, option.target);
-        const score = rules.FIRE_POWER.bonus + (target.cannon ? 3 : 0) + (option.at === piece.cell ? .35 : 0);
+        const score = (target.cannon ? 3 : 0) + (option.at === piece.cell ? .35 : 0);
         if (score > bestScore) {
           best = { type: 'special', piece: piece.id, target: option.target, at: option.at };
           bestScore = score;

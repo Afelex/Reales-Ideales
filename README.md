@@ -1,10 +1,10 @@
 # Reales Ideales
 
-Juego táctico de mesa para dos personas, con demo web para un dispositivo o contra la IA. Reglas vigentes: **Fuego Especial universal** (ver abajo). Edad objetivo: 8 años en adelante. Duración: hasta 10 minutos por partida, pendiente de validar en mesa.
+Juego táctico de mesa para dos personas, con demo web para un dispositivo o contra la IA. Reglas vigentes: **tres poderes especiales** (ver abajo). Edad objetivo: 8 años en adelante. Duración: hasta 10 minutos por partida, pendiente de validar en mesa.
 
 ## Abrir la demostración
 
-Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. En vertical, el menú reproduce en bucle el video del gato y la llama. La portada estática se usa en horizontal y cuando se desactiva el movimiento. Pulsa **¡Jugar!** para habilitar la música y abrir el menú después de la primera precarga. Elige **Tutorial**, **Multijugador** para compartir el dispositivo, **Vs IA** para jugar contra los realistas u **Opciones**. En las opciones del menú se puede desactivar la animación de portada.
+Abre `index.html` en un navegador o la versión publicada en https://afelex.github.io/Reales-Ideales/. En vertical, el menú reproduce en bucle el video del gato y la llama. La portada estática se usa en horizontal y cuando se desactiva el movimiento. Pulsa **¡Jugar!** para habilitar la música y abrir el menú después de la primera precarga. Elige **Tutorial**, **Multijugador** para compartir el dispositivo, **Vs IA** para jugar contra los realistas u **Opciones**. Antes de cada partida, elige personaje y bandera. La bandera determina el poder del bando. En las opciones del menú se puede desactivar la animación de portada.
 
 Arrastra tu ficha a una casilla libre marcada para moverla o suéltala sobre una ficha enemiga marcada para atacar. También puedes tocar la ficha propia y luego su destino. El turno avanza solo cuando se agotan las jugadas legales y el botón de fin de turno permite pasar antes. Al terminar, la pantalla de victoria o derrota lleva a las estadísticas, desde donde se puede **exportar JSON** con las jugadas.
 
@@ -16,17 +16,17 @@ En móvil vertical la partida ocupa **una sola pantalla, sin desplazamientos**: 
 
 - **Arriba:** retrato de cada bando, barra de vida de ocho segmentos (una por ficha viva), rescates y cartas en el mazo. En el centro, el reloj de la decisión, la ronda (1/12) y el aviso **TU TURNO** o **TURNO DEL RIVAL** (en modo local, el bando activo). El reloj general de 10 minutos («Faltan») aparece en un globo junto a la llama alada.
 - **Dock inferior, fila superior:** llave inglesa (opciones), botón de moneda con tu saldo (al pulsarlo muestra ambos), línea de estado con la instrucción o el resultado del momento, e iconos de **mover** (verde si está disponible) y **atacar** (rojo anaranjado); apagados cuando ya se usaron.
-- **Dock inferior, fila de abajo:** anillo del **Fuego Especial** con sus tres cargas, las **tres cartas** de la reserva y el botón de fin de turno. Al tocar una carta se ve su ilustración y su efecto, con Cancelar y Activar. En modo local cada jugador descubre su mano con «Ver mano de…», y se vuelve a ocultar al cambiar de jugador.
+- **Dock inferior, fila de abajo:** anillo del **poder elegido** con dos o tres cargas, las **tres cartas** de la reserva y el botón de fin de turno. Al tocar una carta se ve su ilustración y su efecto, con Cancelar y Activar. En modo local cada jugador descubre su mano con «Ver mano de…», y se vuelve a ocultar al cambiar de jugador.
 - **Combate:** al elegir el objetivo empieza la animación. Después aparecen dos ranuras por bando (realistas a la izquierda, idealistas a la derecha) con las cartas activadas y la fuerza total. Las reservas privadas nunca se muestran al rival. El resultado queda en la línea de estado hasta el siguiente combate.
 - **Rescates guardados:** si se guarda una estrella, aparece un botón para usarla desde el siguiente turno propio.
-- **Combate con partículas (PixiJS):** chispas, trozos de plastilina del color del bando, ondas, polvo, quemaduras y brasas del Fuego Especial en una capa WebGL transparente (`combat-fx.js`). Sin WebGL quedan los efectos CSS. La ficha vencedora sigue en su casilla hasta el avance. Cada ficha vencida permanece hasta que el impacto da paso a su animación de derrota.
+- **Combate con partículas (PixiJS):** chispas, trozos de plastilina del color del bando, ondas, polvo, quemaduras y brasas de Fuego Victorioso en una capa WebGL transparente (`combat-fx.js`). Sin WebGL quedan los efectos CSS. La ficha vencedora sigue en su casilla hasta el avance. Cada ficha vencida permanece hasta que el impacto da paso a su animación de derrota.
 - **Cartas legibles:** el dueño de la carta se ilumina con el color de su bando y la carta aparece de su lado (realistas a la izquierda, idealistas a la derecha) con su nombre. Luego viaja hasta la ficha afectada, donde el número aparece al costado con un anillo del color de la carta.
 - **Avisos:** el turno y las instrucciones se leen en el HUD. El combo de cartas iguales muestra su `+1` junto a la ficha. El fin de partida tiene su propia pantalla.
 - **Golpe decisivo:** una victoria con esta carta sin otro Golpe decisivo rival activa el remate con pausa de impacto, grietas y fragmentos. Con `prefers-reduced-motion` se usa un destello localizado y un fundido en el sitio.
 - **Opciones:** escenario (Campo andino o Plaza), música y efectos por separado, temporizador (sin tiempo, relajado ×2 o normal) y velocidad de animación. Se guardan en el navegador.
 - **Legibilidad:** ningún texto del HUD baja de unos 12 px en móvil; la línea de estado admite dos líneas.
 
-En escritorio y en horizontal, el escenario se muestra en una columna central con el HUD alrededor. Verificación recomendada: **360×640**, **390×844**, **412×915**, **850×384** y **1366×768**. Comprobar que las 27 casillas responden, que nada se desplaza ni tapa fichas, la privacidad de las cartas en modo local, el combate completo, los rescates, el Fuego Especial, el fin por tiempo y la exportación JSON.
+En escritorio y en horizontal, el escenario se muestra en una columna central con el HUD alrededor. Verificación recomendada: **360×640**, **390×844**, **412×915**, **850×384** y **1366×768**. Comprobar que las 27 casillas responden, que nada se desplaza ni tapa fichas, la privacidad de las cartas en modo local, el combate completo, los rescates, los poderes especiales, el fin por tiempo y la exportación JSON.
 
 ## Identidad visual
 
@@ -56,17 +56,21 @@ Haz hasta dos acciones en el orden que prefieras: **solo un movimiento normal** 
 - **Mover.** Elige una única ficha propia y desplázala una casilla libre adyacente. No se permite realizar un segundo movimiento normal ese turno. Puedes entrar en cualquier zona.
 - **Atacar.** Elige una ficha propia y una enemiga adyacente. El cañón puede atacar a cualquier ficha enemiga. El turno admite un solo ataque.
 
-## Fuego Especial (regla universal)
+## Poderes especiales
 
-Cada bando acumula un segmento al comenzar cada turno propio, hasta tres. El primer Fuego Especial está disponible en el turno 3. Al usarlo la carga vuelve a cero.
+Cada bando elige un poder al seleccionar su bandera. Todas sus fichas normales pueden usarlo. El medidor suma una carga al comienzo de cada turno propio y vuelve a cero al activar el poder. Los cañones no pueden usarlo.
 
-**Todas las fichas normales de los ocho animales comparten el mismo poder: +3 de fuerza al atacar a un enemigo adyacente o a dos hexágonos de distancia.** Si está a dos, la ficha da un paso por una casilla libre adyacente a ambos, consume su movimiento y ataque del turno e inicia el combate. Si ya movió, solo puede usar fuego contra un enemigo vecino. La aproximación no activa rescates intermedios; el avance tras el combate conserva las reglas ordinarias. Ambos combatientes conservan sus dos cartas. Los cañones no pueden usarlo. No requiere elegir comandante.
+| Poder | Cargas | Efecto |
+| --- | ---: | --- |
+| Fuego Victorioso | 3 | +3 de fuerza. Ataca a una ficha vecina o da un paso para atacar a una ficha a dos casillas. |
+| Asalto Eléctrico | 2 | +1 de fuerza. Salta a una casilla libre a una o dos casillas de distancia y elige un enemigo a una o dos casillas desde allí. |
+| Escarcha Especial | 3 | +1 de fuerza y congela hasta dos cartas al azar de la reserva rival durante el combate. Usa el mismo alcance y aproximación de Fuego Victorioso. |
 
-En el tablero físico se aplica el mismo bono de +3 al calcular la fuerza y se reinicia el contador de tres cargas. En la aplicación se utiliza el botón con icono de fuego y tres segmentos radiales, sin las letras SS.
+El desplazamiento del poder consume el movimiento del turno y no abre un rescate intermedio. Cuando las fichas quedan a dos casillas al iniciar el combate, se aplica el avance a distancia. Las cartas congeladas conservan su ranura y quedan disponibles para el siguiente combate.
 
 ## Combate
 
-1. **Todas las fichas empiezan con 0 de fuerza**, ataquen o defiendan. Un **cañón** suma +2 cuando ataca y el **Fuego Especial** suma +3 al atacante (no se acumulan: el cañón no puede lanzarlo).
+1. **Todas las fichas empiezan con 0 de fuerza**, ataquen o defiendan. Un **cañón** suma +2 cuando ataca y el **poder especial** elegido suma +1 o +3 al atacante.
 2. Cada jugador conserva **tres cartas** en su reserva, pero puede activar como máximo **dos** durante cada combate. Las cuatro oportunidades se alternan: defensor, atacante, defensor, atacante. Pasar conserva la siguiente oportunidad. Las cartas reveladas se ven antes de decidir.
 3. **COMBO:** dos cartas iguales activadas por un mismo jugador durante el combate conceden +1 extra a su fuerza. **Golpe decisivo** tiene prioridad sobre los valores de fuerza: un golpe contra uno se anula, mientras que dos contra uno prevalecen. Si el ganador usó dos Golpes decisivos, activa **COMBO DECISIVO** y puede elegir una segunda ficha enemiga del tablero para eliminar, además del objetivo principal. Puede omitir la segunda eliminación. Si hay igual cantidad de Golpes decisivos, decide la fuerza; si ambos tienen dos, el ganador también puede reclamar el combo.
 4. La ficha con más fuerza vence y se retira la otra. En empate se retiran ambas. Comprueba inmediatamente si termina la partida.
@@ -100,7 +104,7 @@ La partida dura como máximo **10 minutos** (reloj «Faltan» junto a la llama) 
 
 ## Monedas
 
-Cada partida empieza con cero monedas por bando. Un combate potente da **10 monedas** a cada participante que cumpla la condición: fuerza final de 3 o más, usar el Fuego Especial o activar un Golpe decisivo. Cada baja causada por una victoria, incluida la segunda baja de un combo, da **20 más**; los empates no dan monedas por bajas. Los saldos se ven en el HUD (botón de moneda) y en las estadísticas. No influyen en la victoria, no se compran con dinero real y todavía no hay cartera permanente ni tienda.
+Cada partida empieza con cero monedas por bando. Un combate potente da **10 monedas** a cada participante que cumpla la condición: fuerza final de 3 o más, usar un poder especial o activar un Golpe decisivo. Cada baja causada por una victoria, incluida la segunda baja de un combo, da **20 más**; los empates no dan monedas por bajas. Los saldos se ven en el HUD (botón de moneda) y en las estadísticas. No influyen en la victoria, no se compran con dinero real y todavía no hay cartera permanente ni tienda.
 
 ## Escenario «Campo andino»
 
@@ -140,7 +144,7 @@ Para un escenario nuevo, genera la imagen con la guía `tools/guia-escenario-27.
 
 ## Pruebas automatizadas
 
-El archivo `game.test.js` (38 casos) comprueba fuerza base 0, cañón inmediato, carga y Fuego Especial universal (incluida la aproximación a dos casillas), límites de movimiento, combos, búsqueda diferida, reserva de tres, rescates guardados, monedas y fin por tiempo. Ejecuta `node --test` para comprobar la regresión.
+El archivo `game.test.js` comprueba fuerza base 0, cañón inmediato, los poderes especiales, límites de movimiento, combos, búsqueda diferida, reserva de tres, rescates guardados, monedas y fin por tiempo. Ejecuta `node --test` para comprobar la regresión.
 
 ### Simulación histórica de equilibrio v0.15 (antes del Fuego Especial universal)
 
@@ -183,3 +187,4 @@ Enseña una batalla vecina y un disparo lejano. Pide a cada jugador que explique
 - **v0.41:** ranuras horizontales con emblemas sin deformación, lupa con ornamentos andinos e indicadores opacos con símbolo de prohibido para las acciones no disponibles.
 - **v0.42:** ventanas centradas, botones de plastilina y marco dorado con adornos florales en la vista previa de cartas.
 - **v0.43:** paneles y botones con bordes de proporción constante, contenido alineado al eje central y recortes de las cartas centrados sobre el arte original.
+- **v0.46:** elección de bandera y poder, Asalto Eléctrico, Escarcha Especial y nuevo emblema para Fuego Victorioso.
