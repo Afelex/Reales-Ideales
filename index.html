@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Reales Ideales, juego táctico para dos personas o contra la IA.">
-  <title>Reales Ideales · v0.43</title>
-  <link rel="stylesheet" href="styles.css?v=043-ventanas-centradas">
+  <title>Reales Ideales · v0.44</title>
+  <link rel="stylesheet" href="styles.css?v=044-personajes">
   <script defer src="game.js?v=038-arte-combate"></script>
   <script defer src="ai.js?v=038-arte-combate"></script>
   <script defer src="assets/escenario/campo-andino-casillas.js?v=021-escenario27"></script>
   <script defer src="assets/vendor/pixi-8.19.0.min.js"></script>
   <script defer src="combat-fx.js?v=038-arte-combate"></script>
   <script defer src="fx.js?v=038-arte-combate"></script>
-  <script defer src="app.js?v=042-ventanas-andinas"></script>
+  <script defer src="app.js?v=044-personajes"></script>
 </head>
 <body>
   <section id="inicio" class="cover" aria-labelledby="cover-title">
@@ -32,8 +32,8 @@
       </div>
       <nav id="play-options" class="play-options" aria-label="Opciones de juego" hidden>
         <button id="help-button" type="button" class="secondary menu-play" aria-haspopup="dialog">Tutorial</button>
-        <button id="play-local" type="button" class="secondary menu-play">Multijugador</button>
-        <button id="play-ai" type="button" class="secondary menu-play">Vs IA</button>
+        <button id="play-local" type="button" class="secondary menu-play" aria-haspopup="dialog">Multijugador</button>
+        <button id="play-ai" type="button" class="secondary menu-play" aria-haspopup="dialog">Vs IA</button>
         <button id="settings-button" type="button" class="secondary menu-play" aria-haspopup="dialog">Opciones</button>
       </nav>
     </div>
@@ -41,7 +41,7 @@
   <main id="partida" class="play-layout" aria-label="Partida" tabindex="-1" hidden>
     <section class="seat red" aria-label="Tablero realista">
       <div class="seat-heading">
-        <img class="seat-crest seat-avatar" src="assets/clay/fichas/realista-tigrillo.webp" alt="" width="44" height="44">
+        <img id="avatar-R" class="seat-crest seat-avatar" src="assets/clay/fichas/realista-tigrillo.webp" alt="Tigrillo realista" width="54" height="54">
         <h2 class="sr-only">Realistas<small id="red-ai" class="seat-ai" hidden> IA</small></h2>
         <div class="seat-meter">
           <div id="red-health" class="seat-health" role="meter" aria-label="Fichas vivas: Realistas" aria-valuemin="0" aria-valuemax="8" aria-valuenow="8"><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i></div>
@@ -57,7 +57,7 @@
     </section>
     <section class="seat blue" aria-label="Tablero idealista">
       <div class="seat-heading">
-        <img class="seat-crest seat-avatar" src="assets/clay/fichas/idealista-mono.webp" alt="" width="44" height="44">
+        <img id="avatar-I" class="seat-crest seat-avatar" src="assets/clay/fichas/idealista-mono.webp" alt="Mono idealista" width="54" height="54">
         <h2 class="sr-only">Idealistas</h2>
         <div class="seat-meter">
           <div id="blue-health" class="seat-health" role="meter" aria-label="Fichas vivas: Idealistas" aria-valuemin="0" aria-valuemax="8" aria-valuenow="8"><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i></div>
@@ -130,6 +130,7 @@
       <button id="saved-rescue-button" class="saved-rescue-button" type="button" hidden title="Usar estrella guardada"><img src="assets/clay/emblemas/rescate.webp" alt="" width="20" height="20"><b id="saved-rescue-count">0</b></button>
     </section>
   </main>
+  <div id="match-intro" class="match-intro"><span role="status" aria-atomic="true"></span></div>
   <div id="fx-layer" class="fx-layer" aria-hidden="true"></div>
   <section id="end-screen" class="end-screen" role="dialog" aria-modal="true" aria-labelledby="end-title" hidden>
     <div class="end-card">
@@ -151,10 +152,25 @@
       <div class="stats-actions">
         <button id="stats-export" type="button" class="secondary">Exportar JSON</button>
         <button id="stats-menu" type="button" class="secondary">Menú</button>
-        <button id="stats-again" type="button" class="primary">Jugar otra vez</button>
+        <button id="stats-again" type="button" class="primary" aria-haspopup="dialog">Jugar otra vez</button>
       </div>
     </div>
   </section>
+  <dialog id="character-dialog" aria-labelledby="character-title">
+    <h2 id="character-title">Elige a tu personaje</h2>
+    <form id="character-form">
+      <fieldset class="character-choices">
+        <legend id="character-side"></legend>
+        <label class="character-option"><input class="sr-only" type="radio" name="character" value="mono" required><img alt="" width="112" height="112"><span>Mono</span></label>
+        <label class="character-option"><input class="sr-only" type="radio" name="character" value="tigrillo" required><img alt="" width="112" height="112"><span>Tigrillo</span></label>
+        <label class="character-option"><input class="sr-only" type="radio" name="character" value="cuy" required><img alt="" width="112" height="112"><span>Cuy</span></label>
+      </fieldset>
+      <div class="dialog-actions">
+        <button id="character-cancel" type="button" class="secondary">Cancelar</button>
+        <button id="character-confirm" type="submit" class="primary" disabled>Empezar</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="coin-dialog" aria-labelledby="coin-title">
     <h2 id="coin-title">Monedas de esta partida</h2>
     <div class="coin-breakdown">
@@ -174,7 +190,7 @@
       <button id="match-help" class="secondary" type="button" aria-haspopup="dialog">Cómo jugar</button>
       <button id="match-history" class="secondary" type="button" aria-haspopup="dialog">Registro</button>
       <button id="match-settings" class="secondary" type="button" aria-haspopup="dialog">Ajustes</button>
-      <button id="restart" class="secondary" type="button">Nueva partida</button>
+      <button id="restart" class="secondary" type="button" aria-haspopup="dialog">Nueva partida</button>
       <button id="match-menu" class="secondary" type="button">Menú principal</button>
     </div>
     <form method="dialog" class="dialog-actions"><button class="primary" autofocus>Volver a la partida</button></form>
