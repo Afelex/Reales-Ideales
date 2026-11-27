@@ -14,6 +14,7 @@ const animals = {
   tigrillo: 'Tigrillo', cuy: 'Cuy', rana: 'Rana', gato: 'Gato',
 };
 const tokenFaction = { I: 'idealista', R: 'realista' };
+const characterArt = (side, animal) => `assets/clay/fichas/${tokenFaction[side]}-${animal}.webp`;
 const cannonArt = { I: 'assets/v014/canon-idealista.webp', R: 'assets/v014/canon.webp' };
 const cardTypes = {
   boost: 'Táctica',
@@ -42,6 +43,9 @@ let decisivePlaying = false;
 let started = null;
 let ended = null;
 let announcedEvents = 0;
+const matchIntro = byId('match-intro');
+const matchCue = matchIntro.querySelector('[role="status"]');
+let introTimer = null;
 const searchDialog = byId('search-choice');
 const rescueDialog = byId('rescue-dialog');
 const controls = actions.closest('.controls');
@@ -147,7 +151,7 @@ function finishCombatIntro() {
 }
 // La partida espera mientras se muestran efectos o una opción del menú.
 function busy() {
-  return fxBusy || matchDialogs.some(node => node.open);
+  return introTimer !== null || fxBusy || matchDialogs.some(node => node.open);
 }
 
 // === Efectos visuales y sonoros ===
@@ -693,7 +697,8 @@ const helpDialog = byId('help-dialog');
 const historyDialog = byId('history');
 const coinDialog = byId('coin-dialog');
 const cardMenuNode = byId('card-menu');
-const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog, coinDialog, cardMenuNode];
+const characterDialog = byId('character-dialog');
+const matchDialogs = [gameMenu, helpDialog, historyDialog, settingsDialog, coinDialog, cardMenuNode, characterDialog];
 byId('coin-button').addEventListener('click', () => { if (game && !busy()) { renderCoins(); coinDialog.showModal(); } });
 const gameMenuButton = byId('game-menu-button');
 const playMenu = byId('play-menu');
@@ -829,8 +834,7 @@ function makeToken(piece) {
   node.setAttribute('aria-hidden', 'true');
   const image = document.createElement('img');
   image.className = 'token-art';
-  image.src = piece.cannon ? cannonArt[piece.side]
-    : `assets/clay/fichas/${tokenFaction[piece.side]}-${character(piece)}.webp`;
+  image.src = piece.cannon ? cannonArt[piece.side] : characterArt(piece.side, character(piece));
   image.alt = '';
   image.draggable = false;
   node.append(image);
@@ -1763,9 +1767,7 @@ function timeOut() {
 const MATCH_DURATION_MS = 10 * 60 * 1000;
 let matchDeadline = 0;
 
-function updateMatchClock() {
-  if (!game || game.phase === 'end' || !matchDeadline) return false;
-  const seconds = Math.max(0, Math.ceil((matchDeadline - Date.now()) / 1000));
+function drawMatchClock(seconds) {
   const clock = byId('match-clock');
   const label = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
   const value = byId('match-clock-value');
@@ -1774,6 +1776,11 @@ function updateMatchClock() {
     clock.dateTime = 'PT' + seconds + 'S';
     clock.setAttribute('aria-label', 'Faltan ' + Math.floor(seconds / 60) + ' minutos y ' + seconds % 60 + ' segundos');
   }
+}
+function updateMatchClock() {
+  if (!game || game.phase === 'end' || !matchDeadline) return false;
+  const seconds = Math.max(0, Math.ceil((matchDeadline - Date.now()) / 1000));
+  drawMatchClock(seconds);
   if (seconds > 0 || fxBusy || combatIntro) return false;
   if (!rules.finishOnTime(game)) return false;
   visibleCoins = { I: game.players.I.coins, R: game.players.R.coins };
@@ -1949,7 +1956,7 @@ function hideEndScreens() {
   byId('stats-screen').hidden = true;
 }
 byId('end-ok').addEventListener('click', showStats);
-byId('stats-again').addEventListener('click', () => startGame(mode));
+byId('stats-again').addEventListener('click', () => chooseCharacters(mode));
 byId('stats-menu').addEventListener('click', returnToMenu);
 byId('stats-export').addEventListener('click', () => byId('export').click());
 
@@ -2053,7 +2060,7 @@ function render() {
   // El duelo sigue a la vista mientras se animan las cartas de una batalla recién resuelta.
   duelHold ||= newEvents.some(event => event.type === 'battle');
   renderDuel();
-  announceNewEvents(newEvents);
+  if (introTimer === null) announceNewEvents(newEvents);
   renderHudStatus();
   // Los contadores de fichas cambian después de la explosión, no antes.
   if (!fxBusy) syncCounters();
@@ -2142,6 +2149,7 @@ function scheduleProgress() {
   }, game.phase === 'reveal' ? 650 : 440);
 }
 function resetPresentation() {
+  clearMatchIntro();
   visibleCoins = { I: 0, R: 0 };
   clearTimeout(progressTimer);
   announcedEvents = 0;
@@ -2171,7 +2179,36 @@ function resetPresentation() {
   started = null;
   ended = null;
 }
-function startGame(nextMode) {
+function clearMatchIntro() {
+  clearTimeout(introTimer);
+  introTimer = null;
+  delete matchIntro.dataset.cue;
+  matchCue.textContent = '';
+  byId('partida').inert = false;
+}
+function showMatchIntro() {
+  const field = byId('partida');
+  field.inert = true;
+  matchIntro.dataset.cue = 'ready';
+  matchCue.textContent = '¡Listos!';
+  fx.play('tick');
+  introTimer = setTimeout(() => {
+    matchIntro.dataset.cue = 'go';
+    matchCue.textContent = '¡Ya!';
+    fx.play('turn', game.turn);
+    announcedEvents = game.events.length;
+    introTimer = setTimeout(() => {
+      clearMatchIntro();
+      started = Date.now();
+      matchDeadline = started + MATCH_DURATION_MS;
+      timerKey = null;
+      syncTimer();
+      scheduleProgress();
+      field.focus({ preventScroll: true });
+    }, 700);
+  }, 1250);
+}
+function startGame(nextMode, characters) {
   resetPresentation();
   cfx.start();
   cfx.setSpeed(settings.speed);
@@ -2181,11 +2218,15 @@ function startGame(nextMode) {
   if (video && !reducedMotion()) video.play().catch(() => {});
   mode = nextMode;
   game = rules.makeGame();
-  started = Date.now();
-  matchDeadline = started + MATCH_DURATION_MS;
+  game.characters = characters;
+  for (const [side, animal] of Object.entries(game.characters)) {
+    const avatar = byId('avatar-' + side);
+    avatar.src = characterArt(side, animal);
+    avatar.alt = animals[animal] + ' ' + SIDE_ADJECTIVE[side];
+  }
   handOwner = 'I';
   byId('match-clock').hidden = false;
-  updateMatchClock();
+  drawMatchClock(MATCH_DURATION_MS / 1000);
   cover.hidden = true;
   syncCoverVideo();
   byId('partida').hidden = false;
@@ -2193,8 +2234,8 @@ function startGame(nextMode) {
   layoutScene();
   gameMenuButton.hidden = false;
   byId('red-ai').hidden = mode !== 'ai';
+  showMatchIntro();
   render();
-  byId('partida').focus({ preventScroll: true });
   window.scrollTo(0, 0);
 }
 function returnToMenu() {
@@ -2224,15 +2265,54 @@ function showPlayOptions(open) {
   playOptions.hidden = !open;
   (open ? byId('help-button') : playMenu).focus({ preventScroll: true });
 }
-byId('play-local').addEventListener('click', () => startGame('local'));
-byId('play-ai').addEventListener('click', () => startGame('ai'));
+const characterForm = byId('character-form');
+const characterConfirm = byId('character-confirm');
+let matchSetup = null;
+function showCharacterOptions(side) {
+  characterDialog.dataset.side = side;
+  byId('character-side').textContent = rules.SIDE[side];
+  characterForm.reset();
+  for (const option of characterForm.querySelectorAll('.character-option')) {
+    option.querySelector('img').src = characterArt(side, option.querySelector('input').value);
+  }
+  characterConfirm.textContent = side === 'I' && matchSetup.mode === 'local' ? 'Siguiente' : 'Empezar';
+  characterConfirm.disabled = true;
+}
+function chooseCharacters(nextMode) {
+  matchSetup = { mode: nextMode, characters: { I: null, R: 'tigrillo' } };
+  showCharacterOptions('I');
+  characterDialog.showModal();
+}
+characterForm.addEventListener('change', () => { characterConfirm.disabled = false; });
+characterForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const { mode: nextMode, characters } = matchSetup;
+  const side = characterDialog.dataset.side;
+  characters[side] = new FormData(characterForm).get('character');
+  if (side === 'I' && nextMode === 'local') {
+    showCharacterOptions('R');
+    characterForm.querySelector('input').focus();
+    return;
+  }
+  matchSetup = null;
+  characterDialog.close();
+  startGame(nextMode, characters);
+});
+byId('character-cancel').addEventListener('click', () => characterDialog.close());
+characterDialog.addEventListener('close', () => {
+  if (!matchSetup || characterDialog.open) return;
+  matchSetup = null;
+  if (game && !busy() && game.phase !== 'end') gameMenuButton.focus({ preventScroll: true });
+});
+byId('play-local').addEventListener('click', () => chooseCharacters('local'));
+byId('play-ai').addEventListener('click', () => chooseCharacters('ai'));
 byId('match-menu').addEventListener('click', () => {
   gameMenu.close();
   confirmRestart('¿Volver al menú?', 'Volver al menú', returnToMenu);
 });
 byId('restart').addEventListener('click', () => {
   gameMenu.close();
-  confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => startGame(mode));
+  confirmRestart('¿Empezar otra partida?', 'Nueva partida', () => chooseCharacters(mode));
 });
 byId('export').addEventListener('click', () => {
   const data = { version: '0.15', mode, complete: game.phase === 'end', round: game.round,
@@ -2263,7 +2343,7 @@ const startupImages = [
   ...['rescate', 'idealista', 'realista', 'turno', 'boost', 'decisive', 'cannon', 'weaken', 'major']
     .map(name => 'assets/clay/emblemas/' + name + '.webp'),
   ...Object.entries(rules.ROSTER).flatMap(([side, roster]) => roster.map(animal =>
-    'assets/clay/fichas/' + tokenFaction[side] + '-' + animal + '.webp')),
+    characterArt(side, animal))),
 ];
 const startupImageCache = new Map();
 function preloadImage(src) {
