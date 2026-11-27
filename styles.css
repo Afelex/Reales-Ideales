@@ -2190,6 +2190,75 @@ dialog .dialog-actions > button:disabled {
   .character-name { font-size: clamp(1.85rem, 6vw, 4rem); }
 }
 
+#character-dialog[data-stage="power"] {
+  --arena-art: url('assets/poderes/patio.webp');
+  background-position: center, center, center 39%;
+}
+#character-dialog[data-stage="power"] .character-feature {
+  grid-template-rows: minmax(0, 1fr) auto auto;
+}
+#character-dialog[data-stage="power"] .character-name {
+  font-size: clamp(1.35rem, 6.6vw, 2.75rem);
+}
+.power-detail {
+  justify-self: center;
+  max-width: 32rem;
+  margin: .24rem .1rem 0;
+  padding: .36rem .68rem;
+  border-radius: .48rem;
+  background: #101827e8;
+  color: #fff1d7;
+  font: 650 clamp(.77rem, 2.8vw, .94rem)/1.24 system-ui, sans-serif;
+}
+#power-options .character-option { align-content: start; }
+#power-options .character-option span { text-wrap: balance; }
+.hud-card.frozen-card, #card-preview-art.frozen-card { position: relative; }
+.hud-card.frozen-card::after, #card-preview-art.frozen-card::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 3;
+  border: 2px solid #baf5ff;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(153deg, #d7ffffb8 7%, #89d7f650 47%, #bdf4ff8c 93%),
+    repeating-linear-gradient(134deg, transparent 0 19%, #e6ffffa3 20% 21%, transparent 23% 37%);
+  box-shadow: inset 0 0 6px #e2fdff, 0 0 5px #76d7fb;
+}
+.fx.fx-electric-arc {
+  width: var(--length); height: 20px; margin: -10px 0 0; transform-origin: 0 50%;
+  transform: rotate(var(--angle)); background: #e4ffff;
+  clip-path: polygon(0 48%, 16% 35%, 29% 61%, 47% 34%, 64% 56%, 82% 27%, 100% 48%, 83% 51%, 65% 76%, 47% 56%, 28% 80%, 16% 54%, 0 60%);
+  box-shadow: inset 0 0 7px 4px #50aaff;
+  animation: electric-arc .66s ease-out both;
+}
+@keyframes electric-arc {
+  0% { transform: rotate(var(--angle)) scaleX(.04); }
+  48% { transform: rotate(var(--angle)); opacity: 1; }
+  100% { transform: rotate(var(--angle)); opacity: 0; }
+}
+.fx.fx-ice-shot {
+  width: clamp(20px, 6vmin, 38px); height: clamp(20px, 6vmin, 38px); margin: 0;
+  border-radius: 0;
+  background: conic-gradient(from 45deg, #b3f2ff, #3880af, #d2faff, #80cfe8, #f3ffff, #b3f2ff);
+  clip-path: polygon(12% 28%, 54% 0, 94% 24%, 98% 73%, 54% 100%, 6% 79%);
+  animation: ice-shot .58s ease-in both;
+}
+@keyframes ice-shot {
+  from { transform: translate(-50%, -50%) scale(.65) rotate(-18deg); }
+  to { transform: translate(calc(var(--dx) - 50%), calc(var(--dy) - 50%)) scale(1.15) rotate(32deg); }
+}
+.fx.fx-element-impact {
+  background: radial-gradient(transparent 37%, #eaffff 55%, transparent 69%);
+  box-shadow: 0 0 19px var(--glow);
+  animation: elemental-impact .65s ease-out both;
+}
+@keyframes elemental-impact { from { scale: .7; opacity: 1; } to { scale: 1.6; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .fx.fx-electric-arc { animation: fx-fade .55s ease-out both; }
+  .fx.fx-element-impact { animation: fx-fade .55s ease-out both; }
+}
+
 .match-intro {
   position: fixed;
   inset: 0;

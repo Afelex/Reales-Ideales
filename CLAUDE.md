@@ -1,6 +1,6 @@
 # Reales Ideales
 
-Lee [el reglamento y la guía de ejecución](README.md) antes de editar. Este repositorio contiene la demo para dos jugadores en un dispositivo o contra la IA, con Fuego Especial universal. El README describe el estado actual y su historial resume las versiones anteriores.
+Lee [el reglamento y la guía de ejecución](README.md) antes de editar. Este repositorio contiene la demo para dos jugadores en un dispositivo o contra la IA, con poderes especiales por bando. El README describe el estado actual y su historial resume las versiones anteriores.
 
 - `index.html` contiene el tablero y los controles. `styles.css` da estilo al tablero, las fichas, las cartas y los botones. `app.js` conecta la interfaz con el motor, coloca el escenario y dibuja el HUD. `fx.js` genera sonidos y música. `game.js` aplica las reglas. `ai.js` decide las jugadas de la IA.
 - Para pulir la interfaz, trabaja en una rama visual y concentra los cambios en HTML, CSS y la presentación de `app.js`. Los cambios del reglamento van en una propuesta aparte.
@@ -12,14 +12,14 @@ Lee [el reglamento y la guía de ejecución](README.md) antes de editar. Este re
 ## Reglas tácticas vigentes
 - Un movimiento normal y un ataque máximo por turno; los avances posteriores al combate son extraordinarios. El turno avanza solo al agotarse las jugadas legales.
 - Fuerza base 0 para todas las fichas; el cañón suma +2 al atacar. No hay vanguardia. El empate elimina a ambas fichas.
-- **Fuego Especial universal** (`FIRE_POWER` en `game.js`): barra por bando de +1 por turno propio, lista en el turno 3, solo al atacar y nunca desde un cañón. Los ocho animales tienen el mismo poder: +3 contra un enemigo vecino o a dos casillas (en ese caso da un paso de aproximación y consume también el movimiento). `SPECIALS` solo asigna ese poder a cada animal; ya no hay poderes distintos.
+- **Poderes especiales** (`POWERS` en `game.js`): se eligen con la bandera de cada bando. Cada turno propio suma una carga. Fuego Victorioso mantiene el +3 y la aproximación de una casilla. Asalto Eléctrico requiere dos cargas y permite salto más ataque a distancia con +1. Escarcha Especial suma +1 y congela dos cartas rivales durante ese combate. Ningún cañón puede usar un poder.
 - Tres cartas en reserva por facción; dos activaciones por jugador en cada batalla. Invocar cañón transforma al instante la ficha que combate y suma +2. Combo de dos cartas idénticas: +1. Dos Golpes decisivos vencedores abren la fase `combo` para eliminar otra ficha (o pasar).
 - Rescates: inmediatos al llegar a una estrella rival, o guardados para usarlos desde el siguiente turno propio en cualquier casilla libre.
 - Fin: eliminación total, 12 rondas o 10 minutos (desempate por fichas, cartas activadas y cartas potentes). Las monedas (`COIN_REWARDS`) son solo marcador: no deciden la victoria.
 - Cualquier cambio de reglas va en una propuesta aparte, con pruebas en `game.test.js` y simulación IA contra IA.
 
 ## Interfaz y GitHub Pages
-- Diseño responsive en `index.html`, `styles.css` y `app.js`. Jerarquía actual: HUD superior con dos `.seat` (retrato, vida de ocho segmentos, rescates y mazo) y reloj/ronda/turno; escenario `.field`; dock `.controls` con la barra superior (opciones, monedas, estado `.hud-status-line`, mover y atacar) y la fila de Fuego Especial, tres cartas y fin de turno.
+- Diseño responsive en `index.html`, `styles.css` y `app.js`. Jerarquía actual: HUD superior con dos `.seat` (retrato, vida de ocho segmentos, rescates y mazo) y reloj/ronda/turno; escenario `.field`; dock `.controls` con la barra superior (opciones, monedas, estado `.hud-status-line`, mover y atacar) y la fila del poder elegido, tres cartas y fin de turno.
 - Texto legible desde los ocho años: en móvil ningún texto del HUD por debajo de ~12 px. Comprobar 360×640 y 390×844 antes de publicar.
 - `#deck-I` y `#deck-R` están en el HUD de cada bando.
 - Las tres cartas de la reserva viven en el dock (`#hud-hand`, `renderHands()` en `app.js`); no volver a un cajón superpuesto. En modo local cada jugador las descubre con «Ver mano de…» (`handOwner`); al cambiar de jugador vuelven a ocultarse.

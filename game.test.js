@@ -263,13 +263,13 @@ test('la barra se llena 1/3 por turno propio: el ataque especial llega en el tur
   assert.equal(s.players.I.charge, 3);
 });
 
-test('Fuego Especial: +3 y la barra vuelve a 0', () => {
+test('Fuego Victorioso: +3 y la barra vuelve a 0', () => {
   const s = setup();
   ready(s);
   G.piece(s, 'I5').cell = 'C6';
   assert.equal(G.specialAttack(s, 'I5', 'R4'), true);
   assert.equal(s.players.I.charge, 0);
-  assert.equal(s.events.some(e => e.type === 'special' && e.power === 'Fuego Especial'), true);
+  assert.equal(s.events.some(e => e.type === 'special' && e.power === 'Fuego Victorioso'), true);
   reveal(s);
   assert.deepEqual(result(s).force, [3, 0]);
   G.nextTurn(s);
@@ -289,7 +289,7 @@ test('el ataque especial exige barra llena, solo al atacar y nunca desde un cañ
   assert.deepEqual(G.specialOptions(s, 'I5'), []);
 });
 
-test('los ocho animales de ambos bandos tienen el mismo Fuego Especial +3', () => {
+test('los ocho animales de ambos bandos tienen el mismo Fuego Victorioso +3', () => {
   for (const side of ['I', 'R']) for (const animal of G.ROSTER[side]) {
     const s = setup();
     s.turn = side;
@@ -313,7 +313,7 @@ test('los ocho animales de ambos bandos tienen el mismo Fuego Especial +3', () =
   }
 });
 
-test('Fuego Especial a dos casillas consume movimiento y ataque con +3 para ambos bandos', () => {
+test('Fuego Victorioso a dos casillas consume movimiento y ataque con +3 para ambos bandos', () => {
   for (const side of ['I', 'R']) for (const animal of G.ROSTER[side]) {
     const s = setup();
     s.turn = side;
@@ -335,7 +335,7 @@ test('Fuego Especial a dos casillas consume movimiento y ataque con +3 para ambo
     assert.deepEqual(result(s).force, [3, 0]);
   }
 });
-test('Fuego Especial lejano rechaza obstáculos, distancia mayor y movimiento consumido', () => {
+test('Fuego Victorioso lejano rechaza obstáculos, distancia mayor y movimiento consumido', () => {
   const s = setup();
   ready(s);
   const p = G.piece(s,'I1'), target = G.piece(s,'R4'), block = G.piece(s,'I2');
@@ -352,7 +352,7 @@ test('Fuego Especial lejano rechaza obstáculos, distancia mayor y movimiento co
   assert.equal(G.specialAttack(s,p.id,target.id), true);
   assert.equal(s.actions, 2);
 });
-test('Fuego Especial permite elegir una aproximación legal o atacar directamente al objetivo', () => {
+test('Fuego Victorioso permite elegir una aproximación legal o atacar directamente al objetivo', () => {
   const s = setup(); ready(s);
   const p = G.piece(s,'I1'), target = G.piece(s,'R4');
   for (const q of s.pieces) q.cell = null;
@@ -364,7 +364,7 @@ test('Fuego Especial permite elegir una aproximación legal o atacar directament
   assert.equal(G.adjacent(p.cell,target.cell), true);
 });
 
-test('Fuego Especial respeta cartas y combos ordinarios del defensor', () => {
+test('Fuego Victorioso respeta cartas y combos ordinarios del defensor', () => {
   const s = setup([], ['major', 'major']);
   ready(s);
   G.piece(s, 'I8').cell = 'C6';
@@ -374,7 +374,7 @@ test('Fuego Especial respeta cartas y combos ordinarios del defensor', () => {
   assert.equal(result(s).winner, 'R');
 });
 
-test('Fuego Especial no causa una segunda eliminación por sí mismo', () => {
+test('Fuego Victorioso no causa una segunda eliminación por sí mismo', () => {
   const s = setup();
   ready(s);
   G.piece(s, 'I1').cell = 'C6';
@@ -521,4 +521,43 @@ test('ambos bandos pueden ganar premio potente aunque pierdan; defensa ganadora 
   assert.equal(result(s).winner,'R');
   assert.equal(s.players.I.coins,10);
   assert.equal(s.players.R.coins,30);
+});
+
+test('Asalto Eléctrico carga en dos turnos y exige destino libre y un rival a alcance desde allí', () => {
+  const s = G.makeGame({ I: [], R: [] }, { I: 'electric' });
+  G.piece(s, 'I1').cell = 'A4';
+  assert.deepEqual(G.specialOptions(s, 'I1'), []);
+  for (let i = 0; i < 4; i++) G.nextTurn(s);
+  assert.equal(s.players.I.charge, 2);
+  assert.equal(G.specialAttack(s, 'I1', 'R1'), false);
+  assert.equal(G.specialAttack(s, 'I1', 'R1', 'A2'), false);
+  assert.equal(G.specialAttack(s, 'I1', 'R1', 'A10'), false);
+  assert.equal(G.specialAttack(s, 'I1', 'R1', 'A8'), true);
+  assert.equal(s.players.I.charge, 0);
+  assert.equal(G.piece(s, 'I1').cell, 'A8');
+  assert.equal(s.actions, 2);
+  assert.equal(G.projected(s).attacker, 1);
+  assert.deepEqual(s.events.filter(e => e.type === 'special').map(e => [e.from, e.at, e.targetCell]), [['A4','A8','A10']]);
+  reveal(s);
+  assert.deepEqual(result(s).force, [1, 0]);
+});
+
+test('Escarcha Especial congela dos ranuras distintas, incluida una carta duplicada, durante el combate', () => {
+  const s = G.makeGame({ I: [], R: ['boost', 'boost', 'boost'] }, { I: 'frost' });
+  const AI = require('./ai.js');
+  ready(s);
+  assert.equal(G.specialAttack(s, 'I5', 'R4', 'C6'), true);
+  const frozen = [0, 1, 2].filter(slot => G.frozen(s, 'R', slot));
+  const available = [0, 1, 2].find(slot => !frozen.includes(slot));
+  assert.equal(frozen.length, 2);
+  assert.equal(G.reveal(s, frozen[0]), false);
+  assert.equal(s.battle.slot, 0);
+  assert.equal(AI.choose(G, s, 'R').index, available);
+  assert.equal(G.reveal(s, available), true);
+  for (let i = 0; i < 3; i++) assert.equal(G.reveal(s, null), true);
+  assert.deepEqual(result(s).force, [1, 1]);
+  for (const slot of frozen) {
+    assert.equal(G.frozen(s, 'R', slot), false);
+    assert.equal(s.players.R.hand[slot], 'boost');
+  }
 });
