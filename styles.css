@@ -1103,7 +1103,6 @@ body.fx-busy .special-fire { visibility: hidden; }
   background: conic-gradient(from 0deg, #ffd34d00, #ff7a2a, #ffd34d00 30%, #ff5a1a 55%, #ffd34d00 70%, #ffb02e 90%, #ffd34d00);
   filter: blur(4px); animation: fire-spin 2.2s linear infinite;
 }
-.special-flame { width: 2.2rem; height: 2.2rem; margin-top: -.2rem; filter: drop-shadow(0 0 6px #fff3a0); animation: flame-flicker .35s ease-in-out infinite alternate; transform-origin: 50% 90%; }
 .flame-outer { fill: #fff3a0; }
 .flame-inner { fill: #ff7a2a; }
 .special-fire-label { font: 900 .74rem/1 Georgia, serif; letter-spacing: .06em; text-transform: uppercase; }
@@ -1114,7 +1113,6 @@ body.fx-busy .special-fire { visibility: hidden; }
 .special-fire:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
 @keyframes fire-breathe { 50% { transform: scale(1.06); box-shadow: 0 0 0 3px #7a1608, 0 0 28px 10px #ff7a2acc, inset 0 -6px 12px #7a160888; } }
 @keyframes fire-spin { to { transform: rotate(360deg); } }
-@keyframes flame-flicker { from { transform: scale(1, 1) rotate(-3deg); } to { transform: scale(1.06, 1.12) rotate(3deg); } }
 
 /* Cartas activadas del rival siempre visibles. */
 .rival-played { display: flex; align-items: center; gap: .5rem; padding: .3rem .55rem; margin: 0 .4rem .3rem;
@@ -1197,7 +1195,7 @@ body.fx-busy .special-fire { visibility: hidden; }
 .stats-actions button { min-height: 2.8rem; }
 
 @media (prefers-reduced-motion: reduce) {
-  .special-fire, .special-fire::before, .special-flame, .turn-timer.warning, .end-card, .stats-card { animation: none; }
+  .special-fire, .special-fire::before, .turn-timer.warning, .end-card, .stats-card { animation: none; }
   .fx-particle { display: none; }
   .fx-spotlight, .fx-hero > .token { animation: fx-fade 2.2s ease-out forwards !important; }
 }
@@ -1632,10 +1630,7 @@ body.playing .battle-dock .special-fire::before { content: none; }
 body.playing .battle-dock .special-fire:disabled {
   background: #352a24; opacity: 1; filter: none; cursor: default;
 }
-body.playing .battle-dock .special-fire:disabled .special-flame { animation: none; opacity: .55; }
 body.fx-busy .battle-dock .special-fire { visibility: visible; }
-.battle-dock .special-flame { width: 1.65rem; height: 1.65rem; }
-body.playing .battle-dock .special-fire:not(:disabled) .special-flame { filter: drop-shadow(0 0 5px #ffc34b); }
 .ss-ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; rotate: -90deg; }
 .ss-ring circle { fill: none; stroke: #877460; stroke-width: 3; stroke-dasharray: 35 85; }
 .ss-ring circle.charged { stroke: #ffce52; }
@@ -2136,6 +2131,7 @@ dialog .dialog-actions > button:disabled {
   object-fit: contain;
   filter: drop-shadow(0 10px 12px #130d16bb);
 }
+.power-standard { display: contents; }
 .character-name {
   margin: 0;
   color: #ffe4a8;
@@ -2210,8 +2206,63 @@ dialog .dialog-actions > button:disabled {
   color: #fff1d7;
   font: 650 clamp(.77rem, 2.8vw, .94rem)/1.24 system-ui, sans-serif;
 }
-#power-options .character-option { align-content: start; }
+#power-options { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+[data-banner="fire"] { --banner-light: #992f22; --banner-dark: #3b1518; --banner-thread: #f1b25a; }
+[data-banner="electric"] { --banner-light: #13566a; --banner-dark: #0d273e; --banner-thread: #72dad4; }
+[data-banner="frost"] { --banner-light: #264e87; --banner-dark: #181e49; --banner-thread: #91e3fa; }
+[data-banner="random"] { --banner-light: #545d65; --banner-dark: #222931; --banner-thread: #bac4cb; }
+#character-dialog[data-stage="power"] .power-standard {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  height: min(96%, 22rem);
+  min-height: 0;
+  max-width: 82%;
+  aspect-ratio: .82;
+  filter: drop-shadow(0 7px 9px #100d15cc);
+}
+#character-dialog[data-stage="power"] .power-standard img {
+  width: 77%; height: 72%; min-height: 0; margin-bottom: 8%;
+  filter: drop-shadow(0 3px 3px #15121ebc);
+}
+.power-standard[data-banner]::before, .banner-thumb {
+  --fabric: repeating-linear-gradient(90deg, #ffdfad16 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, var(--banner-dark), var(--banner-light) 17% 83%, var(--banner-dark));
+  background: var(--fabric);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 87%, 0 100%);
+  border-inline: solid var(--banner-thread);
+}
+.power-standard[data-banner]::before {
+  content: '';
+  position: absolute;
+  inset: 4% 6% 0;
+  z-index: -1;
+  border-inline-width: clamp(3px, 1.5vw, 9px);
+  box-shadow: inset 0 0 0 3px var(--banner-dark), inset 0 18px 0 -9px var(--banner-thread);
+}
+.power-standard[data-banner]::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 7%;
+  border: 1px solid #b58140;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #714921 0 5%, #dba85c 5% 8%, #8d602c 8% 12%, transparent 12% 88%, #8d602c 88% 92%, #dba85c 92% 95%, #714921 95%),
+    linear-gradient(#e3b66f, #7e4d23);
+}
+#power-options .character-option { align-content: start; font-size: clamp(.68rem, 3.2vw, .9rem); }
 #power-options .character-option span { text-wrap: balance; }
+.banner-thumb {
+  display: grid;
+  place-items: center;
+  width: min(100%, 3.85rem, 12dvh);
+  aspect-ratio: .9;
+  border-inline-width: 2px;
+  padding: .15rem .13rem .4rem;
+}
+.banner-thumb img { width: 100%; max-width: 100%; }
 .hud-card.frozen-card, #card-preview-art.frozen-card { position: relative; }
 .hud-card.frozen-card::after, #card-preview-art.frozen-card::after {
   content: '';
@@ -2655,11 +2706,12 @@ body.playing .battle-dock .special-fire {
   box-shadow: 0 3px 3px #171e28bc;
 }
 body.playing .battle-dock .special-fire:disabled { background: #302720; }
-body.playing .battle-dock .special-fire .special-flame {
-  width: clamp(25px, 8vw, 40px);
-  height: clamp(25px, 8vw, 40px);
+body.playing .battle-dock .special-fire .special-emblem {
+  width: 76%;
+  height: 76%;
   margin: 0;
-  opacity: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 2px #100d16d9);
 }
 body.playing .battle-dock .ss-ring circle { stroke-width: 4; stroke: #645045; }
 body.playing .battle-dock .ss-ring circle.charged { stroke: #ffd34e; }
