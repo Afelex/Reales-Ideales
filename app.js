@@ -3,7 +3,7 @@
 const rules = window.RealesIdeales;
 const hudArt = name => 'assets/ui/hud/' + name + '.png';
 const searchArt = hudArt('lupa') + '?v=041';
-const powerArt = id => 'assets/poderes/' + id + '.webp';
+const powerArt = id => 'assets/poderes/' + id + '.webp?v=047';
 const ai = window.RealesIdealesAI;
 const byId = id => document.getElementById(id);
 const board = byId('board');
@@ -2320,10 +2320,19 @@ const characterName = byId('character-name');
 const characterOptions = byId('character-options');
 const powerOptions = byId('power-options');
 const powerDetail = byId('power-detail');
+const powerStandard = byId('power-standard');
+const powerKeys = Object.keys(rules.POWERS);
+const bannerChoices = {
+  fire: { name: rules.POWERS.fire.name, summary: '+3 de fuerza en combate.' },
+  electric: { name: rules.POWERS.electric.name, summary: 'Salta hasta dos casillas y ataca con +1.' },
+  frost: { name: rules.POWERS.frost.name, summary: 'Suma +1 y congela dos cartas.' },
+  random: { name: 'Random', summary: 'Recibe un poder al azar.' },
+};
 let matchSetup = null;
-for (const [key, power] of Object.entries(rules.POWERS)) {
+for (const [key, power] of Object.entries(bannerChoices)) {
   const option = document.createElement('label');
   option.className = 'character-option';
+  option.dataset.banner = key;
   const input = document.createElement('input');
   input.className = 'sr-only';
   input.type = 'radio';
@@ -2334,17 +2343,19 @@ for (const [key, power] of Object.entries(rules.POWERS)) {
   image.alt = '';
   image.width = image.height = 112;
   image.src = powerArt(key);
-  option.append(input, image);
+  option.append(input);
+  span(option, 'banner-thumb', '').append(image);
   span(option, '', power.name);
   powerOptions.append(option);
 }
 function showSelectionPreview() {
   if (characterDialog.dataset.stage === 'power') {
     const key = characterForm.elements.power.value;
-    const power = rules.POWERS[key];
+    const power = bannerChoices[key];
+    powerStandard.dataset.banner = key;
     characterPreview.src = powerArt(key);
     characterName.textContent = power.name;
-    powerDetail.textContent = power.charges + ' cargas · ' + power.description;
+    powerDetail.textContent = power.summary;
     return;
   }
   const animal = characterForm.elements.character.value;
@@ -2393,7 +2404,10 @@ characterForm.addEventListener('submit', event => {
   }
   matchSetup = null;
   characterDialog.close();
-  startGame(nextMode, characters, powers);
+  const resolvedPowers = Object.fromEntries(Object.entries(powers).map(([side, choice]) => [
+    side, choice === 'random' ? powerKeys[Math.floor(Math.random() * powerKeys.length)] : choice,
+  ]));
+  startGame(nextMode, characters, resolvedPowers);
 });
 function goBackFromCharacterSelection() {
   const { side, stage } = characterDialog.dataset;
@@ -2441,7 +2455,7 @@ const STARTUP_MIN_MS = 5000;
 const STARTUP_MAX_MS = 8000;
 const startupImages = [
   ...['opciones', 'moneda', 'mover', 'atacar', 'fuego', 'fin-turno', 'marco', 'casilla-azul', 'casilla-verde', 'casilla-roja', 'ranura-carta'].map(hudArt),
-  searchArt, 'assets/poderes/patio.webp', ...Object.keys(rules.POWERS).map(powerArt),
+  searchArt, 'assets/poderes/patio.webp', ...Object.keys(bannerChoices).map(powerArt),
   'assets/logo.webp', 'assets/clay/portada-vertical.webp',
   'assets/clay/terracota.webp', 'assets/clay/campo-jardin.webp',
   'assets/clay/flor.webp', 'assets/clay/relieve.webp', 'assets/clay/jardin-izquierdo.webp',
