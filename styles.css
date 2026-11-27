@@ -2042,21 +2042,27 @@ dialog .dialog-actions > button:disabled {
   --select-light: #c0e8ff;
   --select-glow: #6ac6f6;
   --select-card: #183958;
+  --select-top: max(.6rem, env(safe-area-inset-top));
+  --select-bottom: max(.9rem, env(safe-area-inset-bottom));
   inset: 0;
   width: 100%;
   height: 100dvh;
   max-width: none;
   max-height: none;
   margin: 0;
-  padding: max(.6rem, env(safe-area-inset-top)) max(.9rem, env(safe-area-inset-right))
-    max(.9rem, env(safe-area-inset-bottom)) max(.9rem, env(safe-area-inset-left));
+  padding: var(--select-top) max(.9rem, env(safe-area-inset-right))
+    var(--select-bottom) max(.9rem, env(safe-area-inset-left));
   border: 0;
   border-radius: 0;
   background: linear-gradient(180deg, var(--select-dark), transparent 45%, var(--select-dark) 86%),
     linear-gradient(90deg, #10192350, #10192310 50%, #10192350), var(--arena-art) center / cover no-repeat, var(--select-dark);
   box-shadow: none;
 }
-#character-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.character-screen {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(100dvh - var(--select-top) - var(--select-bottom));
+}
 #character-dialog[data-side="R"] {
   --select-dark: #2a141b;
   --select-light: #ffcdc0;

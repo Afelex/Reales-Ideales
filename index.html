@@ -157,26 +157,28 @@
     </div>
   </section>
   <dialog id="character-dialog" aria-labelledby="character-title" aria-describedby="character-side">
-    <header class="character-header">
-      <button id="character-cancel" class="character-back" type="button"><span aria-hidden="true">‹</span> Volver</button>
-      <h2 id="character-title">Elige a tu personaje</h2>
-      <p id="character-side" class="character-side" aria-live="polite"></p>
-    </header>
-    <form id="character-form">
-      <div class="character-feature" aria-hidden="true">
-        <div class="character-feature-art"><img id="character-preview" alt="" width="206" height="215"></div>
-        <p id="character-name" class="character-name"></p>
-      </div>
-      <fieldset class="character-choices">
-        <legend class="sr-only">Personajes</legend>
-        <label class="character-option"><input class="sr-only" type="radio" name="character" value="mono" required><img alt="" width="112" height="112"><span>Mono</span></label>
-        <label class="character-option"><input class="sr-only" type="radio" name="character" value="tigrillo" required><img alt="" width="112" height="112"><span>Tigrillo</span></label>
-        <label class="character-option"><input class="sr-only" type="radio" name="character" value="cuy" required><img alt="" width="112" height="112"><span>Cuy</span></label>
-      </fieldset>
-      <div class="dialog-actions">
-        <button id="character-confirm" type="submit" class="primary">Empezar</button>
-      </div>
-    </form>
+    <div class="character-screen">
+      <header class="character-header">
+        <button id="character-cancel" class="character-back" type="button"><span aria-hidden="true">‹</span> Volver</button>
+        <h2 id="character-title">Elige a tu personaje</h2>
+        <p id="character-side" class="character-side" aria-live="polite"></p>
+      </header>
+      <form id="character-form">
+        <div class="character-feature" aria-hidden="true">
+          <div class="character-feature-art"><img id="character-preview" alt="" width="206" height="215"></div>
+          <p id="character-name" class="character-name"></p>
+        </div>
+        <fieldset class="character-choices">
+          <legend class="sr-only">Personajes</legend>
+          <label class="character-option"><input class="sr-only" type="radio" name="character" value="mono" required><img alt="" width="112" height="112"><span>Mono</span></label>
+          <label class="character-option"><input class="sr-only" type="radio" name="character" value="tigrillo" required><img alt="" width="112" height="112"><span>Tigrillo</span></label>
+          <label class="character-option"><input class="sr-only" type="radio" name="character" value="cuy" required><img alt="" width="112" height="112"><span>Cuy</span></label>
+        </fieldset>
+        <div class="dialog-actions">
+          <button id="character-confirm" type="submit" class="primary">Empezar</button>
+        </div>
+      </form>
+    </div>
   </dialog>
   <dialog id="coin-dialog" aria-labelledby="coin-title">
     <h2 id="coin-title">Monedas de esta partida</h2>

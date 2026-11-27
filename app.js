@@ -2285,7 +2285,9 @@ function showCharacterOptions(side) {
   characterConfirm.textContent = side === 'I' && matchSetup.mode === 'local' ? 'Siguiente' : 'Empezar';
   showCharacterPreview();
   if (!characterDialog.open) characterDialog.showModal();
-  characterForm.querySelector('input:checked').focus({ preventScroll: true });
+  requestAnimationFrame(() => {
+    if (characterDialog.open) characterForm.querySelector('input:checked').focus({ preventScroll: true });
+  });
 }
 function chooseCharacters(nextMode) {
   matchSetup = { mode: nextMode, characters: { I: null, R: 'tigrillo' } };
